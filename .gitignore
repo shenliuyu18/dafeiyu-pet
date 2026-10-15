@@ -1,0 +1,12 @@
+# 依赖与构建产物
+node_modules/
+dist/
+
+# 开发截图（npm run shot）
+dev-shots/
+
+# Qoder 会话产物
+.qoder-credits/
+
+# 日志
+*.log

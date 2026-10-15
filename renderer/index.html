@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; media-src 'self' file:; font-src 'self' file:; script-src 'self'">
+<title>蓝色大肥鱼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+
+  <div id="pet">
+    <div id="bubble">
+      <img id="bubble-meme" class="hide" alt="">
+      <div id="bubble-text">我是蓝色大肥鱼</div>
+      <div id="bubble-bars" class="hide">
+        <div class="bar"><span>饱食度</span><i><b id="bar-sat" class="sat"></b></i></div>
+        <div class="bar"><span>心情</span><i><b id="bar-mood" class="mood"></b></i></div>
+      </div>
+      <div id="bubble-usage" class="hide">
+        <div class="u-row"><span>今天吃掉</span><b id="u-today">—</b></div>
+        <div class="u-row"><span>本月吃掉</span><b id="u-month">—</b></div>
+        <div class="u-row"><span>本次会话</span><b id="u-session">—</b></div>
+        <div class="u-quota hide" id="u-quota"><i><b id="u-bar"></b></i><span id="u-quota-text"></span></div>
+        <div class="u-note">白饭 = 你的 Qoder credits</div>
+      </div>
+      <div class="bubble-tail"></div>
+    </div>
+
+    <div id="chip"><span class="tomato">🍅</span><b id="chip-time">25:00</b></div>
+
+    <div id="fx"></div>
+
+    <div id="petBox">
+      <div id="lean">
+        <div id="flip">
+          <div id="tilt">
+            <div id="squash">
+              <video id="petVid" autoplay muted loop playsinline></video>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="zzz"><span>Z</span><span>Z</span><span>Z</span></div>
+      <div id="hit"></div>
+    </div>
+  </div>
+
+  <div id="menu" class="hide">
+    <button data-act="feed">🍚 <span>喂一碗白饭</span></button>
+    <button data-act="pomodoro"><span id="menu-pomo">🍅 开始专注 25 分钟</span></button>
+    <button data-act="usage"><span id="menu-usage">🍚 白饭账本</span></button>
+    <button data-act="status">📊 <span>看看状态</span></button>
+    <button data-act="sleep"><span id="menu-sleep-ico">😴</span> <span id="menu-sleep-txt">让它睡一会儿</span></button>
+    <div class="sep"></div>
+    <button data-act="hide">👻 <span>先躲起来</span></button>
+    <button data-act="quit">❌ <span>退出</span></button>
+  </div>
+
+</div>
+<script src="../assets/anims/index.js"></script>
+<script src="pet.js"></script>
+</body>
+</html>

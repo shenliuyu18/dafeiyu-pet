@@ -1,0 +1,64 @@
+{
+  "name": "dafeiyu-desktop-pet",
+  "version": "1.0.0",
+  "description": "蓝色大肥鱼桌宠 —— 会吃白饭、会摸鱼、会记账的桌面伙伴",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "shot": "electron . --dev-shot",
+    "input-test": "electron . --dev-input",
+    "dist": "electron-builder --win nsis",
+    "dist-dir": "electron-builder --win dir"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "author": "shenliuyu",
+  "build": {
+    "appId": "com.dafeiyu.desktop-pet",
+    "productName": "大肥鱼桌宠",
+    "copyright": "角色素材来自 PC2005-cloud/dsh-pet (MIT)",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "usage.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*",
+      "package.json",
+      "THIRD-PARTY-*.txt",
+      "README.md"
+    ],
+    "asar": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "dafeiyu-pet-${version}-setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "大肥鱼桌宠",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "language": "2052"
+    }
+  }
+}

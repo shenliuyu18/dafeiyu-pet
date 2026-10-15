@@ -1,0 +1,524 @@
+@font-face {
+  font-family: "ShouShou";
+  src: url("../assets/fonts/上首软糖体.ttf") format("truetype");
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: "ShouShou", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+/* 开发用截图模式下垫一层桌面感的底色，方便预览 */
+body.dev-bg {
+  background:
+    radial-gradient(circle at 78% 12%, rgba(90, 130, 255, 0.18), transparent 55%),
+    linear-gradient(145deg, #1c2740 0%, #131a2b 45%, #221a35 100%);
+}
+
+#stage {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---------------------------------------------------------------- 角色 */
+
+/* #pet 是整个桌宠的包围盒，位置由渲染层的移动引擎用 transform 驱动 */
+#pet {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 300px;
+  height: 352px;
+  will-change: transform;
+}
+
+/* 动画画布：640×360 的 16:9，角色居中约占 226×282（素材四周透明） */
+#petBox {
+  position: absolute;
+  left: -62px;
+  top: 96px;
+  width: 425px;
+  height: 239px;
+}
+
+#lean,
+#flip,
+#tilt,
+#squash {
+  width: 100%;
+  height: 100%;
+}
+
+#petVid {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#lean {
+  transition: transform 0.22s ease-out;
+}
+
+#flip {
+  transform-origin: 50% 50%;
+  transition: transform 0.18s ease-out;
+}
+
+#flip.left {
+  transform: scaleX(-1);
+}
+
+#tilt {
+  transform-origin: 50% 93%;
+  transition: transform 0.35s ease-out;
+}
+
+#squash {
+  transform-origin: 50% 93%;
+}
+
+/* 命中区 = 角色可见范围（与 main.js 的 PET 常量一致） */
+#hit {
+  position: absolute;
+  left: 138px;
+  top: 36px;
+  width: 150px;
+  height: 187px;
+  cursor: url("../assets/pic/cursor-grab.png") 8 8, grab;
+}
+
+.drag #hit {
+  cursor: url("../assets/pic/cursor-grabbing.png") 8 8, grabbing;
+}
+
+/* 睡意 Zzz */
+.zzz {
+  position: absolute;
+  left: 292px;
+  top: 8px;
+  width: 44px;
+  height: 44px;
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+
+.zzz span {
+  position: absolute;
+  color: #c3d4ff;
+  font-weight: 700;
+  text-shadow: 0 0 3px #4d6bfe, 0 0 2px #4d6bfe;
+}
+
+.zzz span:nth-child(1) {
+  right: 12px;
+  bottom: 0;
+  font-size: 15px;
+}
+
+.zzz span:nth-child(2) {
+  right: 4px;
+  bottom: 12px;
+  font-size: 12px;
+}
+
+.zzz span:nth-child(3) {
+  right: 0;
+  bottom: 22px;
+  font-size: 9px;
+}
+
+.doze .zzz {
+  opacity: 1;
+}
+
+.doze .zzz span {
+  animation: zfloat 2.6s ease-out infinite;
+}
+
+.doze .zzz span:nth-child(2) {
+  animation-delay: 0.55s;
+}
+
+.doze .zzz span:nth-child(3) {
+  animation-delay: 1.1s;
+}
+
+@keyframes zfloat {
+  0% {
+    opacity: 0;
+    transform: translate(0, 8px);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(11px, -18px);
+  }
+}
+
+/* ---------------------------------------------------------------- 状态反馈 */
+
+.swim #tilt {
+  transform: rotate(-4deg);
+}
+
+.drag #tilt {
+  animation: wiggle 0.34s ease-in-out infinite;
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-3.5deg);
+  }
+  50% {
+    transform: rotate(3.5deg);
+  }
+}
+
+.hungry #petVid {
+  filter: saturate(0.7) brightness(0.95);
+}
+
+.eat #squash {
+  animation: chew 0.3s ease-in-out 4 alternate;
+}
+
+@keyframes chew {
+  from {
+    transform: scale(1, 1);
+  }
+  to {
+    transform: scale(1.02, 0.97);
+  }
+}
+
+.happy #squash {
+  animation: joy 0.95s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+@keyframes joy {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  28% {
+    transform: translateY(-16px) scale(0.96, 1.06);
+  }
+  52% {
+    transform: translateY(0) scale(1.05, 0.94);
+  }
+  74% {
+    transform: translateY(-8px) scale(0.99, 1.02);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+/* ---------------------------------------------------------------- 气泡 */
+
+#bubble {
+  position: absolute;
+  left: 50%;
+  bottom: 224px;
+  z-index: 6;
+  max-width: 262px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.97);
+  color: #1e2a52;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  box-shadow: 0 8px 22px rgba(18, 32, 86, 0.3), 0 0 0 1px rgba(120, 150, 255, 0.22);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.85) translateY(6px);
+  transition: opacity 0.18s ease-out, transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+#bubble.show {
+  opacity: 1;
+  transform: translateX(-50%) scale(1) translateY(0);
+}
+
+#bubble-meme {
+  display: block;
+  width: 132px;
+  margin: 0 auto 7px;
+  border-radius: 10px;
+}
+
+#bubble-meme.hide {
+  display: none;
+}
+
+.bubble-tail {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 16px;
+  height: 8px;
+  margin-left: -8px;
+  background: rgba(255, 255, 255, 0.97);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+#bubble-bars {
+  margin-top: 7px;
+  display: grid;
+  gap: 5px;
+}
+
+#bubble-bars.hide {
+  display: none;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: #5b688f;
+}
+
+.bar span {
+  flex: 0 0 auto;
+}
+
+.bar i {
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: #e7ecff;
+  overflow: hidden;
+}
+
+.bar b {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease-out;
+}
+
+.bar b.sat {
+  background: linear-gradient(90deg, #ffb347, #ff8a3d);
+}
+
+.bar b.mood {
+  background: linear-gradient(90deg, #ff9ec7, #ff6f9c);
+}
+
+/* 白饭账本 */
+#bubble-usage {
+  margin-top: 2px;
+  min-width: 172px;
+  display: grid;
+  gap: 5px;
+}
+
+#bubble-usage.hide {
+  display: none;
+}
+
+.u-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: #5b688f;
+}
+
+.u-row b {
+  color: #2c3fbe;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.u-quota {
+  display: grid;
+  gap: 4px;
+}
+
+.u-quota.hide {
+  display: none;
+}
+
+.u-quota i {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  background: #e7ecff;
+  overflow: hidden;
+}
+
+.u-quota i b {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #6f8bff, #4d6bfe);
+  transition: width 0.4s ease-out;
+}
+
+.u-quota span {
+  font-size: 11px;
+  color: #6b78a3;
+  text-align: right;
+}
+
+.u-note {
+  font-size: 10.5px;
+  color: #97a2c4;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- 番茄钟 */
+
+#chip {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: rgba(77, 107, 254, 0.94);
+  color: #fff;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 6px 16px rgba(38, 58, 160, 0.38);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.88) translateY(6px);
+  transition: opacity 0.22s, transform 0.22s;
+  pointer-events: none;
+}
+
+#chip.show {
+  opacity: 1;
+  transform: translateX(-50%) scale(1) translateY(0);
+}
+
+#chip .tomato {
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------- 特效 */
+
+#fx {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fx-heart {
+  position: absolute;
+  font-size: 17px;
+  animation: fxRise 1.5s ease-out forwards;
+}
+
+@keyframes fxRise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.5);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-96px) scale(1.2);
+  }
+}
+
+.fx-food {
+  position: absolute;
+  font-size: 22px;
+  animation: fxDrop 1.05s cubic-bezier(0.55, 0, 0.9, 0.55) forwards;
+}
+
+@keyframes fxDrop {
+  0% {
+    opacity: 0;
+    transform: translateY(-54px) rotate(-8deg);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(76px) rotate(26deg);
+  }
+}
+
+/* ---------------------------------------------------------------- 右键菜单 */
+
+#menu {
+  position: absolute;
+  z-index: 20;
+  min-width: 182px;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 30px rgba(16, 28, 76, 0.34), 0 0 0 1px rgba(120, 150, 255, 0.22);
+  font-size: 14px;
+  color: #22305e;
+  opacity: 0;
+  transform: scale(0.94);
+  transform-origin: top left;
+  transition: opacity 0.12s, transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+#menu.show {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+#menu.hide {
+  display: none;
+}
+
+#menu button {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+#menu button:hover {
+  background: #eaefff;
+}
+
+#menu .sep {
+  height: 1px;
+  margin: 5px 8px;
+  background: #e6ebff;
+}

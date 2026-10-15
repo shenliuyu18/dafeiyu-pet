@@ -1,0 +1,144 @@
+# 蓝色大肥鱼桌宠 🐳🍚
+
+一只在桌面上到处游的官方版「蓝色大肥鱼」——爱吃白饭、爱摸鱼、偶尔打个盹。会朝你的鼠标倾身、被你拖着甩来甩去、饿了会蔫、闲下来会碎碎念，还会记账：**它吃掉的白饭，就是你在 Qoder 里烧掉的 credits。**
+
+角色素材与动画来自开源项目 [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)（MIT）：**106 个 640×360 的 VP9-alpha 透明 WebM 动画**（待机 / 吃白饭 / 吃 Token / 被拖拽悬空 / 5 种点击回应 / 小憩沉眠 / 写代码 / 余额结算 / 玩魔方 / 放烟花 / 中秋赏月 / 装点圣诞树 …）＋ 24 张白饭梗表情包 ＋ 上首软糖体 ＋ 光标图标；提示音来自 [QCYTSN/dsh-dafeiyu](https://github.com/QCYTSN/dsh-dafeiyu)。
+
+## 下载安装
+
+到 [Releases](https://github.com/shenliuyu18/dafeiyu-pet/releases) 下载 `dafeiyu-pet-1.0.0-setup.exe`，双击安装即可（Windows x64，可自选安装目录，自动创建桌面 / 开始菜单快捷方式）。
+
+> 安装包没有做代码签名，Windows SmartScreen 可能提示「未知发布者」——点「更多信息」→「仍要运行」就行。
+
+## 开发运行
+
+```bash
+npm install
+npm start
+```
+
+启动后她会出现在屏幕右下角，托盘里有图标可以随时叫出/藏起。
+
+## 互动
+
+| 操作 | 效果 |
+| --- | --- |
+| 拖拽 | 把她拖到桌面任意位置（播放"被鼠标拖拽悬空"动画，光标变抓取样式） |
+| 单击 | 摸一下，随机播一个点击回应动画 + 冒一句梗台词（附梗图表情包），心情 +1 |
+| 双击 | 喂一碗白饭（播放吃白饭 / 吃 Token / 大口吃零食动画） |
+| 右键 | 菜单：喂白饭 / 番茄钟 / **白饭账本** / 状态 / 睡觉 / 躲起来 / 退出 |
+| 鼠标靠近 | 她会朝光标方向轻轻倾身；偶尔好奇地游过来 |
+| 不管它 | 约 100 秒后开始打瞌睡（小憩沉眠动画 + Zzz）；闲下来每隔 30~80 秒自己找个乐子 |
+| 玩点什么 | 从 106 个动画里按权重抽：小动作（伸懒腰/照镜子/敲桌面）、玩耍（玩魔方/抽陀螺/小提琴/蓝鲸现世）、吃什么（早餐/西瓜/涮火锅）、时节（放烟花/堆雪人/中秋赏月/装点圣诞树），另有 25% 概率变成"碎碎念" |
+| 提示音 | 喂饭成功与番茄钟结束播 `success`，取消专注播 `error`（音量 0.3 左右，不吵） |
+| 托盘通知 | 番茄钟结束（完成图标）、宠物藏起来时的碎碎念（提问图标）；填了 `planQuota` 后，本月消耗跨过 80% / 100% 各弹一次提醒（警告 / 用尽图标） |
+
+**动画状态机**：核心状态 22 个动画随状态切换（待机呼吸 / 漂浮踏步 / 螃蟹走路 / 东张西望 / 点击回应 ×5 / 吃白饭 / 吃 Token / 大口吃零食 / 小憩沉眠 / 垂头叹气 / 雀跃庆祝 / 写代码 / 余额数金），外加 84 个闲时小节目；带文字的动画（`是啊，吃什么` / `深度思考碎碎念`）不参与镜像，避免字被翻过来。
+
+**🍚 白饭账本**（右键菜单打开）：显示「今天吃掉 / 本月吃掉 / 本次会话」，单位是 credits。数字来自本机 Qoder 桌面端的会话转录（`~/.qoder-cn/projects/**/*.jsonl` 里每条 assistant 消息的 `message.usage.credits` 真值，含子代理），每 5 分钟自动刷新，托盘菜单也会显示本月合计。
+
+想显示**套餐百分比**的话，在状态文件里加一行额度（单位 credits/月），账本就会多出一根进度条：
+
+```jsonc
+// %APPDATA%\dafeiyu-desktop-pet\dafeiyu-state.json
+{ "satiety": 80, "mood": 90, "planQuota": 3000 }
+```
+
+**白饭梗小词典**：白饭 = 偷吃你的 Token；剩饭 = 缓存；外包摸鱼 = 调别的 Agent 干活；到点下班吃饭 = 推理完成。
+
+**饱食度**随时间缓慢下降，掉到 32 以下她会变蔫、游得更慢、饭碗也空了；喂饭回满并提升心情。**番茄钟**：开始专注后她会游到屏幕角落挂倒计时牌安静陪你，时间到再游到屏幕正中央蹦跶提醒你休息。
+
+## 数据存放
+
+`%APPDATA%\dafeiyu-desktop-pet\dafeiyu-state.json` —— 饱食度、心情、位置（下次启动回到原地）、可选套餐额度。
+
+## 打包成 exe
+
+```bash
+npm run dist        # 产出 dist/dafeiyu-pet-<版本>-setup.exe（NSIS 安装包，可改安装目录、建桌面/开始菜单快捷方式）
+npm run dist-dir    # 只产出免安装目录 dist/win-unpacked/（含 大肥鱼桌宠.exe，可直接拷走运行）
+```
+
+用的是 electron-builder。国内网络需要镜像（脚本里已经带上，直接跑上面两条即可；手动执行时加环境变量）：
+
+```bash
+ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ \
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ \
+npm run dist
+```
+
+打包要点：`asar: false`（视频/字体直接走 file://，省掉 asar 里读媒体的坑）、`assets/**` 全量随包、图标用 `assets/icon.ico`（由 logo.png 转的多尺寸 ico）。用户数据仍存在 `%APPDATA%\dafeiyu-desktop-pet\`，和开发模式共用一份。
+
+两个已经踩过的坑：
+
+- **输出目录别放在项目里**：Windows 上这类工作区常有索引/杀软持有目录句柄，`win-unpacked.tmp → win-unpacked` 的改名会报 `EPERM`，改用 `-c.directories.output=<项目外路径>` 即可。
+- **`tools/` 不进包**：主进程里 `require('./tools/dev')` 必须容错，否则被打包版带 `--dev-shot` 启动时会在主进程抛异常（正常启动不受影响，所以容易漏掉）。现在已经 try/catch 降级。
+
+打包后没有控制台，主进程的未捕获异常与启动参数会追加写到 `%TEMP%\dafeiyu-error.log`，排查用。
+
+## 目录结构
+
+```
+main.js                 主进程：透明置顶全屏窗口、托盘、番茄钟、鼠标穿透判定、账本推送
+usage.js                白饭账本：扫描转录汇总 credits（按自然日/月，带 mtime+size 缓存）
+preload.js              contextBridge 白名单桥
+renderer/
+  index.html            透明视频画布 + 气泡/菜单/账本卡片的 DOM 结构
+  style.css             漂浮 / 倾身 / 蹦跳 / 拖拽挣扎 等反馈动画 + 上首软糖体
+  pet.js                移动引擎、倾身跟随、状态机、动画状态机、气泡、菜单、账本卡片
+assets/anims/*.webm     106 个 VP9-alpha 透明动画（角色本体）
+assets/anims/index.js   动画清单（CSP 不允许 fetch，用 <script> 注入全局）
+assets/memes/*.png      24 张白饭梗表情包（气泡配图）
+assets/sounds/*.wav     成功 / 失败提示音
+assets/fonts/上首软糖体.ttf  气泡字体
+assets/pic/             光标 + 托盘通知图标（notify-*.png）
+assets/logo.png         托盘图标
+tools/dev.js            开发用截图 / 真实鼠标链路自测
+tools/pipeline/         自制动作的素材流水线（去水印 → 抠绿 → 归一化 → 编码）
+docs/                   动作生成提示词库 + 通知图标提示词
+```
+
+## 实现要点
+
+- **窗口**：一块铺满工作区的透明、置顶、不抢焦点的窗口，角色在窗口里用 CSS `transform` 游动（GPU 合成，60fps 顺滑）。早期版本用「小窗口 + setPosition 跟随」，在 150% DPI 缩放下 Windows 会累积 1px 尺寸漂移，因此改成整屏画布方案。
+- **鼠标穿透**：主进程每 30ms 轮询光标位置，命中角色（或菜单打开 / 拖拽中）才 `setIgnoreMouseEvents(false)`，其余时间整块画布完全穿透。Windows 上 `forward: true` 转发不可靠，所以没有依赖它。
+- **角色素材**：直接使用 dsh-pet 的 VP9-alpha 透明 WebM，用 `<video>` 播放（Chromium 原生支持 alpha 通道）。素材画布 640×360，角色居中约占 226×282，四周透明，所以显示框比角色大一圈也不影响观感。注意 CSP 里必须放行 `media-src` 与 `font-src`，否则视频和字体会被 `default-src 'none'` 拦掉。
+- **动画状态机**：`applyBase()` 按「拖拽 > 睡觉 > 番茄钟 > 饿了 > 移动 / 待机」优先级选循环动画；点击/喂食/账本等一次性动作走 `playOnce()`（播完自动回到基础态，带超时兜底），播小节目时站定不走动。
+- **闲时小节目**：分类权重照抄 dsh-pet 的 `animationWeights` / `categories`（小动作 20 / 玩耍 20 / 吃什么 16 / 时节 14 / 文字 10），另外 25% 概率改成"碎碎念"（配一句梗台词）。账本按套餐已用百分比分 6 档播对应的「余额-*」动画（照抄它的 `events.balance` 档位）。
+- **倾身跟随**：视频是位图序列，瞳孔没法单独动，改成整个身子朝光标方向最多偏移 5px（拖拽时停用）。
+
+## 加自己的动作（可选）
+
+1. 照着 [docs/桌面宠物10秒动作提示词.md](docs/桌面宠物10秒动作提示词.md) 里的模板（106 个动作的完整提示词库，含"系统通知图标"那份）让 AI 生成一段 10 秒、正面、纯色背景的角色动画。
+2. 一条命令处理完（抠绿 + 归一化 640×360/30fps + 编码 VP9-alpha + 刷新动画清单）：
+
+   ```bash
+   tools/pipeline/make-anim.sh 写周报.mp4 写周报
+   ```
+
+3. 把动作名加进 [renderer/pet.js](renderer/pet.js) 的对应动画池（或 `ACTIONS` 的某个分类），重启桌宠即可。带文字的动作记得同时加进 `NO_MIRROR`，免得被左右翻转。
+
+`tools/pipeline/` 里的其余脚本（`chroma_step02.py` 等）是 dsh-pet 原版生产线，按它们自己的工作区约定写死（`step01/`→`step02/` 目录、自带 ffmpeg、依赖 numpy），留作参考；日常用 `make-anim.sh` 就够了。
+
+## 更新日志
+
+见 [CHANGELOG.md](CHANGELOG.md)——[v1.0.0](https://github.com/shenliuyu18/dafeiyu-pet/releases/tag/v1.0.0)（2026-10-15）为首个正式版。
+
+## 素材来源与许可
+
+角色动画、表情包、字体、光标与通知图标来自 [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)（MIT License，见 [THIRD-PARTY-dsh-pet-LICENSE.txt](THIRD-PARTY-dsh-pet-LICENSE.txt)）——一个跑在 DeepSeek Harness 里的桌宠插件，也是这套「蓝发小女仆 + 鲸尾」形象与 106 个动作动画的出处。本程序取用了它的全部动画、全部表情包与图标字体，实现完全独立；随机小节目的分类权重、余额分档规则、`NO_MIRROR` 约定都参考了它的配置文件，`tools/pipeline/` 与 `docs/` 直接来自其素材生产线，方便你继续扩动作。
+
+成功 / 失败提示音来自 [QCYTSN/dsh-dafeiyu](https://github.com/QCYTSN/dsh-dafeiyu)（同一套素材的 macOS(Swift) 移植版，同样 MIT），它的状态划分（idle / poke / head_pat / working / waiting / success / error / dragging / eat_token）也参考了本程序的动画状态机设计。
+
+## 开发工具
+
+```bash
+npm run shot                    # 截图当前状态到 dev-shots/
+npm run shot -- --dev-scene=eat # 场景：idle/eat/happy/doze/hungry/status/usage/pomodoro/menu/bubble
+npm run input-test              # 真机自测：鼠标穿透切换、真实点击、拖拽、菜单投喂链路
+npm start -- --dev-cpu          # 打印动画播放时的 CPU / 内存占用
+```
+
+`input-test` 会先铺一块不透明"测试垫"窗口再模拟真实鼠标，即使事件意外穿透也只会落在测试垫上，不会误点桌面图标。
+
+实测占用（150% DPI、透明视频常驻播放、含音频进程）：**CPU ≈ 2.2–3.3%（单核占比）**，内存 ≈ 440MB。

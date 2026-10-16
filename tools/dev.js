@@ -36,18 +36,20 @@ async function captureScene(win, scene) {
       const b = el.getBoundingClientRect();
       return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) }; };
     return { win: { w: innerWidth, h: innerHeight }, pet: window.__petPos(), img: r('#petVid'),
-      bubble: r('#bubble'), chip: r('#chip'), hit: r('#hit'), zzz: r('.zzz'),
+      bubble: r('#bubble'), chip: r('#chip'), hit: r('#hit'), zzz: r('.zzz'), settings: r('#settings'),
       zzzAnim: getComputedStyle(document.querySelector('.zzz span')).animationName,
       imgLoaded: document.querySelector('#petVid').readyState > 0, anim: curAnim, animCount: (window.PET_ANIMS || []).length,
+      scale: petScale, dock: S.dock, usageHidden: !!document.getElementById('menu-usage-btn').classList.contains('hide'),
       cls: document.getElementById('stage').className };
   })()`);
   console.log('LAYOUT', JSON.stringify(info));
 
+  const wide = scene === 'settings';
   const rect = {
-    x: Math.max(0, info.pet.x - 60),
-    y: Math.max(0, info.pet.y - 20),
-    width: 420,
-    height: 400,
+    x: Math.max(0, info.pet.x - (wide ? 340 : 60)),
+    y: Math.max(0, info.pet.y - (wide ? 40 : 20)),
+    width: wide ? 760 : 420,
+    height: wide ? 470 : 400,
   };
   rect.width = Math.min(rect.width, info.win.w - rect.x);
   rect.height = Math.min(rect.height, info.win.h - rect.y);
@@ -97,7 +99,7 @@ async function runInputTest(win) {
   );
   guard.setAlwaysOnTop(true, 'normal');
   win.setAlwaysOnTop(true, 'screen-saver'); // 重新置顶，确保鱼窗压在测试垫之上
-  await win.webContents.executeJavaScript(`window.__freeze(true); window.__teleport(${PET_START.x}, ${PET_START.y});`);
+  await win.webContents.executeJavaScript(`applyScale(1, false); window.__freeze(true); window.__teleport(${PET_START.x}, ${PET_START.y});`);
   await wait(500);
 
   const before = await ps(

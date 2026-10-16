@@ -10,3 +10,6 @@ dev-shots/
 
 # 日志
 *.log
+
+# 打包脚本的临时配置
+.build-config.json

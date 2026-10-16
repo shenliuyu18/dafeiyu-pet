@@ -3,10 +3,9 @@
 const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const usageLedger = require('./usage');
 
 const FOCUS_MS = 25 * 60 * 1000;
-const DEFAULT_STATE = { satiety: 78, mood: 82, pos: null, awake: true };
+const DEFAULT_STATE = { satiety: 78, mood: 82, pos: null, awake: true, scale: 1, dock: 'roam' };
 
 // 与渲染层 PET 常量保持一致：角色可见区域（#pet 局部坐标）
 const PET = { x0: 76, y0: 144, x1: 224, y1: 312 };
@@ -18,6 +17,23 @@ const DEV_SHOT = argv.includes('--dev-shot');
 const DEV_INPUT = argv.includes('--dev-input');
 const DEV_CPU = argv.includes('--dev-cpu');
 const DEV_SCENE = (argv.find((a) => a.startsWith('--dev-scene=')) || '').split('=')[1] || 'idle';
+
+// 简版（无 Qoder 白饭账本）：打包时注入 package.json 的 lite:true，开发用 --lite 模拟
+let pkgMeta = {};
+try {
+  pkgMeta = require('./package.json');
+} catch {
+  /* 读不到就按完整版处理 */
+}
+const LITE = !!pkgMeta.lite || argv.includes('--lite');
+if (LITE) {
+  try {
+    app.setPath('userData', path.join(app.getPath('appData'), 'dafeiyu-desktop-pet-lite'));
+  } catch {
+    /* 目录设置失败就用默认的 */
+  }
+}
+const usageLedger = LITE ? null : require('./usage');
 
 // 打包后没有控制台，崩溃与启动参数落一份日志到临时目录，便于排查
 function crashLog(kind, err) {
@@ -40,10 +56,12 @@ let state = { ...DEFAULT_STATE };
 const pomo = { running: false, endsAt: 0, ticker: null };
 let ledger = null;
 
-// 鼠标穿透判定状态：渲染层上报鱼的位置，主进程轮询光标做命中测试
-const pet = { x: 0, y: 0, initialized: false };
+// 鼠标穿透判定状态：渲染层上报鱼的位置与缩放，主进程轮询光标做命中测试
+const pet = { x: 0, y: 0, s: 1, initialized: false };
 let interactive = false;
-let menuOpen = false;
+// 面板（菜单/设置卡）打开标志。打开期间本窗口整窗接收鼠标并重新断言置顶：
+// 面板上的点击直达本窗口，避免与同屏另一个版本互相截断点击（"菜单卡死"）
+let panelOpen = false;
 let dragging = false;
 let savedPosAt = 0;
 
@@ -118,7 +136,9 @@ function createWindow() {
   });
 
   win.setAlwaysOnTop(true, 'screen-saver');
-  win.setIgnoreMouseEvents(true, { forward: true });
+  // 不传 forward：forward 会装系统级鼠标钩子，多个实例共存时钩子会把点击的按下事件吞掉
+  // （表现为另一个版本的菜单/按钮点不动）。视线跟随本来就靠下面的 30ms 光标轮询实现
+  win.setIgnoreMouseEvents(true);
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.on('closed', () => {
     win = null;
@@ -137,6 +157,12 @@ function toggleVisible() {
   else win.showInactive();
 }
 
+function openSettingsFromTray() {
+  if (!win || win.isDestroyed()) return;
+  if (!win.isVisible()) win.showInactive();
+  send('show-settings');
+}
+
 // --------------------------------------------------------------------------
 // 鼠标穿透：轮询光标位置，命中鱼身（或菜单/拖拽中）时才让窗口接收鼠标
 // --------------------------------------------------------------------------
@@ -153,15 +179,15 @@ function cursorTick() {
 
   const over =
     pet.initialized &&
-    wx >= pet.x + PET.x0 - HIT_PAD &&
-    wx <= pet.x + PET.x1 + HIT_PAD &&
-    wy >= pet.y + PET.y0 - HIT_PAD &&
-    wy <= pet.y + PET.y1 + HIT_PAD;
+    wx >= pet.x + PET.x0 * pet.s - HIT_PAD &&
+    wx <= pet.x + PET.x1 * pet.s + HIT_PAD &&
+    wy >= pet.y + PET.y0 * pet.s - HIT_PAD &&
+    wy <= pet.y + PET.y1 * pet.s + HIT_PAD;
 
-  const want = over || menuOpen || dragging;
+  const want = over || dragging || panelOpen;
   if (want !== interactive) {
     interactive = want;
-    win.setIgnoreMouseEvents(!interactive, { forward: true });
+    win.setIgnoreMouseEvents(!interactive);
   }
 
   if (moved) {
@@ -223,12 +249,15 @@ function petStatus() {
     awake: state.awake,
     pomodoro: { running: pomo.running, remaining: remaining() },
     pos: state.pos,
-    ledger: ledger || refreshUsage(),
+    lite: LITE,
+    settings: { scale: Number(state.scale) || 1, dock: state.dock === 'corner' ? 'corner' : 'roam' },
+    ledger: LITE ? null : ledger || refreshUsage(),
   };
 }
 
 // 白饭账本：可选套餐额度（state.planQuota，单位 credits/月），填了才显示百分比
 function refreshUsage() {
+  if (LITE) return null;
   let data = { today: 0, month: 0, session: 0, sessionId: '', available: false, updatedAt: Date.now() };
   try {
     data = { ...usageLedger.collect() };
@@ -278,6 +307,7 @@ function handleAction(name) {
       send('show-status');
       break;
     case 'usage':
+      if (LITE) break;
       refreshUsage();
       send('show-usage', ledger);
       break;
@@ -301,7 +331,6 @@ const NOTIFY_ICONS = {
   error: 'notify-error.png',
   truncated: 'notify-truncated.png',
   question: 'notify-question.png',
-  approval: 'notify-approval.png',
 };
 let notifyCache = null;
 
@@ -333,6 +362,7 @@ function balloon(kind, title, content) {
 
 // 套餐用量跨过 80% / 100% 时提醒一次（按自然月记账）
 function checkQuotaWarning() {
+  if (LITE) return;
   const quota = Number(state.planQuota) || 0;
   if (!quota || !ledger) return;
   const percent = (ledger.month / quota) * 100;
@@ -368,14 +398,19 @@ function updateTray() {
       pomo.running
         ? { label: `🍅  结束专注（剩 ${fmtClock(remaining())}）`, click: stopPomodoro }
         : { label: '🍅  开始专注 25 分钟', click: startPomodoro },
-      {
-        label: ledger && ledger.available ? `🍚  本月白饭 ${ledger.month} credits` : '🍚  白饭账本',
-        click: () => {
-          refreshUsage();
-          send('show-usage', ledger);
-        },
-      },
+      ...(LITE
+        ? []
+        : [
+            {
+              label: ledger && ledger.available ? `🍚  本月白饭 ${ledger.month} credits` : '🍚  白饭账本',
+              click: () => {
+                refreshUsage();
+                send('show-usage', ledger);
+              },
+            },
+          ]),
       { type: 'separator' },
+      { label: '⚙️  设置', click: openSettingsFromTray },
       { label: '📊  看看状态', click: () => send('show-status') },
       { label: '退出', click: () => app.quit() },
     ]),
@@ -410,6 +445,7 @@ function registerIpc() {
     if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
     pet.x = pos.x;
     pet.y = pos.y;
+    if (Number.isFinite(pos.s)) pet.s = clamp(pos.s, 0.6, 1.6);
     pet.initialized = true;
     if (Date.now() - savedPosAt > 20000) {
       savedPosAt = Date.now();
@@ -418,17 +454,29 @@ function registerIpc() {
     }
   });
 
-  ipcMain.on('menu', (_e, open) => {
-    menuOpen = !!open;
+  ipcMain.on('panel', (_e, open) => {
+    panelOpen = !!open;
+    // 注意：这里不能再做任何置顶/提升 z 顺序的操作（moveTop / setAlwaysOnTop）。
+    // Windows 上两个 "screen-saver" 级置顶窗口之间一旦发生 z 重排，
+    // 被压下去那个窗口的鼠标按下事件会全部丢失（表现为另一版本"菜单卡死"）。
+    // 面板打开时的整窗鼠标接收已能保证面板点击直达本窗口。
   });
 
   ipcMain.on('drag', (_e, on) => {
     dragging = !!on;
+    // 同样不做 z 顺序操作（见上面 panel 处的说明）；拖拽期间整窗接收鼠标
   });
 
   ipcMain.on('stats', (_e, s) => {
     if (typeof s.satiety === 'number') state.satiety = clamp(s.satiety, 0, 100);
     if (typeof s.mood === 'number') state.mood = clamp(s.mood, 0, 100);
+    saveState();
+  });
+
+  ipcMain.on('settings', (_e, s) => {
+    if (!s || typeof s !== 'object') return;
+    if (Number.isFinite(s.scale)) state.scale = clamp(s.scale, 0.6, 1.6);
+    if (s.dock === 'corner' || s.dock === 'roam') state.dock = s.dock;
     saveState();
   });
 
@@ -467,7 +515,7 @@ if (!app.requestSingleInstanceLock()) {
     if (win && !win.isDestroyed()) win.showInactive();
   });
 
-  app.setAppUserModelId('com.dafeiyu.desktop-pet');
+  app.setAppUserModelId(LITE ? 'com.dafeiyu.desktop-pet.lite' : 'com.dafeiyu.desktop-pet');
 
   app.whenReady().then(() => {
     loadState();
@@ -481,12 +529,16 @@ if (!app.requestSingleInstanceLock()) {
 
     setInterval(cursorTick, CURSOR_POLL_MS);
     setInterval(() => {
-      refreshUsage();
+      if (!LITE) refreshUsage();
       updateTray();
     }, 5 * 60 * 1000);
 
     if (DEV_INPUT) {
-      global.__petDiag = () => ({ interactive, menuOpen, dragging, pet: { ...pet } });
+      global.__petDiag = () => ({ interactive, panel: panelOpen, dragging, pet: { ...pet } });
+    }
+    if (!app.isPackaged) {
+      global.__dbg = () => ({ interactive, panel: panelOpen, dragging, pet: { ...pet } });
+      global.__win = () => win;
     }
     if (DEV_CPU) {
       let n = 0;

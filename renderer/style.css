@@ -45,6 +45,16 @@ body.dev-bg {
   will-change: transform;
 }
 
+/* 尺寸缩放层：从左上角整体缩放，坐标换算只需乘比例 */
+#scale {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 300px;
+  height: 352px;
+  transform-origin: 0 0;
+}
+
 /* 动画画布：640×360 的 16:9，角色居中约占 226×282（素材四周透明） */
 #petBox {
   position: absolute;
@@ -417,6 +427,25 @@ body.dev-bg {
   transform: translateX(-50%) scale(1) translateY(0);
 }
 
+/* 贴近屏幕下缘时：倒计时牌翻到鱼身下沿（像别在裙子上的小工牌），避免被任务栏挡住挡；
+   位置避开上方气泡区域（y 128 以上是气泡） */
+#pet.chip-up #chip {
+  bottom: auto;
+  top: 262px;
+}
+
+/* 贴近屏幕上缘时：气泡翻到鱼下方，避免顶出窗口被裁掉（位置在该状态下倒计时牌之下） */
+#bubble.down {
+  bottom: auto;
+  top: 356px;
+}
+
+#bubble.down .bubble-tail {
+  bottom: auto;
+  top: -7px;
+  clip-path: polygon(0 100%, 100% 100%, 50% 0);
+}
+
 #chip .tomato {
   font-size: 13px;
 }
@@ -521,4 +550,121 @@ body.dev-bg {
   height: 1px;
   margin: 5px 8px;
   background: #e6ebff;
+}
+
+#menu button.hide {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- 设置 */
+
+#settings {
+  position: absolute;
+  z-index: 22;
+  width: 262px;
+  padding: 12px 14px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 30px rgba(16, 28, 76, 0.34), 0 0 0 1px rgba(120, 150, 255, 0.22);
+  color: #22305e;
+  opacity: 0;
+  transform: scale(0.96);
+  transform-origin: top left;
+  transition: opacity 0.12s, transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+#settings.show {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+#settings.hide {
+  display: none;
+}
+
+#settings .hide {
+  display: none;
+}
+
+.set-title {
+  margin: 0 0 9px;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.set-sec {
+  margin-bottom: 11px;
+}
+
+.set-label {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #5b688f;
+}
+
+.set-label b {
+  margin-left: 4px;
+  color: #2c3fbe;
+}
+
+.set-row {
+  display: flex;
+  gap: 6px;
+}
+
+.set-row + .set-row {
+  margin-top: 6px;
+}
+
+.set-row button,
+.set-foot button {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid #dde4ff;
+  border-radius: 9px;
+  background: #f4f7ff;
+  color: #33406e;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.set-row button:hover,
+.set-foot button:hover {
+  background: #eaefff;
+}
+
+.set-row button.on {
+  border-color: #4d6bfe;
+  background: #4d6bfe;
+  color: #fff;
+}
+
+.set-help {
+  font-size: 11.5px;
+  line-height: 1.8;
+  color: #5b688f;
+}
+
+.set-help b {
+  color: #2c3fbe;
+}
+
+.set-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+#set-close {
+  flex: 0 0 auto;
+  padding: 6px 22px;
+  border: 0;
+  background: #4d6bfe;
+  color: #fff;
+}
+
+#set-close:hover {
+  background: #3d5bef;
 }

@@ -13,14 +13,16 @@ const IN_CHANNELS = [
   'show-status',
   'usage',
   'show-usage',
+  'show-settings',
 ];
 
 contextBridge.exposeInMainWorld('pet', {
   ready: () => ipcRenderer.send('ready'),
   reportPos: (pos) => ipcRenderer.send('pos', pos),
-  setMenuOpen: (open) => ipcRenderer.send('menu', open),
+  setPanel: (rect) => ipcRenderer.send('panel', rect),
   setDragging: (on) => ipcRenderer.send('drag', on),
   updateStats: (s) => ipcRenderer.send('stats', s),
+  saveSettings: (s) => ipcRenderer.send('settings', s),
   action: (name) => ipcRenderer.send('action', name),
   notify: (text) => ipcRenderer.send('bubble', text),
   quit: () => ipcRenderer.send('quit'),

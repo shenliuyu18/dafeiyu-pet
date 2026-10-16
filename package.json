@@ -1,15 +1,17 @@
 {
   "name": "dafeiyu-desktop-pet",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "蓝色大肥鱼桌宠 —— 会吃白饭、会摸鱼、会记账的桌面伙伴",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
+    "start-lite": "electron . --lite",
     "shot": "electron . --dev-shot",
     "input-test": "electron . --dev-input",
-    "dist": "electron-builder --win nsis",
-    "dist-dir": "electron-builder --win dir"
+    "dist": "node tools/build.js",
+    "dist-lite": "node tools/build.js --lite",
+    "dist-dir": "node tools/build.js --dir"
   },
   "devDependencies": {
     "electron": "^38.0.0",
@@ -20,6 +22,11 @@
     "appId": "com.dafeiyu.desktop-pet",
     "productName": "大肥鱼桌宠",
     "copyright": "角色素材来自 PC2005-cloud/dsh-pet (MIT)",
+    "compression": "maximum",
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
     "directories": {
       "output": "dist"
     },

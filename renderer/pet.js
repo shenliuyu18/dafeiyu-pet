@@ -27,6 +27,13 @@ const menuPomo = document.getElementById('menu-pomo');
 const menuUsage = document.getElementById('menu-usage');
 const menuSleepIco = document.getElementById('menu-sleep-ico');
 const menuSleepTxt = document.getElementById('menu-sleep-txt');
+const scaleEl = document.getElementById('scale');
+const settingsEl = document.getElementById('settings');
+const setSizes = document.getElementById('set-sizes');
+const setDocks = document.getElementById('set-docks');
+const setSizeVal = document.getElementById('set-size-val');
+const menuUsageBtn = document.getElementById('menu-usage-btn');
+const helpLedger = document.getElementById('help-ledger');
 
 const isElectron = typeof window.pet !== 'undefined';
 const api = isElectron ? window.pet : mockApi();
@@ -34,6 +41,10 @@ const api = isElectron ? window.pet : mockApi();
 // 布局常量，与 style.css / index.html / main.js 保持一致
 const PET = { x0: 76, y0: 144, x1: 224, y1: 312, cx: 150, cy: 228 };
 const LEAN_MAX = 5;
+const SIZE_MIN = 0.6;
+const SIZE_MAX = 1.6;
+const SIZE_STEP = 0.05;
+let petScale = 1;
 
 const QUIPS = [
   '我是蓝色大肥鱼，不是鲸鱼哦',
@@ -54,13 +65,13 @@ const QUIPS = [
 ];
 
 const MEMES = {
-  click: ['可爱', '哦鲸鲸', '厉害了我的鲸', '先养着吧', 'Ciallo'],
+  click: ['可爱', '哦鲸鲸', '厉害了我的鲸', '先养着吧', 'Ciallo', '大的药来了', '大的要来啦', '就骚了怎么滴吧', '除了调情没啥用', '假如给我三天多模态', '大师这个区是什么意思', '我不更新你们用什么'],
   feed: ['吃白饭的大肥鱼', '吃饱饱摸肚子', '就一碗'],
   hungry: ['压力一只大肥鱼', '就一碗', '死掉了'],
   sleep: ['深度睡眠'],
   ledger: ['token给妈妈保管', '厉害了我的鲸'],
-  work: ['誓死践行开源精神', '鱼片有资源吗'],
-  error: ['哪来的电脑病毒', '完蛋了把黄油删了'],
+  work: ['誓死践行开源精神', '鱼片有资源吗', '黎曼猜想没证明喵'],
+  error: ['哪来的电脑病毒', '完蛋了把黄油删了', '电死你', '要不直接骂他'],
 };
 
 const FEED_LINES = ['大口！大口！', '这才是我要的白饭！', '白饭真香，比 Token 香', '谢谢款待，吃完就去干活（骗你的）', '再来一碗！就一点点！'];
@@ -71,6 +82,8 @@ const S = {
   satiety: 78,
   mood: 82,
   awake: true,
+  lite: false,
+  dock: 'roam',
   dragging: false,
   hover: false,
   autoDoze: false,
@@ -109,11 +122,12 @@ function mockApi() {
   return {
     ready() {},
     reportPos() {},
-    setMenuOpen() {},
+    setPanel() {},
     setDragging() {},
     updateStats() {},
     action() {},
     notify() {},
+    saveSettings() {},
     quit() {},
     on() {
       return () => {};
@@ -124,7 +138,8 @@ function mockApi() {
 // ---------------------------------------------------------------- 移动引擎
 
 function bounds() {
-  return { minX: -PET.x0, maxX: innerWidth - PET.x1, minY: -PET.y0, maxY: innerHeight - PET.y1 };
+  const s = petScale;
+  return { minX: -PET.x0 * s, maxX: innerWidth - PET.x1 * s, minY: -PET.y0 * s, maxY: innerHeight - PET.y1 * s };
 }
 
 function wanderSpeed() {
@@ -189,6 +204,12 @@ function step(dt) {
     }
   } else if (!S.awake || S.autoDoze) {
     coast(dt, 0.9);
+  } else if (S.dock === 'corner') {
+    // 右下角停靠：一直朝角落游，被拖走后也会自己晃回去
+    if (steer(b.maxX, b.maxY, 120, dt) < 8) {
+      P.vx = 0;
+      P.vy = 0;
+    }
   } else if (now < P.pauseUntil) {
     coast(dt, 0.86);
   } else {
@@ -245,6 +266,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
   step(dt);
+  updateEdgeFlips();
   applyLean(S.mouse.x, S.mouse.y);
   const t = `translate3d(${P.x.toFixed(1)}px, ${P.y.toFixed(1)}px, 0)`;
   if (t !== lastTransform) {
@@ -253,7 +275,7 @@ function frame(now) {
   }
   if (now - lastPosReport > 50) {
     lastPosReport = now;
-    api.reportPos({ x: Math.round(P.x), y: Math.round(P.y) });
+    api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale });
   }
   requestAnimationFrame(frame);
 }
@@ -262,6 +284,22 @@ function clampInBounds() {
   const b = bounds();
   P.x = clamp(P.x, b.minX, b.maxX);
   P.y = clamp(P.y, b.minY, b.maxY);
+}
+
+// 贴近屏幕下缘时，番茄钟倒计时牌子翻到头顶上方（否则落在窗口外被任务栏挡住）
+let chipUp = false;
+function updateEdgeFlips() {
+  const up = P.y + 348 * petScale > innerHeight;
+  if (up !== chipUp) {
+    chipUp = up;
+    petEl.classList.toggle('chip-up', up);
+  }
+}
+
+// 气泡上方空间不足（贴顶）时翻到鱼下方，避免顶出窗口被裁掉
+function positionBubble() {
+  const h = Math.max(bubbleEl.offsetHeight, 240);
+  bubbleEl.classList.toggle('down', P.y + (128 - h) * petScale < 6);
 }
 
 
@@ -277,7 +315,7 @@ const ANIM = {
   sleep: ['原地小憩沉眠'],
   sad: ['工作状态-垂头叹气冒汗'],
   happy: ['工作状态-雀跃庆祝'],
-  work: ['写代码', '工作状态-思考冒泡'],
+  work: ['写代码', '工作状态-思考冒泡', '工作状态-忙碌点按', '工作状态-清点归档'],
   money: ['余额-数金皱眉', '余额-钱袋满溢'],
 };
 
@@ -320,7 +358,7 @@ function playOnce(pool) {
 // 闲时随机小节目：分类与权重参考 dsh-pet 的 animationWeights / categories 配置
 const HAS = new Set(window.PET_ANIMS || []);
 const ACTIONS = [
-  { weight: 20, id: 'small', pool: ['悠闲哼歌','超大伸懒腰','原地敲击桌面互动','原地重力下蹲压缩','哈欠连天','女仆屈膝礼仪','被吓一跳','小幅度原地360度旋转展示','偷吃零食被抓住','用鲸鱼尾巴拍打地面','打瞌睡被惊醒','照镜子','整体换装试色','轻快记录','摇扇纳凉','晨间刷牙'] },
+  { weight: 20, id: 'small', pool: ['悠闲哼歌','超大伸懒腰','原地敲击桌面互动','原地重力下蹲压缩','哈欠连天','女仆屈膝礼仪','被吓一跳','小幅度原地360度旋转展示','偷吃零食被抓住','用鲸鱼尾巴拍打地面','打瞌睡被惊醒','照镜子','整体换装试色','轻快记录','摇扇纳凉','晨间刷牙','东张西望','工作状态-原地踱步张望'] },
   { weight: 20, id: 'play', pool: ['原地专心玩魔方','原地蹲下玩玩具汽车','鲸鱼吐泡泡特效','原地跳跃抓碎头顶物品','玩游戏气急败坏','玩水枪','小提琴演奏','蓝鲸现世','优雅女仆舞','轻快摇摆舞','可爱宅舞','吹气球','动物环绕','放风筝','拆礼物','变鸽子','扑克魔术','抽陀螺','吹笛子','蝴蝶蜜蜂环绕头顶开花','撸猫','凭空生花','骑木马','三球抛接','踢毽子','下五子棋','荡秋千'] },
   { weight: 16, id: 'eat', pool: ['吃早餐','吃午餐','吃晚餐','吃冰淇淋融化','吃大闸蟹','吃糖葫芦','吃长寿面','吃西瓜','涮火锅'] },
   { weight: 14, id: 'season', pool: ['被落叶淹没','中秋赏月吃月饼','堆雪人','放烟花','吃粽子','吃年糕','吃青团','吃腊八粥','吃重阳糕','收红包','写福字','穿针乞巧','舞狮头','讨糖南瓜灯','插茱萸赏菊','放河灯','萌化小幽灵','装点圣诞树','放孔明灯','吃汤圆','吃饺子'] },
@@ -430,6 +468,7 @@ function say(text, ms = 3200, memeKey) {
   }
   barsEl.classList.add('hide');
   bubbleEl.classList.add('show');
+  positionBubble();
   S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), ms);
 }
 
@@ -445,11 +484,13 @@ function showStatus() {
   usageEl.classList.add('hide');
   barsEl.classList.remove('hide');
   bubbleEl.classList.add('show');
+  positionBubble();
   S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), 6000);
 }
 
 // 白饭账本：白饭 = 你被烧掉的 Qoder credits
 function showUsage(ledger) {
+  if (S.lite) return;
   const l = ledger || S.ledger;
   clearTimeout(S.bubbleTimer);
   bubbleText.textContent = l && l.available ? '这是你喂给我的白饭' : '还没找到白饭记录…';
@@ -466,12 +507,14 @@ function showUsage(ledger) {
   barsEl.classList.add('hide');
   usageEl.classList.remove('hide');
   bubbleEl.classList.add('show');
+  positionBubble();
   S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), 9000);
   const tier = balanceTierPools();
   playOnce(tier.length ? tier : ANIM.money);
 }
 
 function creditsLine() {
+  if (S.lite) return null;
   const l = S.ledger;
   if (!l || !l.available) return null;
   if (l.today > 0) return `今天你已经喂了我 ${l.today} credits 白饭啦`;
@@ -593,14 +636,16 @@ function refreshMenu() {
 }
 
 function openMenu(x, y) {
+  closeSettings();
   refreshMenu();
   menuEl.classList.remove('hide');
-  const r = menuEl.getBoundingClientRect();
-  menuEl.style.left = `${clamp(x, 4, innerWidth - r.width - 8)}px`;
-  menuEl.style.top = `${clamp(y, 4, innerHeight - r.height - 8)}px`;
+  const w = menuEl.offsetWidth;
+  const h = menuEl.offsetHeight;
+  menuEl.style.left = `${clamp(x, 4, innerWidth - w - 8)}px`;
+  menuEl.style.top = `${clamp(y, 4, innerHeight - h - 8)}px`;
   requestAnimationFrame(() => menuEl.classList.add('show'));
   menuOpen = true;
-  api.setMenuOpen(true);
+  api.setPanel(true);
 }
 
 function closeMenu() {
@@ -610,7 +655,7 @@ function closeMenu() {
   setTimeout(() => {
     if (!menuOpen) menuEl.classList.add('hide');
   }, 160);
-  api.setMenuOpen(false);
+  api.setPanel(null);
 }
 
 menuEl.addEventListener('click', (e) => {
@@ -619,8 +664,118 @@ menuEl.addEventListener('click', (e) => {
   const act = btn.dataset.act;
   closeMenu();
   if (act === 'status') showStatus();
+  else if (act === 'settings') openSettings();
   else api.action(act);
 });
+
+// ---------------------------------------------------------------- 设置
+
+let settingsOpen = false;
+
+function saveSettings() {
+  api.saveSettings({ scale: petScale, dock: S.dock });
+}
+
+function syncSettingsUI() {
+  setSizeVal.textContent = `${Math.round(petScale * 100)}%`;
+  for (const btn of setSizes.querySelectorAll('button')) {
+    btn.classList.toggle('on', Math.abs(Number(btn.dataset.size) - petScale) < 0.001);
+  }
+  for (const btn of setDocks.querySelectorAll('button')) {
+    btn.classList.toggle('on', btn.dataset.dock === S.dock);
+  }
+}
+
+function applyScale(s, save) {
+  petScale = clamp(Math.round((Number(s) || 1) / SIZE_STEP) * SIZE_STEP, SIZE_MIN, SIZE_MAX);
+  scaleEl.style.transform = Math.abs(petScale - 1) < 0.001 ? '' : `scale(${petScale.toFixed(2)})`;
+  syncSettingsUI();
+  clampInBounds();
+  api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale });
+  if (save) saveSettings();
+}
+
+function applyDock(mode, save) {
+  S.dock = mode === 'corner' ? 'corner' : 'roam';
+  P.target = null;
+  P.pauseUntil = 0;
+  if (S.dock === 'corner') {
+    // 直接闪现到右下角；之后被拖走仍会自己游回角落
+    const b = bounds();
+    P.x = b.maxX;
+    P.y = b.maxY;
+    P.vx = 0;
+    P.vy = 0;
+    stage.classList.remove('swim');
+  }
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+function openSettings() {
+  closeMenu();
+  syncSettingsUI();
+  settingsEl.classList.remove('hide');
+  const w = settingsEl.offsetWidth;
+  const h = settingsEl.offsetHeight;
+  let sx = P.x - w - 18; // 优先放在鱼的左边
+  if (sx < 8) sx = P.x + 320;
+  settingsEl.style.left = `${clamp(sx, 8, innerWidth - w - 8)}px`;
+  settingsEl.style.top = `${clamp(P.y + 24, 8, innerHeight - h - 8)}px`;
+  requestAnimationFrame(() => settingsEl.classList.add('show'));
+  settingsOpen = true;
+  P.frozen = true;
+  P.vx = 0;
+  P.vy = 0;
+  P.target = null;
+  stage.classList.remove('swim');
+  api.setPanel(true);
+}
+
+function closeSettings() {
+  if (!settingsOpen) return;
+  settingsOpen = false;
+  settingsEl.classList.remove('show');
+  setTimeout(() => {
+    if (!settingsOpen) settingsEl.classList.add('hide');
+  }, 160);
+  P.frozen = false;
+  api.setPanel(null);
+}
+
+settingsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn.dataset.size) applyScale(Number(btn.dataset.size), true);
+  else if (btn.dataset.dock) applyDock(btn.dataset.dock, true);
+  else if (btn.id === 'size-minus') applyScale(petScale - SIZE_STEP, true);
+  else if (btn.id === 'size-plus') applyScale(petScale + SIZE_STEP, true);
+  else if (btn.id === 'set-close') closeSettings();
+});
+
+// 兜底：两个版本同时运行时，个别情况下按下事件会被系统吞掉（只剩 up）。
+// 1) 孤儿 up 落在菜单/设置卡的按钮上 → 补发一次点击，保证按钮可用；
+// 2) 孤儿 up 落在面板外 → 等价于"点击别处"，收起面板（否则菜单关不掉）
+let downSeen = false;
+document.addEventListener('mousedown', () => {
+  downSeen = true;
+}, true);
+document.addEventListener(
+  'mouseup',
+  (e) => {
+    const orphan = !downSeen;
+    downSeen = false;
+    if (!orphan || !e.target || !e.target.closest) return;
+    const btn = e.target.closest('#menu button, #settings button');
+    if (btn) {
+      btn.click();
+      return;
+    }
+    if (menuOpen && !e.target.closest('#menu')) closeMenu();
+    if (settingsOpen && !e.target.closest('#settings')) closeSettings();
+  },
+  true,
+);
 
 // ---------------------------------------------------------------- 指针交互
 
@@ -638,6 +793,7 @@ hitEl.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   e.preventDefault();
   closeMenu();
+  closeSettings();
   S.dragging = true;
   S.downAt = Date.now();
   S.downX = e.clientX;
@@ -694,6 +850,7 @@ document.addEventListener('contextmenu', (e) => {
 
 document.addEventListener('mousedown', (e) => {
   if (menuOpen && !e.target.closest('#menu')) closeMenu();
+  if (settingsOpen && !e.target.closest('#settings')) closeSettings();
 });
 
 hitEl.addEventListener('dblclick', () => {
@@ -708,6 +865,13 @@ api.on('init', (st) => {
   S.mood = st.mood;
   S.awake = st.awake;
   S.ledger = st.ledger || null;
+  S.lite = !!st.lite;
+  if (S.lite) {
+    menuUsageBtn.classList.add('hide');
+    helpLedger.classList.add('hide');
+    usageEl.remove();
+  }
+  applyScale(st.settings && st.settings.scale, false);
   if (st.pomodoro && st.pomodoro.running) setPomodoro(st.pomodoro);
   const b = bounds();
   if (st.pos) {
@@ -717,6 +881,7 @@ api.on('init', (st) => {
     P.x = b.maxX - 80;
     P.y = b.maxY - 60;
   }
+  applyDock(st.settings && st.settings.dock, false);
   applyHungry();
   applyDoze();
   applyBase();
@@ -763,6 +928,8 @@ api.on('pomodoro-done', () => {
 
 api.on('show-status', showStatus);
 
+api.on('show-settings', () => openSettings());
+
 // 主进程轮询光标：同时用于视线跟随与"被摸到就醒来"
 api.on('cursor', (c) => {
   S.mouse.x = c.x;
@@ -789,7 +956,7 @@ setInterval(() => {
 
   if (now - lastReport > 20000) {
     lastReport = now;
-    api.reportPos({ x: Math.round(P.x), y: Math.round(P.y) });
+    api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale });
   }
 
   if (!S.awake) return;
@@ -857,6 +1024,13 @@ window.__devScene = (name) => {
   } else if (name === 'menu') {
     window.__freeze(true);
     openMenu(P.x + 150, P.y + 90);
+  } else if (name === 'settings') {
+    openSettings();
+  } else if (name === 'huge') {
+    applyScale(1.5, true);
+  } else if (name === 'corner') {
+    window.__teleport(120, 100);
+    applyDock('corner', true); // 应立刻闪现到右下角
   } else if (name === 'show') {
     const pool = pickWeighted();
     if (pool.length) playOnce(pool);

@@ -10,51 +10,90 @@
 <div id="stage">
 
   <div id="pet">
-    <div id="bubble">
-      <img id="bubble-meme" class="hide" alt="">
-      <div id="bubble-text">我是蓝色大肥鱼</div>
-      <div id="bubble-bars" class="hide">
-        <div class="bar"><span>饱食度</span><i><b id="bar-sat" class="sat"></b></i></div>
-        <div class="bar"><span>心情</span><i><b id="bar-mood" class="mood"></b></i></div>
+    <div id="scale">
+      <div id="bubble">
+        <img id="bubble-meme" class="hide" alt="">
+        <div id="bubble-text">我是蓝色大肥鱼</div>
+        <div id="bubble-bars" class="hide">
+          <div class="bar"><span>饱食度</span><i><b id="bar-sat" class="sat"></b></i></div>
+          <div class="bar"><span>心情</span><i><b id="bar-mood" class="mood"></b></i></div>
+        </div>
+        <div id="bubble-usage" class="hide">
+          <div class="u-row"><span>今天吃掉</span><b id="u-today">—</b></div>
+          <div class="u-row"><span>本月吃掉</span><b id="u-month">—</b></div>
+          <div class="u-row"><span>本次会话</span><b id="u-session">—</b></div>
+          <div class="u-quota hide" id="u-quota"><i><b id="u-bar"></b></i><span id="u-quota-text"></span></div>
+          <div class="u-note">白饭 = 你的 Qoder credits</div>
+        </div>
+        <div class="bubble-tail"></div>
       </div>
-      <div id="bubble-usage" class="hide">
-        <div class="u-row"><span>今天吃掉</span><b id="u-today">—</b></div>
-        <div class="u-row"><span>本月吃掉</span><b id="u-month">—</b></div>
-        <div class="u-row"><span>本次会话</span><b id="u-session">—</b></div>
-        <div class="u-quota hide" id="u-quota"><i><b id="u-bar"></b></i><span id="u-quota-text"></span></div>
-        <div class="u-note">白饭 = 你的 Qoder credits</div>
-      </div>
-      <div class="bubble-tail"></div>
-    </div>
 
-    <div id="chip"><span class="tomato">🍅</span><b id="chip-time">25:00</b></div>
+      <div id="chip"><span class="tomato">🍅</span><b id="chip-time">25:00</b></div>
 
-    <div id="fx"></div>
+      <div id="fx"></div>
 
-    <div id="petBox">
-      <div id="lean">
-        <div id="flip">
-          <div id="tilt">
-            <div id="squash">
-              <video id="petVid" autoplay muted loop playsinline></video>
+      <div id="petBox">
+        <div id="lean">
+          <div id="flip">
+            <div id="tilt">
+              <div id="squash">
+                <video id="petVid" autoplay muted loop playsinline></video>
+              </div>
             </div>
           </div>
         </div>
+        <div class="zzz"><span>Z</span><span>Z</span><span>Z</span></div>
+        <div id="hit"></div>
       </div>
-      <div class="zzz"><span>Z</span><span>Z</span><span>Z</span></div>
-      <div id="hit"></div>
     </div>
   </div>
 
   <div id="menu" class="hide">
     <button data-act="feed">🍚 <span>喂一碗白饭</span></button>
     <button data-act="pomodoro"><span id="menu-pomo">🍅 开始专注 25 分钟</span></button>
-    <button data-act="usage"><span id="menu-usage">🍚 白饭账本</span></button>
+    <button data-act="usage" id="menu-usage-btn"><span id="menu-usage">🍚 白饭账本</span></button>
     <button data-act="status">📊 <span>看看状态</span></button>
     <button data-act="sleep"><span id="menu-sleep-ico">😴</span> <span id="menu-sleep-txt">让它睡一会儿</span></button>
+    <button data-act="settings">⚙️ <span>设置</span></button>
     <div class="sep"></div>
     <button data-act="hide">👻 <span>先躲起来</span></button>
     <button data-act="quit">❌ <span>退出</span></button>
+  </div>
+
+  <div id="settings" class="hide">
+    <div class="set-title">⚙️ 设置</div>
+    <div class="set-sec">
+      <div class="set-label">尺寸 <b id="set-size-val">100%</b></div>
+      <div class="set-row" id="set-sizes">
+        <button data-size="0.75">小</button>
+        <button data-size="1">默认</button>
+        <button data-size="1.25">大</button>
+        <button data-size="1.5">特大</button>
+      </div>
+      <div class="set-row">
+        <button id="size-minus">− 缩小 5%</button>
+        <button id="size-plus">＋ 放大 5%</button>
+      </div>
+    </div>
+    <div class="set-sec">
+      <div class="set-label">待机位置</div>
+      <div class="set-row" id="set-docks">
+        <button data-dock="roam">🐟 到处游</button>
+        <button data-dock="corner">📍 待在右下角</button>
+      </div>
+    </div>
+    <div class="set-sec">
+      <div class="set-label">操作说明</div>
+      <div class="set-help">
+        <div><b>单击</b> 摸摸头 · <b>双击</b> 喂一碗白饭</div>
+        <div><b>拖拽</b> 搬到任意位置 · <b>右键</b> 打开菜单</div>
+        <div><b>鼠标靠近</b> 她会朝你看 · 约 100 秒不理她会打瞌睡</div>
+        <div id="help-ledger">右键菜单「白饭账本」显示你消耗的 Qoder credits</div>
+      </div>
+    </div>
+    <div class="set-foot">
+      <button id="set-close">关闭</button>
+    </div>
   </div>
 
 </div>

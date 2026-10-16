@@ -32,6 +32,10 @@ const settingsEl = document.getElementById('settings');
 const setSizes = document.getElementById('set-sizes');
 const setDocks = document.getElementById('set-docks');
 const setSizeVal = document.getElementById('set-size-val');
+const setPomoVal = document.getElementById('set-pomo-val');
+const setPomoPresets = document.getElementById('set-pomo-presets');
+const pickerEl = document.getElementById('picker');
+const pickerBody = document.getElementById('picker-body');
 const menuUsageBtn = document.getElementById('menu-usage-btn');
 const helpLedger = document.getElementById('help-ledger');
 
@@ -44,7 +48,11 @@ const LEAN_MAX = 5;
 const SIZE_MIN = 0.6;
 const SIZE_MAX = 1.6;
 const SIZE_STEP = 0.05;
-let petScale = 1;
+const POMO_MIN = 5;
+const POMO_MAX = 120;
+const POMO_STEP = 5;
+const DEFAULT_SCALE = 0.85;
+let petScale = DEFAULT_SCALE;
 
 const QUIPS = [
   '我是蓝色大肥鱼，不是鲸鱼哦',
@@ -82,8 +90,9 @@ const S = {
   satiety: 78,
   mood: 82,
   awake: true,
-  lite: false,
+  qoder: false,
   dock: 'roam',
+  pomoMin: 25,
   dragging: false,
   hover: false,
   autoDoze: false,
@@ -328,9 +337,17 @@ function refreshFlip() {
   flipEl.classList.toggle('left', P.facing === 'left' && !curNoMirror);
 }
 
-function playAnim(pool, loop) {
+function playAnim(pool, loop, restart) {
   const name = Array.isArray(pool) ? pick(pool) : pool;
-  if (name === curAnim) return;
+  if (name === curAnim) {
+    if (!restart) return;
+    // 「选个动作」重播同一个动画时不必重载 src，从头播即可
+    if (vidEl.duration) vidEl.currentTime = 0;
+    vidEl.loop = !!loop;
+    const pr = vidEl.play();
+    if (pr && pr.catch) pr.catch(() => {});
+    return;
+  }
   curAnim = name;
   curNoMirror = NO_MIRROR.has(name);
   refreshFlip();
@@ -340,10 +357,10 @@ function playAnim(pool, loop) {
   if (pr && pr.catch) pr.catch(() => {});
 }
 
-function playOnce(pool) {
+function playOnce(pool, restart) {
   clearTimeout(oneShotTimer);
   oneShotPlaying = true;
-  playAnim(pool, false);
+  playAnim(pool, false, restart);
   const back = () => {
     if (!oneShotPlaying) return;
     oneShotPlaying = false;
@@ -461,7 +478,7 @@ function say(text, ms = 3200, memeKey) {
   bubbleText.textContent = text;
   const pool = memeKey && MEMES[memeKey];
   if (pool && pool.length) {
-    memeEl.src = `../assets/memes/${pick(pool)}.png`;
+    memeEl.src = `../assets/memes/${pick(pool)}.webp`;
     memeEl.classList.remove('hide');
   } else {
     memeEl.classList.add('hide');
@@ -488,9 +505,9 @@ function showStatus() {
   S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), 6000);
 }
 
-// 白饭账本：白饭 = 你被烧掉的 Qoder credits
+// 白饭账本：白饭 = 你被烧掉的 Qoder credits（仅适配 Qoder 版有）
 function showUsage(ledger) {
-  if (S.lite) return;
+  if (!S.qoder) return;
   const l = ledger || S.ledger;
   clearTimeout(S.bubbleTimer);
   bubbleText.textContent = l && l.available ? '这是你喂给我的白饭' : '还没找到白饭记录…';
@@ -514,7 +531,7 @@ function showUsage(ledger) {
 }
 
 function creditsLine() {
-  if (S.lite) return null;
+  if (!S.qoder) return null;
   const l = S.ledger;
   if (!l || !l.available) return null;
   if (l.today > 0) return `今天你已经喂了我 ${l.today} credits 白饭啦`;
@@ -628,7 +645,7 @@ function setPomodoro(p) {
 let menuOpen = false;
 
 function refreshMenu() {
-  menuPomo.textContent = S.pomoRunning ? '🍅 结束专注' : '🍅 开始专注 25 分钟';
+  menuPomo.textContent = S.pomoRunning ? '🍅 结束专注' : `🍅 开始专注 ${S.pomoMin} 分钟`;
   menuSleepIco.textContent = S.awake ? '😴' : '☀️';
   menuSleepTxt.textContent = S.awake ? '让它睡一会儿' : '叫醒它';
   const l = S.ledger;
@@ -637,6 +654,7 @@ function refreshMenu() {
 
 function openMenu(x, y) {
   closeSettings();
+  closePicker();
   refreshMenu();
   menuEl.classList.remove('hide');
   const w = menuEl.offsetWidth;
@@ -665,6 +683,7 @@ menuEl.addEventListener('click', (e) => {
   closeMenu();
   if (act === 'status') showStatus();
   else if (act === 'settings') openSettings();
+  else if (act === 'acts') openPicker();
   else api.action(act);
 });
 
@@ -673,7 +692,7 @@ menuEl.addEventListener('click', (e) => {
 let settingsOpen = false;
 
 function saveSettings() {
-  api.saveSettings({ scale: petScale, dock: S.dock });
+  api.saveSettings({ scale: petScale, dock: S.dock, pomoMin: S.pomoMin });
 }
 
 function syncSettingsUI() {
@@ -684,10 +703,15 @@ function syncSettingsUI() {
   for (const btn of setDocks.querySelectorAll('button')) {
     btn.classList.toggle('on', btn.dataset.dock === S.dock);
   }
+  setPomoVal.textContent = `${S.pomoMin} 分钟`;
+  for (const btn of setPomoPresets.querySelectorAll('button')) {
+    btn.classList.toggle('on', Number(btn.dataset.pomo) === S.pomoMin);
+  }
 }
 
 function applyScale(s, save) {
-  petScale = clamp(Math.round((Number(s) || 1) / SIZE_STEP) * SIZE_STEP, SIZE_MIN, SIZE_MAX);
+  const v = Number(s);
+  petScale = clamp(Math.round((Number.isFinite(v) && v > 0 ? v : DEFAULT_SCALE) / SIZE_STEP) * SIZE_STEP, SIZE_MIN, SIZE_MAX);
   scaleEl.style.transform = Math.abs(petScale - 1) < 0.001 ? '' : `scale(${petScale.toFixed(2)})`;
   syncSettingsUI();
   clampInBounds();
@@ -712,8 +736,15 @@ function applyDock(mode, save) {
   if (save) saveSettings();
 }
 
+function applyPomoMin(v, save) {
+  S.pomoMin = clamp(Math.round(Number(v) || 25), POMO_MIN, POMO_MAX);
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
 function openSettings() {
   closeMenu();
+  closePicker();
   syncSettingsUI();
   settingsEl.classList.remove('hide');
   const w = settingsEl.offsetWidth;
@@ -748,14 +779,126 @@ settingsEl.addEventListener('click', (e) => {
   if (!btn) return;
   if (btn.dataset.size) applyScale(Number(btn.dataset.size), true);
   else if (btn.dataset.dock) applyDock(btn.dataset.dock, true);
+  else if (btn.dataset.pomo) applyPomoMin(Number(btn.dataset.pomo), true);
   else if (btn.id === 'size-minus') applyScale(petScale - SIZE_STEP, true);
   else if (btn.id === 'size-plus') applyScale(petScale + SIZE_STEP, true);
+  else if (btn.id === 'pomo-minus') applyPomoMin(S.pomoMin - POMO_STEP, true);
+  else if (btn.id === 'pomo-plus') applyPomoMin(S.pomoMin + POMO_STEP, true);
   else if (btn.id === 'set-close') closeSettings();
 });
 
+// ---------------------------------------------------------------- 选个动作
+
+let pickerOpen = false;
+let pickerBuilt = false;
+
+const byPool = (id) => (ACTIONS.find((a) => a.id === id) || { pool: [] }).pool;
+const PICKER_GROUPS = [
+  { name: '基础状态', list: [...ANIM.idle, ...ANIM.move, ...ANIM.drag, ...ANIM.sleep, ...ANIM.sad, ...ANIM.happy] },
+  { name: '吃什么', list: [...ANIM.feed, ...byPool('eat')] },
+  { name: '点击回应', list: ANIM.clicks },
+  { name: '小动作', list: byPool('small') },
+  { name: '玩耍', list: byPool('play') },
+  { name: '时节', list: byPool('season') },
+  { name: '工作与账本', list: [...ANIM.work, '工作状态-垂头叹气冒汗', '工作状态-雀跃庆祝', ...BALANCE_TIERS, ...ANIM.money] },
+  { name: '文字碎碎念', list: [...byPool('text'), ...WHISPERS] },
+];
+
+function pickerSec(label, items) {
+  const sec = document.createElement('div');
+  sec.className = 'pick-sec';
+  const lab = document.createElement('div');
+  lab.className = 'pick-label';
+  lab.textContent = label;
+  const row = document.createElement('div');
+  row.className = 'pick-row';
+  for (const n of items) {
+    const b = document.createElement('button');
+    b.dataset.anim = n;
+    b.textContent = n;
+    row.appendChild(b);
+  }
+  sec.append(lab, row);
+  return sec;
+}
+
+function buildPicker() {
+  if (pickerBuilt) return;
+  pickerBuilt = true;
+  const added = new Set();
+  for (const g of PICKER_GROUPS) {
+    const items = [];
+    for (const n of g.list) {
+      if (added.has(n) || !HAS.has(n) || items.includes(n)) continue;
+      items.push(n);
+    }
+    if (!items.length) continue;
+    items.forEach((n) => added.add(n));
+    pickerBody.appendChild(pickerSec(g.name, items));
+  }
+  const rest = [...HAS].filter((n) => !added.has(n)).sort();
+  if (rest.length) pickerBody.appendChild(pickerSec('其他', rest));
+}
+
+function openPicker() {
+  closeMenu();
+  closeSettings();
+  buildPicker();
+  pickerEl.classList.remove('hide');
+  const w = pickerEl.offsetWidth;
+  const h = pickerEl.offsetHeight;
+  let sx = P.x - w - 18; // 优先放在鱼的左边
+  if (sx < 8) sx = P.x + 320;
+  pickerEl.style.left = `${clamp(sx, 8, innerWidth - w - 8)}px`;
+  pickerEl.style.top = `${clamp(P.y + 24, 8, innerHeight - h - 8)}px`;
+  requestAnimationFrame(() => pickerEl.classList.add('show'));
+  pickerOpen = true;
+  P.frozen = true;
+  P.vx = 0;
+  P.vy = 0;
+  P.target = null;
+  stage.classList.remove('swim');
+  api.setPanel(true);
+}
+
+function closePicker() {
+  if (!pickerOpen) return;
+  pickerOpen = false;
+  pickerEl.classList.remove('show');
+  setTimeout(() => {
+    if (!pickerOpen) pickerEl.classList.add('hide');
+  }, 160);
+  P.frozen = false;
+  api.setPanel(null);
+}
+
+function playAction(name) {
+  wake();
+  if (S.autoDoze) {
+    S.autoDoze = false;
+    applyDoze();
+  }
+  playOnce([name], true);
+  say(name, 2400);
+}
+
+pickerEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn.id === 'picker-close') {
+    closePicker();
+    return;
+  }
+  const name = btn.dataset.anim;
+  if (!name) return;
+  closePicker();
+  playAction(name);
+});
+
 // 兜底：两个版本同时运行时，个别情况下按下事件会被系统吞掉（只剩 up）。
-// 1) 孤儿 up 落在菜单/设置卡的按钮上 → 补发一次点击，保证按钮可用；
-// 2) 孤儿 up 落在面板外 → 等价于"点击别处"，收起面板（否则菜单关不掉）
+// 1) 孤儿 up 落在菜单/设置卡/动作面板的按钮上 → 补发一次点击，保证按钮可用；
+// 2) 孤儿 up 落在鱼身上 → 按一次"点击"处理（双击喂饭也由此兜底）；
+// 3) 孤儿 up 落在面板外 → 等价于"点击别处"，收起面板（否则菜单关不掉）
 let downSeen = false;
 document.addEventListener('mousedown', () => {
   downSeen = true;
@@ -766,18 +909,51 @@ document.addEventListener(
     const orphan = !downSeen;
     downSeen = false;
     if (!orphan || !e.target || !e.target.closest) return;
-    const btn = e.target.closest('#menu button, #settings button');
+    const btn = e.target.closest('#menu button, #settings button, #picker button');
     if (btn) {
       btn.click();
       return;
     }
+    if (e.target.closest('#hit')) {
+      closeMenu();
+      closeSettings();
+      closePicker();
+      handlePetClick();
+      return;
+    }
     if (menuOpen && !e.target.closest('#menu')) closeMenu();
     if (settingsOpen && !e.target.closest('#settings')) closeSettings();
+    if (pickerOpen && !e.target.closest('#picker')) closePicker();
   },
   true,
 );
 
 // ---------------------------------------------------------------- 指针交互
+
+// 点击/双击判定不依赖浏览器的 dblclick 事件：两个版本同时运行时个别"按下"会被系统
+// 吞掉，Chromium 便不会产生 dblclick（表现为双击喂饭时灵时不灵）。这里自己数连击，
+// 500ms 内两次点击即喂饭；配合上面的孤儿 up 兜底，只有 up 也能算一次点击
+const DOUBLE_CLICK_MS = 500;
+let lastClickAt = 0;
+
+function handlePetClick() {
+  const now = Date.now();
+  clearTimeout(S.quipTimer);
+  if (now - lastClickAt < DOUBLE_CLICK_MS) {
+    lastClickAt = 0;
+    api.action('feed');
+    return;
+  }
+  lastClickAt = now;
+  S.quipTimer = setTimeout(() => {
+    wake();
+    S.mood = clamp(S.mood + 1, 0, 100);
+    playOnce(ANIM.clicks);
+    const line = Math.random() < 0.3 ? creditsLine() : null;
+    say(line || pick(QUIPS), 3200, line ? 'ledger' : 'click');
+    api.updateStats({ satiety: S.satiety, mood: S.mood });
+  }, 230);
+}
 
 function hitTest(x, y) {
   if (menuOpen && menuEl.classList.contains('show')) {
@@ -794,6 +970,7 @@ hitEl.addEventListener('mousedown', (e) => {
   e.preventDefault();
   closeMenu();
   closeSettings();
+  closePicker();
   S.dragging = true;
   S.downAt = Date.now();
   S.downX = e.clientX;
@@ -828,34 +1005,23 @@ window.addEventListener('mouseup', () => {
   stage.classList.remove('drag');
   api.setDragging(false);
   applyBase();
-  if (S.moved < 6 && Date.now() - S.downAt < 500) {
-    clearTimeout(S.quipTimer);
-    S.quipTimer = setTimeout(() => {
-      wake();
-      S.mood = clamp(S.mood + 1, 0, 100);
-      playOnce(ANIM.clicks);
-      const line = Math.random() < 0.3 ? creditsLine() : null;
-      say(line || pick(QUIPS), 3200, line ? 'ledger' : 'click');
-      api.updateStats({ satiety: S.satiety, mood: S.mood });
-    }, 230);
-  }
+  if (S.moved < 6 && Date.now() - S.downAt < 500) handlePetClick();
 });
 
 document.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   if (S.dragging) return;
   if (hitTest(e.clientX, e.clientY)) openMenu(e.clientX, e.clientY);
-  else closeMenu();
+  else {
+    closeMenu();
+    closePicker();
+  }
 });
 
 document.addEventListener('mousedown', (e) => {
   if (menuOpen && !e.target.closest('#menu')) closeMenu();
   if (settingsOpen && !e.target.closest('#settings')) closeSettings();
-});
-
-hitEl.addEventListener('dblclick', () => {
-  clearTimeout(S.quipTimer);
-  api.action('feed');
+  if (pickerOpen && !e.target.closest('#picker')) closePicker();
 });
 
 // ---------------------------------------------------------------- 主进程事件
@@ -865,13 +1031,14 @@ api.on('init', (st) => {
   S.mood = st.mood;
   S.awake = st.awake;
   S.ledger = st.ledger || null;
-  S.lite = !!st.lite;
-  if (S.lite) {
+  S.qoder = !!st.qoder;
+  if (!S.qoder) {
     menuUsageBtn.classList.add('hide');
     helpLedger.classList.add('hide');
     usageEl.remove();
   }
   applyScale(st.settings && st.settings.scale, false);
+  applyPomoMin((st.settings && st.settings.pomoMin) || 25, false);
   if (st.pomodoro && st.pomodoro.running) setPomodoro(st.pomodoro);
   const b = bounds();
   if (st.pos) {
@@ -929,6 +1096,8 @@ api.on('pomodoro-done', () => {
 api.on('show-status', showStatus);
 
 api.on('show-settings', () => openSettings());
+
+api.on('show-picker', () => openPicker());
 
 // 主进程轮询光标：同时用于视线跟随与"被摸到就醒来"
 api.on('cursor', (c) => {
@@ -1026,6 +1195,8 @@ window.__devScene = (name) => {
     openMenu(P.x + 150, P.y + 90);
   } else if (name === 'settings') {
     openSettings();
+  } else if (name === 'picker') {
+    openPicker();
   } else if (name === 'huge') {
     applyScale(1.5, true);
   } else if (name === 'corner') {

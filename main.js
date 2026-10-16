@@ -4,8 +4,7 @@ const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, screen } = require
 const path = require('node:path');
 const fs = require('node:fs');
 
-const FOCUS_MS = 25 * 60 * 1000;
-const DEFAULT_STATE = { satiety: 78, mood: 82, pos: null, awake: true, scale: 1, dock: 'roam' };
+const DEFAULT_STATE = { satiety: 78, mood: 82, pos: null, awake: true, scale: 0.85, dock: 'roam', pomoMin: 25 };
 
 // 与渲染层 PET 常量保持一致：角色可见区域（#pet 局部坐标）
 const PET = { x0: 76, y0: 144, x1: 224, y1: 312 };
@@ -16,24 +15,30 @@ const argv = process.argv.slice(1);
 const DEV_SHOT = argv.includes('--dev-shot');
 const DEV_INPUT = argv.includes('--dev-input');
 const DEV_CPU = argv.includes('--dev-cpu');
+const DEV_GPU = argv.includes('--dev-gpu');
 const DEV_SCENE = (argv.find((a) => a.startsWith('--dev-scene=')) || '').split('=')[1] || 'idle';
 
-// 简版（无 Qoder 白饭账本）：打包时注入 package.json 的 lite:true，开发用 --lite 模拟
+// 双版本：标准版（默认，不含 Qoder 白饭账本）/ 适配 Qoder 版（打包时注入 package.json 的
+// qoder:true，开发用 --qoder 模拟）
 let pkgMeta = {};
 try {
   pkgMeta = require('./package.json');
 } catch {
-  /* 读不到就按完整版处理 */
+  /* 读不到就按标准版处理 */
 }
-const LITE = !!pkgMeta.lite || argv.includes('--lite');
-if (LITE) {
+const QODER = !!pkgMeta.qoder || argv.includes('--qoder');
+if (QODER) {
   try {
-    app.setPath('userData', path.join(app.getPath('appData'), 'dafeiyu-desktop-pet-lite'));
+    // 适配 Qoder 版用独立数据目录（与标准版完全隔离）。
+    // 开发/测试显式传了 --user-data-dir 时尊重外部指定
+    if (!app.commandLine.hasSwitch('user-data-dir')) {
+      app.setPath('userData', path.join(app.getPath('appData'), 'dafeiyu-desktop-pet-qoder'));
+    }
   } catch {
     /* 目录设置失败就用默认的 */
   }
 }
-const usageLedger = LITE ? null : require('./usage');
+const usageLedger = QODER ? require('./usage') : null;
 
 // 打包后没有控制台，崩溃与启动参数落一份日志到临时目录，便于排查
 function crashLog(kind, err) {
@@ -77,10 +82,32 @@ const send = (ch, payload) => {
 const statePath = () => path.join(app.getPath('userData'), 'dafeiyu-state.json');
 
 function loadState() {
+  if (QODER) {
+    // 1.2.0 起适配 Qoder 版用独立数据目录：首次启动时把 1.1.0 完整版旧目录里的状态带过来，
+    // 白饭套餐额度（planQuota）、番茄钟时长、尺寸等手工配置不丢
+    try {
+      if (!fs.existsSync(statePath())) {
+        const legacy = path.join(app.getPath('appData'), 'dafeiyu-desktop-pet', 'dafeiyu-state.json');
+        if (fs.existsSync(legacy)) {
+          fs.mkdirSync(path.dirname(statePath()), { recursive: true });
+          fs.copyFileSync(legacy, statePath());
+        }
+      }
+    } catch {
+      /* 带不过来就用默认状态 */
+    }
+  }
   try {
     state = { ...DEFAULT_STATE, ...JSON.parse(fs.readFileSync(statePath(), 'utf8')) };
   } catch {
     state = { ...DEFAULT_STATE };
+  }
+  // 1.2.0 起默认尺寸改为原来的 85%：对老状态做一次性迁移
+  //（存着 100% 说明是旧默认值；手动调过其他比例的不动，用 scale85 标记只迁一次）
+  if (!state.scale85) {
+    state.scale85 = true;
+    if (!Number.isFinite(Number(state.scale)) || Math.abs(Number(state.scale) - 1) < 0.001) state.scale = 0.85;
+    saveState();
   }
 }
 
@@ -163,6 +190,12 @@ function openSettingsFromTray() {
   send('show-settings');
 }
 
+function showPickerFromTray() {
+  if (!win || win.isDestroyed()) return;
+  if (!win.isVisible()) win.showInactive();
+  send('show-picker');
+}
+
 // --------------------------------------------------------------------------
 // 鼠标穿透：轮询光标位置，命中鱼身（或菜单/拖拽中）时才让窗口接收鼠标
 // --------------------------------------------------------------------------
@@ -202,6 +235,10 @@ function cursorTick() {
 
 const remaining = () => Math.max(0, pomo.endsAt - Date.now());
 
+// 番茄钟时长可在设置里改（5~120 分钟），存 state.pomoMin
+const pomoMinutes = () => clamp(Math.round(Number(state.pomoMin) || 25), 5, 120);
+const focusMs = () => pomoMinutes() * 60 * 1000;
+
 function fmtClock(ms) {
   const total = Math.ceil(ms / 1000);
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
@@ -210,8 +247,8 @@ function fmtClock(ms) {
 function startPomodoro() {
   setAwake(true);
   pomo.running = true;
-  pomo.endsAt = Date.now() + FOCUS_MS;
-  send('pomodoro', { running: true, remaining: FOCUS_MS });
+  pomo.endsAt = Date.now() + focusMs();
+  send('pomodoro', { running: true, remaining: focusMs() });
   updateTray();
 
   clearInterval(pomo.ticker);
@@ -249,15 +286,19 @@ function petStatus() {
     awake: state.awake,
     pomodoro: { running: pomo.running, remaining: remaining() },
     pos: state.pos,
-    lite: LITE,
-    settings: { scale: Number(state.scale) || 1, dock: state.dock === 'corner' ? 'corner' : 'roam' },
-    ledger: LITE ? null : ledger || refreshUsage(),
+    qoder: QODER,
+    settings: {
+      scale: Number(state.scale) || 1,
+      dock: state.dock === 'corner' ? 'corner' : 'roam',
+      pomoMin: pomoMinutes(),
+    },
+    ledger: QODER ? ledger || refreshUsage() : null,
   };
 }
 
 // 白饭账本：可选套餐额度（state.planQuota，单位 credits/月），填了才显示百分比
 function refreshUsage() {
-  if (LITE) return null;
+  if (!QODER) return null;
   let data = { today: 0, month: 0, session: 0, sessionId: '', available: false, updatedAt: Date.now() };
   try {
     data = { ...usageLedger.collect() };
@@ -307,7 +348,7 @@ function handleAction(name) {
       send('show-status');
       break;
     case 'usage':
-      if (LITE) break;
+      if (!QODER) break;
       refreshUsage();
       send('show-usage', ledger);
       break;
@@ -362,7 +403,7 @@ function balloon(kind, title, content) {
 
 // 套餐用量跨过 80% / 100% 时提醒一次（按自然月记账）
 function checkQuotaWarning() {
-  if (LITE) return;
+  if (!QODER) return;
   const quota = Number(state.planQuota) || 0;
   if (!quota || !ledger) return;
   const percent = (ledger.month / quota) * 100;
@@ -397,10 +438,10 @@ function updateTray() {
       { label: '🐟  投喂小鱼干', click: doFeed },
       pomo.running
         ? { label: `🍅  结束专注（剩 ${fmtClock(remaining())}）`, click: stopPomodoro }
-        : { label: '🍅  开始专注 25 分钟', click: startPomodoro },
-      ...(LITE
-        ? []
-        : [
+        : { label: `🍅  开始专注 ${pomoMinutes()} 分钟`, click: startPomodoro },
+      { label: '🎬  选个动作…', click: showPickerFromTray },
+      ...(QODER
+        ? [
             {
               label: ledger && ledger.available ? `🍚  本月白饭 ${ledger.month} credits` : '🍚  白饭账本',
               click: () => {
@@ -408,7 +449,8 @@ function updateTray() {
                 send('show-usage', ledger);
               },
             },
-          ]),
+          ]
+        : []),
       { type: 'separator' },
       { label: '⚙️  设置', click: openSettingsFromTray },
       { label: '📊  看看状态', click: () => send('show-status') },
@@ -477,7 +519,9 @@ function registerIpc() {
     if (!s || typeof s !== 'object') return;
     if (Number.isFinite(s.scale)) state.scale = clamp(s.scale, 0.6, 1.6);
     if (s.dock === 'corner' || s.dock === 'roam') state.dock = s.dock;
+    if (Number.isFinite(s.pomoMin)) state.pomoMin = clamp(Math.round(s.pomoMin), 5, 120);
     saveState();
+    updateTray();
   });
 
   ipcMain.on('action', (_e, name) => handleAction(String(name)));
@@ -515,7 +559,7 @@ if (!app.requestSingleInstanceLock()) {
     if (win && !win.isDestroyed()) win.showInactive();
   });
 
-  app.setAppUserModelId(LITE ? 'com.dafeiyu.desktop-pet.lite' : 'com.dafeiyu.desktop-pet');
+  app.setAppUserModelId(QODER ? 'com.dafeiyu.desktop-pet.qoder' : 'com.dafeiyu.desktop-pet');
 
   app.whenReady().then(() => {
     loadState();
@@ -529,12 +573,28 @@ if (!app.requestSingleInstanceLock()) {
 
     setInterval(cursorTick, CURSOR_POLL_MS);
     setInterval(() => {
-      if (!LITE) refreshUsage();
+      if (QODER) refreshUsage();
       updateTray();
     }, 5 * 60 * 1000);
 
     if (DEV_INPUT) {
       global.__petDiag = () => ({ interactive, panel: panelOpen, dragging, pet: { ...pet } });
+    }
+    if (DEV_GPU) {
+      // 打包版校验用：裁掉运行时冗余 DLL 后，把 GPU 特性状态写到临时目录再退出
+      app
+        .getGPUInfo('basic')
+        .then((gpu) => {
+          fs.writeFileSync(
+            path.join(app.getPath('temp'), 'dafeiyu-gpu.json'),
+            JSON.stringify({ featureStatus: app.getGPUFeatureStatus(), gpu }, null, 2),
+          );
+        })
+        .catch((e) => crashLog('devGpu', e))
+        .finally(() => {
+          if (win && !win.isDestroyed()) win.destroy();
+          app.quit();
+        });
     }
     if (!app.isPackaged) {
       global.__dbg = () => ({ interactive, panel: panelOpen, dragging, pet: { ...pet } });

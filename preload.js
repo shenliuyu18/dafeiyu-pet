@@ -14,6 +14,7 @@ const IN_CHANNELS = [
   'usage',
   'show-usage',
   'show-settings',
+  'show-picker',
 ];
 
 contextBridge.exposeInMainWorld('pet', {

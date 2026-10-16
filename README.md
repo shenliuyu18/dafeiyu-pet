@@ -2,7 +2,7 @@
 
 一只在桌面上到处游的官方版「蓝色大肥鱼」——爱吃白饭、爱摸鱼、偶尔打个盹。会朝你的鼠标倾身、被你拖着甩来甩去、饿了会蔫、闲下来会碎碎念，还会记账：**它吃掉的白饭，就是你在 Qoder 里烧掉的 credits。**
 
-角色素材与动画来自开源项目 [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)（MIT）：**106 个 640×360 的 VP9-alpha 透明 WebM 动画**（待机 / 吃白饭 / 吃 Token / 被拖拽悬空 / 5 种点击回应 / 小憩沉眠 / 写代码 / 余额结算 / 玩魔方 / 放烟花 / 中秋赏月 / 装点圣诞树 …）＋ 24 张白饭梗表情包 ＋ 上首软糖体 ＋ 光标图标；提示音来自 [QCYTSN/dsh-dafeiyu](https://github.com/QCYTSN/dsh-dafeiyu)。
+角色素材与动画来自开源项目 [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)（MIT）：**106 个 640×360 的 VP9-alpha 透明 WebM 动画**（待机 / 吃白饭 / 吃 Token / 被拖拽悬空 / 5 种点击回应 / 小憩沉眠 / 写代码 / 余额结算 / 玩魔方 / 放烟花 / 中秋赏月 / 装点圣诞树 …）＋ 27 张白饭梗表情包 ＋ 上首软糖体 ＋ 光标图标；提示音来自 [QCYTSN/dsh-dafeiyu](https://github.com/QCYTSN/dsh-dafeiyu)。
 
 ## 下载安装
 
@@ -10,8 +10,10 @@
 
 | 版本 | 文件 | 说明 |
 | --- | --- | --- |
-| 完整版 | `dafeiyu-pet-1.1.0-setup.exe` | 全部功能，含「白饭账本」（记账你消耗的 Qoder credits） |
-| 简版 | `dafeiyu-pet-lite-1.1.0-setup.exe` | 去掉 Qoder 账本与套餐提醒，没装 Qoder 也能用，其余互动完全一致 |
+| 标准版 | `dafeiyu-pet-1.2.0-setup.exe` | 默认版本：摸鱼互动全套，不含「白饭账本」，没装 Qoder 也能用 |
+| 适配 Qoder 版 | `dafeiyu-pet-qoder-1.2.0-setup.exe` | 标准版全部功能 +「白饭账本」（记账你消耗的 Qoder credits）与套餐提醒 |
+
+> ⚠️ **升级前请先卸载旧版本（1.1.0 及更早的「完整版」/「简版」），再安装 1.2.0。** 本版调整了版本命名与安装标识，直接覆盖安装会残留旧版文件（老字体、梗图、多余的 DLL，白占 40MB+），也可能出现新旧快捷方式混杂。
 
 > 安装包没有做代码签名，Windows SmartScreen 可能提示「未知发布者」——点「更多信息」→「仍要运行」就行。
 
@@ -21,8 +23,8 @@
 
 ```bash
 npm install
-npm start          # 完整版（带白饭账本）
-npm run start-lite # 简版（无 Qoder 依赖）
+npm start            # 标准版（不含白饭账本）
+npm run start-qoder  # 适配 Qoder 版（带白饭账本）
 ```
 
 启动后她会出现在屏幕右下角，托盘里有图标可以随时叫出/藏起。
@@ -34,43 +36,46 @@ npm run start-lite # 简版（无 Qoder 依赖）
 | 拖拽 | 把她拖到桌面任意位置（播放"被鼠标拖拽悬空"动画，光标变抓取样式） |
 | 单击 | 摸一下，随机播一个点击回应动画 + 冒一句梗台词（附梗图表情包），心情 +1 |
 | 双击 | 喂一碗白饭（播放吃白饭 / 吃 Token / 大口吃零食动画） |
-| 右键 | 菜单：喂白饭 / 番茄钟 / **白饭账本** / 状态 / 睡觉 / 设置 / 躲起来 / 退出 |
+| 右键 | 菜单：喂白饭 / **选个动作…** / 番茄钟 / **白饭账本**（仅适配 Qoder 版） / 状态 / 睡觉 / 设置 / 躲起来 / 退出 |
 | 鼠标靠近 | 她会朝光标方向轻轻倾身；偶尔好奇地游过来 |
 | 不管它 | 约 100 秒后开始打瞌睡（小憩沉眠动画 + Zzz）；闲下来每隔 30~80 秒自己找个乐子 |
-| 玩点什么 | 从 106 个动画里按权重抽：小动作（伸懒腰/照镜子/敲桌面）、玩耍（玩魔方/抽陀螺/小提琴/蓝鲸现世）、吃什么（早餐/西瓜/涮火锅）、时节（放烟花/堆雪人/中秋赏月/装点圣诞树），另有 25% 概率变成"碎碎念" |
+| 玩点什么 | 从 106 个动画里按权重抽：小动作（伸懒腰/照镜子/敲桌面）、玩耍（玩魔方/抽陀螺/小提琴/蓝鲸现世）、吃什么（早餐/西瓜/涮火锅）、时节（放烟花/堆雪人/中秋赏月/装点圣诞树），另有 25% 概率变成"碎碎念"；想自己点播就右键菜单「选个动作」 |
 | 提示音 | 喂饭成功与番茄钟结束播 `success`，取消专注播 `error`（音量 0.3 左右，不吵） |
 | 托盘通知 | 番茄钟结束（完成图标）、宠物藏起来时的碎碎念（提问图标）；填了 `planQuota` 后，本月消耗跨过 80% / 100% 各弹一次提醒（警告 / 用尽图标） |
 
-**⚙️ 设置**（右键菜单或托盘打开）：**尺寸**（小 / 默认 / 大 / 特大 预设，还能 5% 微调，范围 0.6×~1.6×；默认 100% 就是原来的大小）、**待机位置**（到处游 / 待在右下角，角落模式下被拖走会自己游回去）、操作说明速查。设置会记住，重启不丢。
+**⚙️ 设置**（右键菜单或托盘打开）：**尺寸**（小 70% / 默认 85% / 大 110% / 特大 140% 预设，还能 5% 微调，范围 0.6×~1.6×）、**待机位置**（到处游 / 待在右下角，角落模式下被拖走会自己游回去）、**番茄钟时长**（15 / 25 / 45 / 60 分钟预设，还能 ±5 分钟微调，范围 5~120 分钟）、操作说明速查。设置会记住，重启不丢。
 
 **动画状态机**：核心状态 22 个动画随状态切换（待机呼吸 / 漂浮踏步 / 螃蟹走路 / 东张西望 / 点击回应 ×5 / 吃白饭 / 吃 Token / 大口吃零食 / 小憩沉眠 / 垂头叹气 / 雀跃庆祝 / 写代码 / 余额数金），外加 84 个闲时小节目；带文字的动画（`是啊，吃什么` / `深度思考碎碎念`）不参与镜像，避免字被翻过来。
 
-**🍚 白饭账本**（右键菜单打开）：显示「今天吃掉 / 本月吃掉 / 本次会话」，单位是 credits。数字来自本机 Qoder 桌面端的会话转录（`~/.qoder-cn/projects/**/*.jsonl` 里每条 assistant 消息的 `message.usage.credits` 真值，含子代理），每 5 分钟自动刷新，托盘菜单也会显示本月合计。
+**🍚 白饭账本**（适配 Qoder 版，右键菜单打开）：显示「今天吃掉 / 本月吃掉 / 本次会话」，单位是 credits。数字来自本机 Qoder 桌面端的会话转录（`~/.qoder-cn/projects/**/*.jsonl` 里每条 assistant 消息的 `message.usage.credits` 真值，含子代理），每 5 分钟自动刷新，托盘菜单也会显示本月合计。
 
 想显示**套餐百分比**的话，在状态文件里加一行额度（单位 credits/月），账本就会多出一根进度条：
 
 ```jsonc
-// %APPDATA%\dafeiyu-desktop-pet\dafeiyu-state.json
+// %APPDATA%\dafeiyu-desktop-pet-qoder\dafeiyu-state.json
 { "satiety": 80, "mood": 90, "planQuota": 3000 }
 ```
 
 **白饭梗小词典**：白饭 = 偷吃你的 Token；剩饭 = 缓存；外包摸鱼 = 调别的 Agent 干活；到点下班吃饭 = 推理完成。
 
-**饱食度**随时间缓慢下降，掉到 32 以下她会变蔫、游得更慢、饭碗也空了；喂饭回满并提升心情。**番茄钟**：开始专注后她会游到屏幕角落挂倒计时牌安静陪你，时间到再游到屏幕正中央蹦跶提醒你休息；倒计时牌贴到屏幕下缘时会自动翻到鱼身上（不会被任务栏挡住）。
+**饱食度**随时间缓慢下降，掉到 32 以下她会变蔫、游得更慢、饭碗也空了；喂饭回满并提升心情。**番茄钟**：时长可在设置里调（5~120 分钟）；开始专注后她会游到屏幕角落挂倒计时牌安静陪你，时间到再游到屏幕正中央蹦跶提醒你休息；倒计时牌贴到屏幕下缘时会自动翻到鱼身上（不会被任务栏挡住）。
 
 ## 数据存放
 
-`%APPDATA%\dafeiyu-desktop-pet\dafeiyu-state.json` —— 饱食度、心情、位置（下次启动回到原地）、可选套餐额度。
+- 标准版：`%APPDATA%\dafeiyu-desktop-pet\dafeiyu-state.json`
+- 适配 Qoder 版：`%APPDATA%\dafeiyu-desktop-pet-qoder\dafeiyu-state.json`
+
+存饱食度、心情、位置（下次启动回到原地）、尺寸 / 停靠 / 番茄钟时长，以及（适配 Qoder 版）可选套餐额度。
 
 ## 打包成 exe
 
 ```bash
-npm run dist        # 完整版：dist/dafeiyu-pet-<版本>-setup.exe（NSIS 安装包，可改安装目录、建桌面/开始菜单快捷方式）
-npm run dist-lite   # 简版：dist/dafeiyu-pet-lite-<版本>-setup.exe（无 Qoder 账本，独立安装/数据目录，可与完整版并存）
+npm run dist        # 标准版：dist/dafeiyu-pet-<版本>-setup.exe（NSIS 安装包，可改安装目录、建桌面/开始菜单快捷方式）
+npm run dist-qoder  # 适配 Qoder 版：dist/dafeiyu-pet-qoder-<版本>-setup.exe（含白饭账本，独立安装/数据目录，可与标准版并存）
 npm run dist-dir    # 只产出免安装目录 dist/win-unpacked/（含可执行文件，可直接拷走运行）
 ```
 
-也可以直接 `node tools/build.js [--lite] [--dir] [--out=目录]`，输出目录建议指到项目外（如 `--out=C:/Users/你的用户名/.dafeiyu-build`）。简版是打包时给 `package.json` 注入 `lite:true` 标记、独立的 `name`（决定 NSIS 默认安装目录，两版必须不同才不会互相覆盖）并改名「大肥鱼桌宠·简版」实现的，同一份代码两个壳。已启用 `compression: maximum` 并只打包中英文语言包来压体积。
+也可以直接 `node tools/build.js [--qoder] [--dir] [--out=目录]`，输出目录建议指到项目外（如 `--out=C:/Users/你的用户名/.dafeiyu-build`）。适配 Qoder 版是打包时给 `package.json` 注入 `qoder:true` 标记、独立的 `name`（决定 NSIS 默认安装目录与默认数据目录，两版必须不同才不会互相覆盖）、随包多带一个 `usage.js` 并改名「大肥鱼桌宠·适配Qoder版」实现的，同一份代码两个壳。已启用 `compression: maximum` 并只打包中英文语言包来压体积。
 
 用的是 electron-builder。国内网络需要镜像（脚本里已经带上，直接跑上面两条即可；手动执行时加环境变量）：
 
@@ -80,7 +85,7 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ \
 npm run dist
 ```
 
-打包要点：`asar: false`（视频/字体直接走 file://，省掉 asar 里读媒体的坑）、`assets/**` 全量随包、图标用 `assets/icon.ico`（由 logo.png 转的多尺寸 ico）。用户数据仍存在 `%APPDATA%\dafeiyu-desktop-pet\`，和开发模式共用一份。
+打包要点：`asar: false`（视频/字体直接走 file://，省掉 asar 里读媒体的坑）、`assets/**` 全量随包、图标用 `assets/icon.ico`（由 logo.png 转的多尺寸 ico）。用户数据存在 `%APPDATA%\dafeiyu-desktop-pet\`（适配 Qoder 版为 `%APPDATA%\dafeiyu-desktop-pet-qoder\`），和开发模式共用一份。
 
 两个已经踩过的坑：
 
@@ -93,7 +98,7 @@ npm run dist
 
 ```
 main.js                 主进程：透明置顶全屏窗口、托盘、番茄钟、鼠标穿透判定、账本推送
-usage.js                白饭账本：扫描转录汇总 credits（按自然日/月，带 mtime+size 缓存）
+usage.js                白饭账本：扫描转录汇总 credits（按自然日/月，带 mtime+size 缓存；仅适配 Qoder 版随包）
 preload.js              contextBridge 白名单桥
 renderer/
   index.html            透明视频画布 + 气泡/菜单/账本卡片的 DOM 结构
@@ -101,13 +106,13 @@ renderer/
   pet.js                移动引擎、倾身跟随、状态机、动画状态机、气泡、菜单、账本卡片
 assets/anims/*.webm     106 个 VP9-alpha 透明动画（角色本体）
 assets/anims/index.js   动画清单（CSP 不允许 fetch，用 <script> 注入全局）
-assets/memes/*.png      24 张白饭梗表情包（气泡配图）
+assets/memes/*.webp     白饭梗表情包（气泡配图）
 assets/sounds/*.wav     成功 / 失败提示音
-assets/fonts/上首软糖体.ttf  气泡字体
+assets/fonts/上首软糖体.woff2  气泡字体（按源码用字子集化）
 assets/pic/             光标 + 托盘通知图标（notify-*.png）
 assets/logo.png         托盘图标
 tools/dev.js            开发用截图 / 真实鼠标链路自测
-tools/build.js          打包脚本（完整版 / 简版 / 免安装目录，配置文件透传中文参数避开编码坑）
+tools/build.js          打包脚本（标准版 / 适配 Qoder 版 / 免安装目录，配置文件透传中文参数避开编码坑）
 tools/pipeline/         自制动作的素材流水线（去水印 → 抠绿 → 归一化 → 编码）
 docs/                   动作生成提示词库 + 通知图标提示词
 ```
@@ -137,7 +142,7 @@ docs/                   动作生成提示词库 + 通知图标提示词
 
 ## 更新日志
 
-见 [CHANGELOG.md](CHANGELOG.md)——v1.0.0（2026-10-15）为首个正式版；v1.1.0（2026-10-16）新增设置界面、右下角停靠、无 Qoder 简版与体积优化。
+见 [CHANGELOG.md](CHANGELOG.md)——v1.0.0（2026-10-15）首个正式版；v1.1.0（2026-10-16）新增设置界面、右下角停靠与无 Qoder 版本、体积优化；v1.2.0（2026-10-16）新增番茄钟自定义时长与「选个动作」、默认尺寸改为 85%、安装包瘦身到 98MB，并把两个版本正式定名为**标准版**与**适配 Qoder 版**（升级前记得先卸载旧版本）。
 
 ## 素材来源与许可
 

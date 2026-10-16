@@ -37,6 +37,8 @@ async function captureScene(win, scene) {
       return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) }; };
     return { win: { w: innerWidth, h: innerHeight }, pet: window.__petPos(), img: r('#petVid'),
       bubble: r('#bubble'), chip: r('#chip'), hit: r('#hit'), zzz: r('.zzz'), settings: r('#settings'),
+      picker: r('#picker'), pickerBtns: document.querySelectorAll('#picker button[data-anim]').length,
+      pomoVal: (document.getElementById('set-pomo-val') || {}).textContent,
       zzzAnim: getComputedStyle(document.querySelector('.zzz span')).animationName,
       imgLoaded: document.querySelector('#petVid').readyState > 0, anim: curAnim, animCount: (window.PET_ANIMS || []).length,
       scale: petScale, dock: S.dock, usageHidden: !!document.getElementById('menu-usage-btn').classList.contains('hide'),
@@ -44,7 +46,7 @@ async function captureScene(win, scene) {
   })()`);
   console.log('LAYOUT', JSON.stringify(info));
 
-  const wide = scene === 'settings';
+  const wide = scene === 'settings' || scene === 'picker';
   const rect = {
     x: Math.max(0, info.pet.x - (wide ? 340 : 60)),
     y: Math.max(0, info.pet.y - (wide ? 40 : 20)),

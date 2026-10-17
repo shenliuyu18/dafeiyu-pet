@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "dafeiyu-pet",
+  "outputfilename": "dafeiyu-pet",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "shenliuyu",
+    "email": ""
+  },
+  "info": {
+    "companyName": "shenliuyu",
+    "productName": "大肥鱼桌宠",
+    "productVersion": "1.4.0.0",
+    "copyright": "角色素材来自 PC2005-cloud/dsh-pet (MIT)",
+    "comments": "Wails + WebView2 版"
+  }
+}

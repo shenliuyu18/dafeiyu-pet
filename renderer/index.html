@@ -83,6 +83,7 @@
         <button class="set-nav" data-page="pomo"><span>🍅 番茄钟</span><i>›</i></button>
         <button class="set-nav" data-page="ledger"><span>🍚 白饭账本</span><i>›</i></button>
         <button class="set-nav" data-page="startup"><span>🚀 启动与更新</span><i>›</i></button>
+        <button class="set-nav" data-page="words"><span>💬 自定义互动文字</span><i>›</i></button>
         <button class="set-nav" data-page="help"><span>❓ 关于大肥鱼桌宠</span><i>›</i></button>
       </div>
 
@@ -136,7 +137,7 @@
             <button id="font-minus">− 缩小 5%</button>
             <button id="font-plus">＋ 放大 5%</button>
           </div>
-          <div class="set-hint">影响气泡里的文字大小</div>
+          <div class="set-hint">影响气泡、右键菜单与「选个动作」面板的文字大小</div>
         </div>
       </div>
 
@@ -174,6 +175,20 @@
             <button id="pomo-plus">＋ 5 分钟</button>
           </div>
           <div class="set-hint">开始专注后她会挂倒计时牌安静陪你，时间到再蹦跶提醒你休息</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">工作动画播放间隔 <b id="set-pomo-anim-val">5 秒</b></div>
+          <div class="set-row" id="set-pomo-anim-presets">
+            <button data-pomo-anim="5">5 秒</button>
+            <button data-pomo-anim="10">10 秒</button>
+            <button data-pomo-anim="20">20 秒</button>
+            <button data-pomo-anim="30">30 秒</button>
+          </div>
+          <div class="set-row">
+            <button id="pomo-anim-minus">− 5 秒</button>
+            <button id="pomo-anim-plus">＋ 5 秒</button>
+          </div>
+          <div class="set-hint">上一个工作动作完整播完后，休息该时间再播下一个（写代码 / 思考 / 忙碌 / 清点）；不会执行其他自动动作</div>
         </div>
       </div>
 
@@ -263,19 +278,36 @@
         </div>
       </div>
 
+      <div class="set-page hide" data-page="words">
+        <div class="set-sec">
+          <div class="set-label">自定义互动文字</div>
+          <div class="set-hint">每行一句，最多 20 行、每行 40 字。启用后，点击桌宠和闲时碎碎念会优先使用这些话。</div>
+          <div class="set-row">
+            <button id="set-words-edit">编辑自定义文字…</button>
+            <button id="set-words-clear">清空</button>
+          </div>
+          <div class="set-row">
+            <button id="set-words-enable">启用自定义文字</button>
+            <button id="set-words-disable">使用默认台词</button>
+          </div>
+          <div class="set-hint" id="set-words-status">还没有自定义文字，当前使用默认台词。</div>
+          <div class="set-warn">自定义文字只保存在本机；请勿输入违法、侵权或骚扰性内容。保存时会用开源敏感词库在本机检查，含敏感词的行会被拦截。</div>
+        </div>
+      </div>
+
       <div class="set-page hide" data-page="help">
         <div class="set-sec">
-          <div class="set-label">关于 <b>大肥鱼桌宠 <span id="about-version">-</span></b></div>
+          <div class="set-label">关于 <b><span id="about-name">大肥鱼桌宠</span> <span id="about-version">-</span></b></div>
           <div class="set-help">
             <div>一只住在桌面上的大肥鱼：会吃白饭、会摸鱼、会记账，还能换形象。</div>
             <div>开源地址、更新日志与问题反馈都在 GitHub 上：</div>
           </div>
           <div class="set-row">
             <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet">GitHub 仓库</button>
-            <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/releases">Releases 更新</button>
+            <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/blob/main/CHANGELOG.md">更新日志</button>
             <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/issues">问题反馈</button>
           </div>
-          <div class="set-hint">角色素材来自 dsh-pet / dsh-whale-widget-plus / DeepSeek-Balance-Whale-Widget / GPT-Niang（均 MIT，详见仓库 THIRD-PARTY 许可文件）</div>
+          <div class="set-hint">角色动画与立绘使用上游原始高画质素材，来自 dsh-pet / dsh-whale-widget-plus / DeepSeek-Balance-Whale-Widget / GPT-Niang（均 MIT）；敏感词库来自 Sensitive-lexicon（MIT）。详见仓库 THIRD-PARTY 许可文件</div>
         </div>
         <div class="set-sec">
           <div class="set-label">操作说明</div>
@@ -285,6 +317,7 @@
             <div><b>鼠标靠近</b> 她会朝你看 · 约 100 秒不理她会打瞌睡</div>
             <div><b>自动动作</b> 每隔「自动动作间隔」随机表演一个节目（默认 40 秒，可在设置里调）</div>
             <div><b>选个动作</b> 右键菜单里可以点播 100 多个节目；立绘形象会用各自的姿势和动作</div>
+            <div><b>自定义互动文字</b> 设置里可写自己的台词（每行一句），保存时会用离线敏感词库检查</div>
             <div><b>待机位置</b> 到处游 / 右下角 / 固定不动（设置里切换）</div>
             <div><b>番茄钟</b> 时长 5~120 分钟可调，专注时她会安静陪你</div>
             <div id="help-ledger"><b>白饭账本</b> 显示 Qoder 用量，或在设置里配置 API Key 后查询各 AI 平台的余额</div>

@@ -2,7 +2,7 @@
 node_modules/
 dist/
 
-# 开发截图（npm run shot）
+# 开发截图
 dev-shots/
 
 # Qoder 会话产物
@@ -14,3 +14,17 @@ dev-shots/
 # 打包脚本的临时配置
 .build-config.json
 .font-chars.txt
+
+# Wails 构建产物（appicon.png、icon.ico、info.json、manifest 与安装脚本保留）
+wails/build/bin/
+wails/*.exe
+wails/*-res.syso
+wails/build/windows/installer/tmp/
+wails/build/windows/installer/wails_tools.nsh
+wails/frontend/dist/
+
+# Wails 生成的 JS 绑定（运行时 window.go 由 Wails 注入，不使用此目录）
+wails/frontend/wailsjs/
+
+# Lite 生成素材
+assets-lite/

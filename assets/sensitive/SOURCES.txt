@@ -1,0 +1,26 @@
+敏感词库来源
+============
+
+上游：Konsheng/Sensitive-lexicon
+地址：https://github.com/Konsheng/Sensitive-lexicon
+提交：d967c30b053fa40b06c5a0dddf0be493f2dfae46
+许可：MIT（见仓库根目录 THIRD-PARTY-Sensitive-lexicon-LICENSE.txt）
+生成时间：2026-10-17
+
+选用的分类：
+- 政治类型.txt
+- 反动词库.txt
+- 色情类型.txt
+- 色情词库.txt
+- 暴恐词库.txt
+- 涉枪涉爆.txt
+- 贪腐词库.txt
+- 其他词库.txt
+- 广告类型.txt
+- 补充词库.txt
+- 网易前端过滤敏感词库.txt
+- 零时-Tencent.txt
+
+说明：原始词库经过 NFKC、去空白/标点、去重与单字过滤；另有一份很小的
+      桌宠常用词白名单（只豁免完全相同的词条），避免正常台词被误伤。
+      词库完全离线使用，不联网、不上传用户输入。

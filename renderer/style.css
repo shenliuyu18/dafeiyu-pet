@@ -139,7 +139,7 @@ body.dev-bg {
   transform-origin: 50% 93%;
 }
 
-/* 命中区 = 角色可见范围（与 main.js 的 PET 常量一致） */
+/* 命中区 = 角色可见范围（与 wails/win32.go 的 PET 兜底范围一致） */
 #hit {
   position: absolute;
   left: 138px;
@@ -286,12 +286,12 @@ body.dev-bg {
   left: 50%;
   bottom: 224px;
   z-index: 6;
-  max-width: 262px;
+  max-width: calc(262px * var(--fs, 1));
   padding: 10px 14px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.97);
   color: #1e2a52;
-  font-size: 14px;
+  font-size: calc(14px * var(--fs, 1));
   line-height: 1.5;
   text-align: center;
   box-shadow: 0 8px 22px rgba(18, 32, 86, 0.3), 0 0 0 1px rgba(120, 150, 255, 0.22);
@@ -544,12 +544,12 @@ body.dev-bg {
 #menu {
   position: absolute;
   z-index: 20;
-  min-width: 182px;
+  min-width: calc(182px * var(--fs, 1));
   padding: 6px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 12px 30px rgba(16, 28, 76, 0.34), 0 0 0 1px rgba(120, 150, 255, 0.22);
-  font-size: 14px;
+  font-size: calc(14px * var(--fs, 1));
   color: #22305e;
   opacity: 0;
   transform: scale(0.94);
@@ -781,6 +781,14 @@ body.dev-bg {
   color: #97a2c4;
 }
 
+.set-hint.ok {
+  color: #2f7d4f;
+}
+
+.set-hint.err {
+  color: #b33939;
+}
+
 .set-help b {
   color: #2c3fbe;
 }
@@ -807,8 +815,8 @@ body.dev-bg {
 #picker {
   position: absolute;
   z-index: 21;
-  width: 302px;
-  max-height: min(410px, 72vh);
+  width: calc(302px * var(--fs, 1));
+  max-height: min(calc(410px * var(--fs, 1)), 72vh);
   display: flex;
   flex-direction: column;
   padding: 12px 14px 12px;
@@ -856,7 +864,7 @@ body.dev-bg {
 
 .pick-label {
   margin-bottom: 5px;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--fs, 1));
   color: #5b688f;
 }
 
@@ -873,7 +881,7 @@ body.dev-bg {
   background: #f4f7ff;
   color: #33406e;
   font: inherit;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--fs, 1));
   white-space: nowrap;
   cursor: pointer;
 }

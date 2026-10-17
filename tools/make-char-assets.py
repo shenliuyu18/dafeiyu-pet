@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
-"""把新形象的立绘/表情图归一化成和现有 640×360 动画同一坐标系的透明画布，再压成 WebP。
+"""把新形象的立绘/表情图归一化成和动画同一坐标系的透明画布，再压成 WebP。
 
 用法：
     python tools/make-char-assets.py <源目录> <输出目录> <目标内容高度> [质量 0-100]
 
-源目录里的 PNG 会按 alpha 包围盒裁剪，等比缩放到「目标内容高度」，然后贴到 640×360
-画布上（水平居中 x=320、底边对齐 y=329——与现有动画角色的站位一致），输出同名 .webp。
-只处理文件名不含下划线前缀的 PNG；结果零依赖（ffmpeg + 纯 Python 扫描 alpha）。
+源目录里的 PNG 会按 alpha 包围盒裁剪，等比缩放到「目标内容高度」，然后贴到 1280×720
+画布上（水平居中 x=640、底边对齐 y=658——与动画角色的站位一致，坐标为原 640×360 的 2 倍），
+输出同名 .webp。只处理文件名不含下划线前缀的 PNG；结果零依赖（ffmpeg + 纯 Python 扫描 alpha）。
+立绘保持 2 倍分辨率，桌宠放大到 140% 或在高 DPI 屏幕上仍然清晰。
 """
 
 import pathlib
 import subprocess
 import sys
 
-CANVAS_W, CANVAS_H = 640, 360
-ANCHOR_CX, ANCHOR_BOTTOM = 320, 329
+CANVAS_W, CANVAS_H = 1280, 720
+ANCHOR_CX, ANCHOR_BOTTOM = 640, 658
 
 
 def ffprobe_wh(path):

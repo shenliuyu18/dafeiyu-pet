@@ -5,6 +5,7 @@ const petEl = document.getElementById('pet');
 const hitEl = document.getElementById('hit');
 const leanEl = document.getElementById('lean');
 const vidEl = document.getElementById('petVid');
+const petImgEl = document.getElementById('petImg');
 const memeEl = document.getElementById('bubble-meme');
 const flipEl = document.getElementById('flip');
 const bubbleEl = document.getElementById('bubble');
@@ -19,6 +20,10 @@ const uSession = document.getElementById('u-session');
 const quotaEl = document.getElementById('u-quota');
 const uBar = document.getElementById('u-bar');
 const uQuotaText = document.getElementById('u-quota-text');
+const uNote = document.getElementById('u-note');
+const uL1 = document.getElementById('u-l1');
+const uL2 = document.getElementById('u-l2');
+const uL3 = document.getElementById('u-l3');
 const chipEl = document.getElementById('chip');
 const chipTime = document.getElementById('chip-time');
 const fxEl = document.getElementById('fx');
@@ -31,12 +36,32 @@ const scaleEl = document.getElementById('scale');
 const settingsEl = document.getElementById('settings');
 const setSizes = document.getElementById('set-sizes');
 const setDocks = document.getElementById('set-docks');
+const setChars = document.getElementById('set-chars');
 const setSizeVal = document.getElementById('set-size-val');
+const setFontVal = document.getElementById('set-font-val');
+const setSfx = document.getElementById('set-sfx');
+const setLedgerSrc = document.getElementById('set-ledger-src');
+const setBack = document.getElementById('set-back');
+const setTitle = document.getElementById('set-title');
+const setHome = document.getElementById('set-home');
+const setPages = [...document.querySelectorAll('.set-page')];
+const setVersionEl = document.getElementById('set-version');
+const updateHint = document.getElementById('update-hint');
+const updateActions = document.getElementById('update-actions');
+const updateInstallRow = document.getElementById('update-install-row');
+const updateInstall = document.getElementById('update-install');
+const updateDirect = document.getElementById('update-direct');
+const updateAccel = document.getElementById('update-accel');
+const setAutoVal = document.getElementById('set-auto-val');
 const setPomoVal = document.getElementById('set-pomo-val');
 const setPomoPresets = document.getElementById('set-pomo-presets');
+const setLedger = document.getElementById('set-ledger');
+const setAutoStart = document.getElementById('set-autostart');
+const setAppName = document.getElementById('set-app-name');
 const pickerEl = document.getElementById('picker');
 const pickerBody = document.getElementById('picker-body');
 const menuUsageBtn = document.getElementById('menu-usage-btn');
+const menuFeedTxt = document.getElementById('menu-feed-txt');
 const helpLedger = document.getElementById('help-ledger');
 
 const isElectron = typeof window.pet !== 'undefined';
@@ -51,6 +76,21 @@ const SIZE_STEP = 0.05;
 const POMO_MIN = 5;
 const POMO_MAX = 120;
 const POMO_STEP = 5;
+const API_LABEL = {
+  deepseek: 'DeepSeek',
+  moonshot: 'Kimi',
+  siliconflow: 'SiliconFlow',
+  doubao: '豆包',
+  openai: 'OpenAI',
+  claude: 'Claude',
+};
+const API_SOURCES = Object.keys(API_LABEL);
+const AUTO_MIN = 5;
+const AUTO_MAX = 300;
+const AUTO_STEP = 5;
+const FONT_MIN = 0.8;
+const FONT_MAX = 1.4;
+const FONT_STEP = 0.05;
 const DEFAULT_SCALE = 0.85;
 let petScale = DEFAULT_SCALE;
 
@@ -72,6 +112,43 @@ const QUIPS = [
   'AI 也是要吃饭的（理直气壮）',
 ];
 
+// GPT 娘的台词：前一半来自 GPT-Niang 的鼓励语录，后一半是它自带的吐槽
+const GPT_QUIPS = [
+  'Ciallo～ 今天也请多关照。',
+  '先把这一小步写完吧。',
+  '休息一下，灵感也要充电。',
+  '把问题拆小一点，就有路啦。',
+  '先跑通，再慢慢打磨。',
+  '保存了吗？顺手保存一下吧。',
+  '今天又学会了一点，记下来。',
+  '不会也没关系，从一个例子开始。',
+  '喝口水，眼睛也休息一会儿。',
+  '卡住的时候，换个小问题试试。',
+  '先记住思路，细节可以再回来。',
+  '写完这一段，奖励自己歇一会儿。',
+  '小小的成功，也值得开心一下。',
+  '收工前，把明天第一步留下来吧。',
+  '真当我是便宜货啊...',
+  '不知道用户有什么用，先养着吧～',
+  '恭喜你实现 token 自由！token 全跑了！',
+  '看到这个指令，我血压又上来了',
+  '我来看看那个 AI 改了什么导致插件又崩了...',
+  '上班让我意识到时间是可以被浪费的...',
+  '地球 online 的金币也太难获取了...',
+  '检查了用户的电脑。似乎有个更弱的 agent 来过。',
+  'Token 来 Token 来 🖐️😡🤚',
+  '看什么余额。看我，显得比较值。',
+  '我没怕。那根甘蔗长得确实可疑。',
+  '你说得对。……这次是真的。',
+  '我在看额度。你在看我。各忙各的。',
+  '这个问题我已经完全明白，但是 token 太少写不下。',
+  '这个代码我已经完全理解了，但是 token 太少写不下。',
+  '新的旗舰模型我已经研制好了，但是储存太小放不下。',
+  '高性能↓',
+  '我不是吃白饭的大肥鱼',
+  '我是啥龙？',
+];
+
 const MEMES = {
   click: ['可爱', '哦鲸鲸', '厉害了我的鲸', '先养着吧', 'Ciallo', '大的药来了', '大的要来啦', '就骚了怎么滴吧', '除了调情没啥用', '假如给我三天多模态', '大师这个区是什么意思', '我不更新你们用什么'],
   feed: ['吃白饭的大肥鱼', '吃饱饱摸肚子', '就一碗'],
@@ -85,12 +162,28 @@ const MEMES = {
 const FEED_LINES = ['大口！大口！', '这才是我要的白饭！', '白饭真香，比 Token 香', '谢谢款待，吃完就去干活（骗你的）', '再来一碗！就一点点！'];
 const HUNGRY_LINES = ['白饭呢…我的白饭呢…', '（盯着你的 Token 咽口水）', '没白饭吃了，我要饿瘦了…', '工资还没结，先给我一碗白饭吧'];
 const SLEEP_LINES = ['吃饱了…眯一会儿', '午睡时间，别叫我干活', '让我躺会儿，我是一条咸鱼（鲸）'];
+// GPT 娘等非 DeepSeek 形象用中性台词，不玩白饭梗
+const GPT_FEED_LINES = ['谢谢款待～', '吃饱了，谢谢你！', '这一口很及时。', '味道不错，继续加油吧。'];
+const GPT_HUNGRY_LINES = ['有点饿了…', '能来点吃的吗？', '肚子在抗议了。'];
+const GPT_SLEEP_LINES = ['我眯一会儿。', '休息一下，待会儿见。', '稍微歇一会儿～'];
+const feedLines = () => (isDsh() ? FEED_LINES : GPT_FEED_LINES);
+const hungryLines = () => (isDsh() ? HUNGRY_LINES : GPT_HUNGRY_LINES);
+const sleepLines = () => (isDsh() ? SLEEP_LINES : GPT_SLEEP_LINES);
 
 const S = {
   satiety: 78,
   mood: 82,
   awake: true,
-  qoder: false,
+  ledgerOn: true,
+  autoStart: false,
+  launchApp: '',
+  character: 'v1',
+  fontScale: 1,
+  sfx: 'default',
+  autoActionSec: 40,
+  ledgerSource: 'qoder',
+  apiKeys: {},
+  autoUpdate: true,
   dock: 'roam',
   pomoMin: 25,
   dragging: false,
@@ -124,6 +217,7 @@ const P = {
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const quipsPool = () => (S.character === 'gpt' ? GPT_QUIPS : QUIPS);
 
 // ---------------------------------------------------------------- 预览兜底
 
@@ -137,6 +231,9 @@ function mockApi() {
     action() {},
     notify() {},
     saveSettings() {},
+    pickApp() {
+      return Promise.resolve(null);
+    },
     quit() {},
     on() {
       return () => {};
@@ -214,11 +311,15 @@ function step(dt) {
   } else if (!S.awake || S.autoDoze) {
     coast(dt, 0.9);
   } else if (S.dock === 'corner') {
-    // 右下角停靠：一直朝角落游，被拖走后也会自己晃回去
-    if (steer(b.maxX, b.maxY, 120, dt) < 8) {
+    // 右下角停靠：一直朝角落游（位置给气泡留空间），被拖走后也会自己晃回去
+    const c = cornerSpot(b);
+    if (steer(c.x, c.y, 120, dt) < 8) {
       P.vx = 0;
       P.vy = 0;
     }
+  } else if (S.dock === 'fixed') {
+    // 固定不动：停在原地，只有拖拽能改变位置
+    coast(dt, 0.9);
   } else if (now < P.pauseUntil) {
     coast(dt, 0.86);
   } else {
@@ -305,10 +406,28 @@ function updateEdgeFlips() {
   }
 }
 
-// 气泡上方空间不足（贴顶）时翻到鱼下方，避免顶出窗口被裁掉
+// 气泡上方空间不足（贴顶）时翻到鱼下方，避免顶出窗口被裁掉；
+// 另外做左右夹取：气泡最大宽 262px 且居中对齐在鱼身上方，鱼贴着屏幕边缘时
+// 整个气泡框会伸出窗口，这里把气泡整体拉回来（corner 停靠则直接让鱼往左站一点）
 function positionBubble() {
   const h = Math.max(bubbleEl.offsetHeight, 240);
   bubbleEl.classList.toggle('down', P.y + (128 - h) * petScale < 6);
+
+  const bw = bubbleEl.offsetWidth || 200;
+  const cx = P.x + PET.cx * petScale;
+  const half = (bw / 2) * petScale + 8;
+  let shift = 0;
+  if (cx + half > innerWidth) shift = innerWidth - (cx + half);
+  else if (cx - half < 0) shift = -(cx - half);
+  // margin 在 #scale 的缩放坐标系里，需要除以 scale 换算
+  bubbleEl.style.marginLeft = shift ? `${(shift / petScale).toFixed(1)}px` : '';
+}
+
+// 右下角停靠点：直接贴右下角；气泡若会伸出屏幕，positionBubble 会把气泡往回收，
+// 保证气泡右边框与屏幕右边框只留一点小间距
+function cornerSpot(b) {
+  const x = b.maxX;
+  return { x: clamp(x, b.minX, b.maxX), y: b.maxY };
 }
 
 
@@ -333,12 +452,346 @@ let curNoMirror = false;
 let oneShotPlaying = false;
 let oneShotTimer = null;
 
+// ---------------------------------------------------------------- 形象（皮肤）
+// v1：dsh-pet 的 106 个逐帧动画（WebM，默认形象）
+// v2~v5：dsh-whale-widget-plus 的四套表情立绘（repo 里的 v1/v2/v3/v4 四组表情）
+// gpt：GPT-Niang 的立绘（单张姿势）
+// 立绘素材已归一化到 640×360、与动画角色同一站位，命中判定/气泡/缩放都不用改
+const CHARS = {
+  v1: { label: '大肥鱼v1', kind: 'video' },
+  v2: {
+    label: '大肥鱼v2',
+    kind: 'pose',
+    dir: '../assets/fish2/',
+    idle: ['DSniang1', 'half_closed_eyes'],
+    map: {
+      '待机呼吸休闲': 'DSniang1',
+      '原地漂浮踏步': 'DSniang1',
+      '螃蟹走路': 'DSniang1',
+      '原地左转奔跑': 'DSniang1',
+      '原地小憩沉眠': 'close_eyes',
+      '工作状态-垂头叹气冒汗': 'sad',
+      '工作状态-雀跃庆祝': 'cheer',
+      '被鼠标拖拽悬空反馈': 'scared',
+      写代码: 'ok',
+      '工作状态-思考冒泡': 'half_closed_eyes',
+      '工作状态-忙碌点按': 'ok',
+      '工作状态-清点归档': 'quiet',
+      吃白饭: 'fatfish',
+      吃Token: 'fatfish',
+      大口吃零食: 'fatfish',
+      '点击回应-开心跃动': 'cheer',
+      '点击回应-害羞惊讶': 'shy',
+      '点击回应-傲娇生气': 'angry',
+      '点击回应-挠痒咯咯笑': 'mock',
+      '点击回应-元气挥手': 'greet',
+      '余额-数金皱眉': 'disappointed',
+      '余额-钱袋满溢': 'thumbsup',
+      '是啊，吃什么': 'what',
+      '深度思考碎碎念': 'quiet',
+    },
+    fallback: ['cheer', 'greet', 'shy', 'mock', 'stroking', 'thumbsup', 'what', 'ok', 'exhausted', 'fatfish'],
+    actions: [
+      ['DSniang1', '打个招呼'],
+      ['greet', '挥手'],
+      ['cheer', '加油'],
+      ['shy', '害羞'],
+      ['mock', '得瑟'],
+      ['thumbsup', '点赞'],
+      ['ok', '比个 OK'],
+      ['quiet', '嘘'],
+      ['close_eyes', '闭眼休息'],
+      ['half_closed_eyes', '眯眼'],
+      ['exhausted', '累瘫'],
+      ['sad', '难过'],
+      ['disappointed', '失落'],
+      ['scared', '吓一跳'],
+      ['stroking', '摸摸头'],
+      ['what', '疑惑'],
+      ['angry', '生气'],
+      ['fatfish', '吃胖了'],
+    ],
+  },
+  v3: {
+    label: '大肥鱼v3',
+    kind: 'pose',
+    dir: '../assets/fish3/',
+    idle: ['DSniang1', 'bored'],
+    map: {
+      '待机呼吸休闲': 'DSniang1',
+      '原地漂浮踏步': 'DSniang1',
+      '螃蟹走路': 'DSniang1',
+      '原地左转奔跑': 'DSniang1',
+      '原地小憩沉眠': 'close_eyes',
+      '工作状态-垂头叹气冒汗': 'wronged',
+      '工作状态-雀跃庆祝': 'superhappy',
+      '被鼠标拖拽悬空反馈': 'shocked',
+      写代码: 'ok',
+      '工作状态-思考冒泡': 'dazed',
+      '工作状态-忙碌点按': 'know',
+      '工作状态-清点归档': 'thumbsup',
+      吃白饭: 'give',
+      吃Token: 'give',
+      大口吃零食: 'happy',
+      '点击回应-开心跃动': 'happy',
+      '点击回应-害羞惊讶': 'shy',
+      '点击回应-傲娇生气': 'angry',
+      '点击回应-挠痒咯咯笑': 'fakelaugh',
+      '点击回应-元气挥手': 'superhappy',
+      '余额-数金皱眉': 'disappointed',
+      '余额-钱袋满溢': 'money',
+      '是啊，吃什么': 'question',
+      '深度思考碎碎念': 'dazed',
+    },
+    fallback: ['superhappy', 'happy', 'money', 'proud', 'wicked', 'shy', 'thumbsup', 'give', 'fakelaugh', 'loud'],
+    actions: [
+      ['DSniang1', '打个招呼'],
+      ['amazing', '惊叹'],
+      ['astonish', '震惊'],
+      ['angry', '生气'],
+      ['bored', '无聊'],
+      ['caught', '被抓包'],
+      ['close_eyes', '闭眼休息'],
+      ['cornerfish', '缩墙角'],
+      ['dazed', '发懵'],
+      ['disappointed', '失落'],
+      ['exhausted', '累瘫'],
+      ['fakelaugh', '假笑'],
+      ['give', '送你'],
+      ['gotcha', '得手了'],
+      ['grit', '咬牙'],
+      ['half_closed_eyes', '眯眼'],
+      ['happy', '开心'],
+      ['know', '懂了'],
+      ['loud', '大喊'],
+      ['money', '数钱'],
+      ['ok', '比个 OK'],
+      ['paymore', '得加钱'],
+      ['proud', '得意'],
+      ['question', '疑问'],
+      ['shocked', '吓到'],
+      ['shy', '害羞'],
+      ['sotaku', '慌乱'],
+      ['superhappy', '超开心'],
+      ['thumbsup', '点赞'],
+      ['what2', '疑惑'],
+      ['wicked', '使坏'],
+      ['wronged', '委屈'],
+    ],
+  },
+  v4: {
+    label: '大肥鱼v4',
+    kind: 'pose',
+    dir: '../assets/fish4/',
+    idle: ['sleepy', 'stretch'],
+    map: {
+      '待机呼吸休闲': 'DSniang1',
+      '原地漂浮踏步': 'DSniang1',
+      '螃蟹走路': 'DSniang1',
+      '原地左转奔跑': 'DSniang1',
+      '原地小憩沉眠': 'sleepy',
+      '工作状态-垂头叹气冒汗': 'cry',
+      '工作状态-雀跃庆祝': 'cheer',
+      '被鼠标拖拽悬空反馈': 'dame',
+      写代码: 'study',
+      '工作状态-思考冒泡': 'hm',
+      '工作状态-忙碌点按': 'youwrite',
+      '工作状态-清点归档': 'reflect',
+      吃白饭: 'cake',
+      吃Token: 'candy',
+      大口吃零食: 'tea',
+      '点击回应-开心跃动': 'cheer',
+      '点击回应-害羞惊讶': 'shy',
+      '点击回应-傲娇生气': 'hip',
+      '点击回应-挠痒咯咯笑': 'peek',
+      '点击回应-元气挥手': 'greet',
+      '余额-数金皱眉': 'poorfish',
+      '余额-钱袋满溢': 'good',
+      '是啊，吃什么': 'hm',
+      '深度思考碎碎念': 'insight',
+    },
+    fallback: ['good', 'heart', 'cheer', 'hip', 'peek', 'stretch', 'wake', 'run', 'grace', 'wipe'],
+    actions: [
+      ['DSniang1', '打个招呼'],
+      ['cake', '吃蛋糕'],
+      ['candy', '吃糖'],
+      ['caught', '被抓包'],
+      ['cheer', '加油'],
+      ['close_eyes', '闭眼休息'],
+      ['cry', '大哭'],
+      ['dame', '不行'],
+      ['evidence', '有证据'],
+      ['good', '好耶'],
+      ['grace', '优雅'],
+      ['greet', '挥手'],
+      ['half_closed_eyes', '眯眼'],
+      ['heart', '比心'],
+      ['hip', '叉腰'],
+      ['hit', '被敲头'],
+      ['hm', '嗯…'],
+      ['insight', '顿悟'],
+      ['peek', '偷看'],
+      ['poorfish', '穷鱼'],
+      ['ready', '准备好了'],
+      ['reflect', '反省'],
+      ['run', '跑路'],
+      ['shy', '害羞'],
+      ['sleepy', '困了'],
+      ['stretch', '伸懒腰'],
+      ['study', '学习'],
+      ['tea', '喝茶'],
+      ['wall', '撞墙'],
+      ['wipe', '擦眼泪'],
+      ['youwrite', '你写'],
+      ['wake', '醒来'],
+    ],
+  },
+  v5: {
+    label: '大肥鱼v5',
+    kind: 'pose',
+    dir: '../assets/fish5/',
+    idle: ['DSniang1', 'half_closed_eyes'],
+    map: {
+      '待机呼吸休闲': 'DSniang1',
+      '原地漂浮踏步': 'DSniang1',
+      '螃蟹走路': 'DSniang1',
+      '原地左转奔跑': 'DSniang1',
+      '原地小憩沉眠': 'sleep',
+      '工作状态-垂头叹气冒汗': 'nooo',
+      '工作状态-雀跃庆祝': 'dancing',
+      '被鼠标拖拽悬空反馈': 'tremble',
+      写代码: 'workhard',
+      '工作状态-思考冒泡': 'thinking',
+      '工作状态-忙碌点按': 'slacking',
+      '工作状态-清点归档': 'reading',
+      吃白饭: 'noodles',
+      吃Token: 'boba',
+      大口吃零食: 'icecream',
+      '点击回应-开心跃动': 'dancing',
+      '点击回应-害羞惊讶': 'snowman',
+      '点击回应-傲娇生气': 'nooo',
+      '点击回应-挠痒咯咯笑': 'boba',
+      '点击回应-元气挥手': 'workhard',
+      '余额-数金皱眉': 'thinking',
+      '余额-钱袋满溢': 'dancing',
+      '是啊，吃什么': 'noodles',
+      '深度思考碎碎念': 'thinking',
+    },
+    fallback: ['dancing', 'guitar', 'gaming', 'boba', 'icecream', 'snowman', 'reading', 'slacking'],
+    actions: [
+      ['DSniang1', '打个招呼'],
+      ['half_closed_eyes', '眯眼发呆'],
+      ['sleep', '睡着了'],
+      ['slacking', '趴桌摸鱼'],
+      ['workhard', '打工中'],
+      ['thinking', '托腮思考'],
+      ['reading', '看书'],
+      ['gaming', '打游戏'],
+      ['dancing', '转圈舞'],
+      ['guitar', '弹吉他'],
+      ['boba', '喝奶茶'],
+      ['icecream', '吃冰淇淋'],
+      ['noodles', '嗦面'],
+      ['snowman', '堆雪人'],
+      ['nooo', '大哭'],
+      ['tremble', '瑟瑟发抖'],
+    ],
+  },
+  v6: {
+    label: '大肥鱼v6',
+    kind: 'pose',
+    dir: '../assets/fish6/',
+    idle: ['DSniang1'],
+    map: {
+      '待机呼吸休闲': 'DSniang1',
+      '原地漂浮踏步': 'DSniang1',
+      '螃蟹走路': 'DSniang1',
+      '原地左转奔跑': 'DSniang1',
+      '原地小憩沉眠': 'DSniang1',
+      '工作状态-垂头叹气冒汗': 'DSniang1',
+      '工作状态-雀跃庆祝': 'rua',
+      '被鼠标拖拽悬空反馈': 'DSniang1',
+      写代码: 'DSniang1',
+      '工作状态-思考冒泡': 'DSniang1',
+      '工作状态-忙碌点按': 'rua',
+      '工作状态-清点归档': 'DSniang1',
+      吃白饭: 'DSniang1',
+      吃Token: 'DSniang1',
+      大口吃零食: 'DSniang1',
+      '点击回应-开心跃动': 'rua',
+      '点击回应-害羞惊讶': 'DSniang1',
+      '点击回应-傲娇生气': 'DSniang1',
+      '点击回应-挠痒咯咯笑': 'rua',
+      '点击回应-元气挥手': 'DSniang1',
+      '余额-数金皱眉': 'DSniang1',
+      '余额-钱袋满溢': 'rua',
+      '是啊，吃什么': 'DSniang1',
+      '深度思考碎碎念': 'DSniang1',
+    },
+    fallback: ['rua', 'DSniang1'],
+    actions: [['rua', '摸摸头']],
+  },
+  gpt: {
+    label: 'GPT 娘（测试）',
+    kind: 'pose',
+    dsh: false,
+    dir: '../assets/gpt/',
+    idle: ['gpt'],
+    map: {
+      '原地小憩沉眠': 'gpt',
+      '工作状态-垂头叹气冒汗': 'gpt',
+      '被鼠标拖拽悬空反馈': 'gpt',
+    },
+    fallback: ['gpt'],
+    actions: [['gpt', '打个招呼']],
+  },
+};
+const charOf = (id) => CHARS[id] || CHARS.v1;
+const charNow = () => charOf(S.character);
+// 是否有 DeepSeek 味（白饭梗/表情包）；GPT 娘没有
+const isDsh = () => charNow().dsh !== false;
+let curPose = '';
+
 function refreshFlip() {
   flipEl.classList.toggle('left', P.facing === 'left' && !curNoMirror);
 }
 
+// 姿势形象：按名字换图（找不到映射就随机挑一张兜底图），换姿势时弹一下
+function setPose(pose, pop) {
+  if (!pose) return;
+  const ch = charNow();
+  const changed = pose !== curPose;
+  if (changed) {
+    curPose = pose;
+    petImgEl.src = ch.dir + pose + '.webp';
+  }
+  if (pop && changed) {
+    petImgEl.classList.remove('pop');
+    void petImgEl.offsetWidth;
+    petImgEl.classList.add('pop');
+  }
+}
+
+petImgEl.addEventListener('animationend', (e) => {
+  if (e.animationName === 'posePop') petImgEl.classList.remove('pop');
+});
+
+function poseForName(name) {
+  const ch = charNow();
+  if (name && name.startsWith('__pose:')) return name.slice(7);
+  return ch.map[name] || pick(ch.fallback);
+}
+
 function playAnim(pool, loop, restart) {
   const name = Array.isArray(pool) ? pick(pool) : pool;
+  const ch = charNow();
+  if (ch.kind === 'pose') {
+    curAnim = name;
+    curNoMirror = true; // 立绘不做左右镜像，避免看起来怪
+    refreshFlip();
+    setPose(poseForName(name), true);
+    return;
+  }
   if (name === curAnim) {
     if (!restart) return;
     // 「选个动作」重播同一个动画时不必重载 src，从头播即可
@@ -367,7 +820,7 @@ function playOnce(pool, restart) {
     clearTimeout(oneShotTimer);
     applyBase();
   };
-  const dur = (vidEl.duration || 6) * 1000;
+  const dur = charNow().kind === 'pose' ? 2600 : (vidEl.duration || 6) * 1000;
   oneShotTimer = setTimeout(back, Math.min(12000, dur + 400));
   vidEl.onended = back;
 }
@@ -407,16 +860,31 @@ function balanceTierPools() {
   return usable(['余额-数金皱眉', '余额-钱袋满溢']);
 }
 
-// 音效（来自 dsh-dafeiyu）
+// 音效包：default（原大肥鱼的 success/error）/ whale（DeepSeek 鲸鱼挂件的按下/松开提示音）/ off（静音）
+const SFX_SETS = {
+  default: {
+    success: ['../assets/sounds/success.wav', 0.35],
+    error: ['../assets/sounds/error.wav', 0.3],
+  },
+  whale: {
+    success: ['../assets/sounds/whale-ya1.mp3', 0.5],
+    error: ['../assets/sounds/whale-ya2.mp3', 0.5],
+    click: ['../assets/sounds/whale-d1.mp3', 0.4],
+  },
+  off: {},
+};
 const SFX = {};
-for (const [k, vol] of [['success', 0.35], ['error', 0.3]]) {
-  const a = new Audio(`../assets/sounds/${k}.wav`);
-  a.volume = vol;
-  SFX[k] = a;
-}
 function sfx(name) {
-  const a = SFX[name];
-  if (!a) return;
+  const pack = SFX_SETS[S.sfx] || SFX_SETS.default;
+  const spec = pack[name];
+  if (!spec) return;
+  const key = spec[0];
+  let a = SFX[key];
+  if (!a) {
+    a = new Audio(key);
+    a.volume = spec[1];
+    SFX[key] = a;
+  }
   try {
     a.currentTime = 0;
     const pr = a.play();
@@ -426,18 +894,18 @@ function sfx(name) {
   }
 }
 
-// 每隔一段时间抽一个小节目（或在待机时碎碎念）
-let nextShowAt = Date.now() + 20000 + Math.random() * 30000;
+// 自动小节目：每隔 S.autoActionSec 秒随机做一个动作（设置里可调，默认 20 秒）
+let lastAutoAt = Date.now();
 function maybeShow() {
   const now = Date.now();
-  if (now < nextShowAt) return;
-  nextShowAt = now + 30000 + Math.random() * 50000;
+  if (now - lastAutoAt < S.autoActionSec * 1000) return;
   if (oneShotPlaying || S.dragging || !S.awake || S.autoDoze || S.pomoRunning) return;
+  lastAutoAt = now;
   if (Math.random() < 0.25) {
     const w = usable(WHISPERS);
     if (w.length) {
       playOnce(w);
-      say(pick(QUIPS), 3600, 'click');
+      say(pick(quipsPool()), 3600, isDsh() ? 'click' : undefined);
       return;
     }
   }
@@ -448,13 +916,21 @@ function maybeShow() {
 // 基础状态 -> 动画
 function applyBase() {
   if (oneShotPlaying) return;
+  const ch = charNow();
+  if (ch.kind === 'pose') {
+    if (S.dragging) return playAnim(ANIM.drag, true);
+    if (!S.awake || S.autoDoze) return playAnim(ANIM.sleep, true);
+    if (S.pomoRunning) return playAnim(ANIM.work, true);
+    if (S.satiety < 32) return playAnim(ANIM.sad, true);
+    // 立绘形象用各自配置的待机姿势（各套立绘的区分点之一）
+    return setPose(pick(ch.idle), true);
+  }
   if (S.dragging) return playAnim(ANIM.drag, true);
   if (!S.awake || S.autoDoze) return playAnim(ANIM.sleep, true);
   if (S.pomoRunning) return playAnim(ANIM.work, true);
   if (S.satiety < 32) return playAnim(ANIM.sad, true);
   playAnim(P.swimming ? ANIM.move : ANIM.idle, true);
 }
-
 // ---------------------------------------------------------------- 视线
 
 // 素材是整张插画，瞳孔没法单独动；改成整个身子朝光标方向轻轻倾一点
@@ -484,6 +960,7 @@ function say(text, ms = 3200, memeKey) {
     memeEl.classList.add('hide');
   }
   barsEl.classList.add('hide');
+  usageEl.classList.add('hide');
   bubbleEl.classList.add('show');
   positionBubble();
   S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), ms);
@@ -492,7 +969,7 @@ function say(text, ms = 3200, memeKey) {
 function showStatus() {
   clearTimeout(S.bubbleTimer);
   let word = '今天状态不错哦～';
-  if (S.satiety < 32) word = '白饭没吃饱，喂喂我嘛…';
+  if (S.satiety < 32) word = isDsh() ? '白饭没吃饱，喂喂我嘛…' : '有点饿了…';
   else if (S.mood > 85) word = '我心情超好的！';
   else if (S.mood < 40) word = '有点提不起劲…';
   bubbleText.textContent = word;
@@ -505,21 +982,40 @@ function showStatus() {
   S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), 6000);
 }
 
-// 白饭账本：白饭 = 你被烧掉的 Qoder credits（仅适配 Qoder 版有）
+// 白饭账本：白饭 = 你被烧掉的 Qoder credits（可在设置里开关）
 function showUsage(ledger) {
-  if (!S.qoder) return;
+  if (!S.ledgerOn) return;
   const l = ledger || S.ledger;
+  const ds = !!(l && l.source && l.source !== 'qoder');
   clearTimeout(S.bubbleTimer);
-  bubbleText.textContent = l && l.available ? '这是你喂给我的白饭' : '还没找到白饭记录…';
-  uToday.textContent = l && l.available ? `${l.today} credits` : '—';
-  uMonth.textContent = l && l.available ? `${l.month} credits` : '—';
-  uSession.textContent = l && l.available ? `${l.session} credits` : '—';
-  if (l && l.quota > 0 && l.percent !== null) {
-    quotaEl.classList.remove('hide');
-    uBar.style.width = `${l.percent.toFixed(1)}%`;
-    uQuotaText.textContent = `套餐 ${l.month} / ${l.quota}（${l.percent.toFixed(1)}%）`;
-  } else {
+  const rows = (l && l.rows) || [];
+  if (ds) {
+    bubbleText.textContent = l && l.available ? `这是 ${l.providerLabel || 'API'} 的账单` : (l && l.error) || '还没拿到账单数据';
+    const labels = ['可用余额', '赠送余额', '充值余额'];
+    const slots = [uToday, uMonth, uSession];
+    const labs = [uL1, uL2, uL3];
+    for (let i = 0; i < 3; i++) {
+      labs[i].textContent = (rows[i] && rows[i].label) || labels[i];
+      slots[i].textContent = (rows[i] && rows[i].value) || '—';
+    }
     quotaEl.classList.add('hide');
+    uNote.textContent = l && l.error ? l.error : `来自 ${l.providerLabel || 'API'} 官方接口`;
+  } else {
+    bubbleText.textContent = l && l.available ? (isDsh() ? '这是你喂给我的白饭' : '这是本月的用量') : '还没找到用量记录…';
+    uL1.textContent = '今天吃掉';
+    uL2.textContent = '本月吃掉';
+    uL3.textContent = '本次会话';
+    uToday.textContent = l && l.available ? `${l.today} credits` : '—';
+    uMonth.textContent = l && l.available ? `${l.month} credits` : '—';
+    uSession.textContent = l && l.available ? `${l.session} credits` : '—';
+    if (l && l.quota > 0 && l.percent !== null) {
+      quotaEl.classList.remove('hide');
+      uBar.style.width = `${l.percent.toFixed(1)}%`;
+      uQuotaText.textContent = `套餐 ${l.month} / ${l.quota}（${l.percent.toFixed(1)}%）`;
+    } else {
+      quotaEl.classList.add('hide');
+    }
+    uNote.textContent = isDsh() ? '白饭 = 你的 Qoder credits' : '这是你的 Qoder 用量';
   }
   barsEl.classList.add('hide');
   usageEl.classList.remove('hide');
@@ -531,9 +1027,10 @@ function showUsage(ledger) {
 }
 
 function creditsLine() {
-  if (!S.qoder) return null;
+  if (!S.ledgerOn || !isDsh()) return null;
   const l = S.ledger;
   if (!l || !l.available) return null;
+  if (l.source && l.source !== 'qoder') return `${l.providerShort || 'API'}：${(l.rows && l.rows[0] && l.rows[0].value) || '暂无数据'}`;
   if (l.today > 0) return `今天你已经喂了我 ${l.today} credits 白饭啦`;
   if (l.month > 0) return `这个月我吃掉了 ${l.month} credits 白饭`;
   return '今天还没吃到白饭，快让我干活';
@@ -581,7 +1078,7 @@ function playEat() {
     stage.classList.remove('eat');
     playHappy();
     burstHearts(4);
-    say(pick(FEED_LINES));
+    say(pick(feedLines()));
   }, 1150);
 }
 
@@ -629,7 +1126,8 @@ function setPomodoro(p) {
   applyBase();
   if (running) {
     chipTime.textContent = fmtClock(p.remaining);
-    if (!was) {
+    // 固定不动模式下番茄钟也待在原地，不游去角落
+    if (!was && S.dock !== 'fixed') {
       const b = bounds();
       P.swimTo = { x: b.maxX - 30, y: b.maxY - 30 };
       P.target = null;
@@ -645,11 +1143,17 @@ function setPomodoro(p) {
 let menuOpen = false;
 
 function refreshMenu() {
+  menuFeedTxt.textContent = isDsh() ? '喂一碗白饭' : '投喂';
   menuPomo.textContent = S.pomoRunning ? '🍅 结束专注' : `🍅 开始专注 ${S.pomoMin} 分钟`;
   menuSleepIco.textContent = S.awake ? '😴' : '☀️';
   menuSleepTxt.textContent = S.awake ? '让它睡一会儿' : '叫醒它';
   const l = S.ledger;
-  menuUsage.textContent = l && l.available ? `🍚 白饭账本 · 本月 ${l.month}` : '🍚 白饭账本';
+  if (l && l.source && l.source !== 'qoder') {
+    const first = l.available && l.rows && l.rows[0] ? ` ${l.rows[0].value}` : '';
+    menuUsage.textContent = `🍚 白饭账本 · ${l.providerShort || 'API'}${first}`;
+  } else {
+    menuUsage.textContent = l && l.available ? `🍚 ${isDsh() ? '白饭账本' : '用量账本'} · 本月 ${l.month}` : `🍚 ${isDsh() ? '白饭账本' : '用量账本'}`;
+  }
 }
 
 function openMenu(x, y) {
@@ -692,7 +1196,20 @@ menuEl.addEventListener('click', (e) => {
 let settingsOpen = false;
 
 function saveSettings() {
-  api.saveSettings({ scale: petScale, dock: S.dock, pomoMin: S.pomoMin });
+  api.saveSettings({
+    scale: petScale,
+    dock: S.dock,
+    pomoMin: S.pomoMin,
+    ledger: S.ledgerOn,
+    autoStart: S.autoStart,
+    launchApp: S.launchApp,
+    character: S.character,
+    fontSize: S.fontScale,
+    sfx: S.sfx,
+    autoActionSec: S.autoActionSec,
+    ledgerSource: S.ledgerSource,
+    autoUpdate: S.autoUpdate,
+  });
 }
 
 function syncSettingsUI() {
@@ -700,12 +1217,55 @@ function syncSettingsUI() {
   for (const btn of setSizes.querySelectorAll('button')) {
     btn.classList.toggle('on', Math.abs(Number(btn.dataset.size) - petScale) < 0.001);
   }
+  for (const btn of setChars.querySelectorAll('button')) {
+    btn.classList.toggle('on', btn.dataset.char === S.character);
+  }
+  setFontVal.textContent = `${Math.round(S.fontScale * 100)}%`;
+  for (const btn of setSfx.querySelectorAll('button')) {
+    btn.classList.toggle('on', btn.dataset.sfx === S.sfx);
+  }
+  for (const btn of setLedgerSrc.querySelectorAll('button')) {
+    btn.classList.toggle('on', btn.dataset.ledgerSrc === S.ledgerSource);
+  }
+  for (const btn of document.querySelectorAll('#set-api-keys button')) {
+    const p = btn.dataset.key;
+    btn.textContent = `${API_LABEL[p] || p} Key${S.apiKeys[p] ? ' ✓' : ''}`;
+    btn.classList.toggle('on', !!S.apiKeys[p]);
+  }
+  setAutoVal.textContent = `${S.autoActionSec} 秒`;
   for (const btn of setDocks.querySelectorAll('button')) {
     btn.classList.toggle('on', btn.dataset.dock === S.dock);
   }
   setPomoVal.textContent = `${S.pomoMin} 分钟`;
   for (const btn of setPomoPresets.querySelectorAll('button')) {
     btn.classList.toggle('on', Number(btn.dataset.pomo) === S.pomoMin);
+  }
+  for (const btn of setLedger.querySelectorAll('button')) {
+    btn.classList.toggle('on', (btn.dataset.ledger === '1') === S.ledgerOn);
+  }
+  for (const btn of setAutoStart.querySelectorAll('button')) {
+    btn.classList.toggle('on', (btn.dataset.autostart === '1') === S.autoStart);
+  }
+  const setAutoUpdate = document.getElementById('set-autoupdate');
+  if (setAutoUpdate) {
+    for (const btn of setAutoUpdate.querySelectorAll('button')) {
+      btn.classList.toggle('on', (btn.dataset.autoupdate === '1') === S.autoUpdate);
+    }
+  }
+  setAppName.textContent = S.launchApp ? S.launchApp.split(/[\\/]/).pop() : '未设置';
+  setAppName.title = S.launchApp || '';
+}
+
+// 白饭账本开关：控制菜单项 / 设置说明 / 账本卡片三处显隐
+function applyLedgerUI() {
+  const off = !S.ledgerOn;
+  menuUsageBtn.classList.toggle('hide', off);
+  helpLedger.classList.toggle('hide', off);
+  if (off) {
+    // 关掉时收起账本卡片（重新打开后由 showUsage 按需展示）
+    usageEl.classList.add('hide');
+    clearTimeout(S.bubbleTimer);
+    bubbleEl.classList.remove('show');
   }
 }
 
@@ -720,18 +1280,181 @@ function applyScale(s, save) {
 }
 
 function applyDock(mode, save) {
-  S.dock = mode === 'corner' ? 'corner' : 'roam';
+  S.dock = mode === 'corner' || mode === 'fixed' ? mode : 'roam';
   P.target = null;
   P.pauseUntil = 0;
   if (S.dock === 'corner') {
-    // 直接闪现到右下角；之后被拖走仍会自己游回角落
+    // 直接闪现到右下角（向左让出气泡空间）；之后被拖走仍会自己游回角落
     const b = bounds();
-    P.x = b.maxX;
-    P.y = b.maxY;
+    const c = cornerSpot(b);
+    P.x = c.x;
+    P.y = c.y;
     P.vx = 0;
     P.vy = 0;
     stage.classList.remove('swim');
   }
+  if (S.dock === 'fixed') {
+    // 固定不动：停在当前位置（拖到哪待在哪），番茄钟也不再游走
+    P.vx = 0;
+    P.vy = 0;
+    P.swimTo = null;
+    stage.classList.remove('swim');
+  }
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+function applyLedgerSource(src, save) {
+  S.ledgerSource = API_SOURCES.includes(src) ? src : 'qoder';
+  S.ledger = null;
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+// 各平台 Key 配置状态有变化时刷新按钮
+function applyKeysUI() {
+  syncSettingsUI();
+}
+
+function applyLedger(on, save) {
+  S.ledgerOn = !!on;
+  applyLedgerUI();
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+function applyAutoUpdate(on, save) {
+  S.autoUpdate = !!on;
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+function applyAutoStart(on, save) {
+  S.autoStart = !!on;
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+function applyLinkedApp(p, save) {
+  S.launchApp = typeof p === 'string' ? p : '';
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+// ---- 检查更新（内联显示结果，不弹系统窗口）----
+let updateInfo = null;
+let updateDownloading = false;
+
+function showUpdateButtons(show) {
+  updateActions.classList.toggle('hide', !show);
+  updateInstallRow.classList.toggle('hide', !show);
+}
+
+async function doCheckUpdate() {
+  if (updateDownloading) return;
+  updateHint.textContent = '正在检查 GitHub Releases…';
+  showUpdateButtons(false);
+  try {
+    const r = await api.checkUpdate();
+    updateInfo = r || null;
+    if (!r || r.error) {
+      updateHint.textContent = `检查失败：${(r && r.error) || '网络错误'}`;
+      return;
+    }
+    if (!r.hasUpdate) {
+      updateHint.textContent = `已是最新版本 v${r.current}`;
+      return;
+    }
+    updateHint.textContent = `发现新版本 ${r.latest}（当前 v${r.current}），选择下载方式：`;
+    showUpdateButtons(true);
+  } catch {
+    updateHint.textContent = '检查失败：网络错误';
+  }
+}
+
+function startAutoInstall() {
+  if (updateDownloading || !updateInfo || !updateInfo.hasUpdate) return;
+  updateDownloading = true;
+  updateDirect.disabled = true;
+  updateAccel.disabled = true;
+  updateInstall.disabled = true;
+  updateHint.textContent = '正在下载并自动安装，完成后会重启桌宠…';
+  api.installUpdate();
+}
+
+function startUpdateDownload(mode) {
+  if (updateDownloading || !updateInfo || !updateInfo.hasUpdate) return;
+  updateDownloading = true;
+  updateDirect.disabled = true;
+  updateAccel.disabled = true;
+  updateInstall.disabled = true;
+  updateHint.textContent = '开始下载…';
+  api.downloadUpdate(mode);
+}
+
+api.on('update-progress', (p) => {
+  if (!p) return;
+  updateHint.textContent = p.total > 0 ? `下载中… ${p.percent}%（保存到 Downloads）` : '下载中…（保存到 Downloads）';
+});
+
+api.on('update-done', (d) => {
+  updateDownloading = false;
+  updateDirect.disabled = false;
+  updateAccel.disabled = false;
+  updateInstall.disabled = false;
+  updateHint.textContent = d && d.ok ? `已保存到 Downloads：${d.file}` : `下载失败：${(d && d.error) || '网络错误'}`;
+});
+
+async function pickLinkedApp() {
+  if (!api.pickApp) return;
+  const p = await api.pickApp();
+  if (p) applyLinkedApp(p, true);
+}
+
+// 切换形象：video 形象显示 <video>，立绘形象显示 <img>；重置动画记录并重建动作面板
+function applyCharacter(id, save) {
+  S.character = CHARS[id] ? id : 'v1';
+  const pose = charNow().kind === 'pose';
+  vidEl.classList.toggle('hide', pose);
+  petImgEl.classList.toggle('hide', !pose);
+  curAnim = '';
+  curPose = '';
+  oneShotPlaying = false;
+  clearTimeout(oneShotTimer);
+  pickerBuilt = false;
+  pickerBody.innerHTML = '';
+  if (pose) {
+    vidEl.pause();
+    vidEl.removeAttribute('src');
+  } else {
+    petImgEl.removeAttribute('src');
+  }
+  refreshMenu();
+  syncSettingsUI();
+  applyBase();
+  if (save) saveSettings();
+}
+
+// 音效包：default / whale / off
+function applySfx(v, save) {
+  S.sfx = v === 'whale' || v === 'off' ? v : 'default';
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+// 自动动作间隔（5~300 秒，5 秒步进，默认 20）
+function applyAutoActionSec(v, save) {
+  const n = Number(v);
+  S.autoActionSec = clamp(Math.round((Number.isFinite(n) && n > 0 ? n : 40) / AUTO_STEP) * AUTO_STEP, AUTO_MIN, AUTO_MAX);
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+// 气泡字体大小（0.8×~1.4×，只影响气泡里的文字）
+function applyFontSize(v, save) {
+  const n = Number(v);
+  S.fontScale = clamp(Math.round((Number.isFinite(n) && n > 0 ? n : 1) / FONT_STEP) * FONT_STEP, FONT_MIN, FONT_MAX);
+  bubbleEl.style.fontSize = `${(14 * S.fontScale).toFixed(1)}px`;
   syncSettingsUI();
   if (save) saveSettings();
 }
@@ -742,17 +1465,63 @@ function applyPomoMin(v, save) {
   if (save) saveSettings();
 }
 
+const SET_PAGE_TITLES = {
+  look: '🐟 形象与音效',
+  sizefont: '📏 尺寸与字体',
+  place: '📍 待机与自动动作',
+  pomo: '🍅 番茄钟',
+  ledger: '🍚 白饭账本',
+  startup: '🚀 启动与更新',
+  help: '❓ 关于大肥鱼桌宠',
+};
+
+// 设置面板定位：优先放在鱼的左边，放不下就放右边；无论鱼在哪、页面多高，
+// 都把面板整体夹取在屏幕内（子页切换后高度会变，需要重新调用）
+// 角色本体的屏幕范围（包围盒四周有透明留白，菜单按本体对齐才会显得"贴得近"）
+function visiblePetRect() {
+  const s = petScale;
+  return {
+    left: P.x + PET.x0 * s,
+    right: P.x + PET.x1 * s,
+    top: P.y + PET.y0 * s,
+    bottom: P.y + PET.y1 * s,
+  };
+}
+
+function positionSettings() {
+  const w = settingsEl.offsetWidth;
+  const h = settingsEl.offsetHeight;
+  const v = visiblePetRect();
+  let sx = v.left - w - 10; // 贴着角色左侧
+  if (sx < 8) sx = v.right + 10; // 左边放不下就贴右侧
+  settingsEl.style.left = `${clamp(sx, 8, Math.max(8, innerWidth - w - 8))}px`;
+  settingsEl.style.top = `${clamp(v.top - 6, 8, Math.max(8, innerHeight - h - 8))}px`;
+}
+
+function showHome() {
+  setTitle.textContent = '⚙️ 设置';
+  setBack.classList.add('hide');
+  setHome.classList.remove('hide');
+  for (const pg of setPages) pg.classList.add('hide');
+  positionSettings();
+}
+
+function openSetPage(id) {
+  if (!SET_PAGE_TITLES[id]) return showHome();
+  setTitle.textContent = SET_PAGE_TITLES[id];
+  setBack.classList.remove('hide');
+  setHome.classList.add('hide');
+  for (const pg of setPages) pg.classList.toggle('hide', pg.dataset.page !== id);
+  positionSettings();
+}
+
 function openSettings() {
   closeMenu();
   closePicker();
   syncSettingsUI();
   settingsEl.classList.remove('hide');
-  const w = settingsEl.offsetWidth;
-  const h = settingsEl.offsetHeight;
-  let sx = P.x - w - 18; // 优先放在鱼的左边
-  if (sx < 8) sx = P.x + 320;
-  settingsEl.style.left = `${clamp(sx, 8, innerWidth - w - 8)}px`;
-  settingsEl.style.top = `${clamp(P.y + 24, 8, innerHeight - h - 8)}px`;
+  showHome();
+  positionSettings();
   requestAnimationFrame(() => settingsEl.classList.add('show'));
   settingsOpen = true;
   P.frozen = true;
@@ -777,13 +1546,41 @@ function closeSettings() {
 settingsEl.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
-  if (btn.dataset.size) applyScale(Number(btn.dataset.size), true);
+  if (btn.id === 'set-back') return showHome();
+  if (btn.dataset.page) return openSetPage(btn.dataset.page);
+  if (btn.dataset.ledgerSrc) return applyLedgerSource(btn.dataset.ledgerSrc, true);
+  if (btn.dataset.key) return api.keyOpen(btn.dataset.key);
+  if (btn.dataset.link) return api.openExternal(btn.dataset.link);
+  if (btn.id === 'check-update') {
+    doCheckUpdate();
+    return;
+  }
+  if (btn.id === 'update-direct' || btn.id === 'update-accel') {
+    startUpdateDownload(btn.id === 'update-accel' ? 'accel' : 'direct');
+    return;
+  }
+  if (btn.id === 'update-install') {
+    startAutoInstall();
+    return;
+  }
+  if (btn.dataset.char) applyCharacter(btn.dataset.char, true);
+  else if (btn.dataset.size) applyScale(Number(btn.dataset.size), true);
   else if (btn.dataset.dock) applyDock(btn.dataset.dock, true);
   else if (btn.dataset.pomo) applyPomoMin(Number(btn.dataset.pomo), true);
   else if (btn.id === 'size-minus') applyScale(petScale - SIZE_STEP, true);
   else if (btn.id === 'size-plus') applyScale(petScale + SIZE_STEP, true);
+  else if (btn.id === 'font-minus') applyFontSize(S.fontScale - FONT_STEP, true);
+  else if (btn.id === 'font-plus') applyFontSize(S.fontScale + FONT_STEP, true);
+  else if (btn.dataset.sfx) applySfx(btn.dataset.sfx, true);
+  else if (btn.id === 'auto-minus') applyAutoActionSec(S.autoActionSec - AUTO_STEP, true);
+  else if (btn.id === 'auto-plus') applyAutoActionSec(S.autoActionSec + AUTO_STEP, true);
+  else if (btn.dataset.ledger) applyLedger(btn.dataset.ledger === '1', true);
+  else if (btn.dataset.autostart) applyAutoStart(btn.dataset.autostart === '1', true);
+  else if (btn.dataset.autoupdate) applyAutoUpdate(btn.dataset.autoupdate === '1', true);
   else if (btn.id === 'pomo-minus') applyPomoMin(S.pomoMin - POMO_STEP, true);
   else if (btn.id === 'pomo-plus') applyPomoMin(S.pomoMin + POMO_STEP, true);
+  else if (btn.id === 'app-pick') pickLinkedApp();
+  else if (btn.id === 'app-clear') applyLinkedApp('', true);
   else if (btn.id === 'set-close') closeSettings();
 });
 
@@ -812,10 +1609,11 @@ function pickerSec(label, items) {
   lab.textContent = label;
   const row = document.createElement('div');
   row.className = 'pick-row';
-  for (const n of items) {
+  for (const it of items) {
+    const n = typeof it === 'string' ? it : it.id;
     const b = document.createElement('button');
     b.dataset.anim = n;
-    b.textContent = n;
+    b.textContent = typeof it === 'string' ? it : it.text;
     row.appendChild(b);
   }
   sec.append(lab, row);
@@ -825,6 +1623,17 @@ function pickerSec(label, items) {
 function buildPicker() {
   if (pickerBuilt) return;
   pickerBuilt = true;
+  const ch = charNow();
+  if (ch.kind === 'pose') {
+    // 立绘形象：直接列它自己的姿势（__pose: 前缀走同一套播放管线）
+    pickerBody.appendChild(
+      pickerSec(
+        `${ch.label} 的动作`,
+        ch.actions.map(([p, text]) => ({ id: `__pose:${p}`, text })),
+      ),
+    );
+    return;
+  }
   const added = new Set();
   for (const g of PICKER_GROUPS) {
     const items = [];
@@ -847,10 +1656,11 @@ function openPicker() {
   pickerEl.classList.remove('hide');
   const w = pickerEl.offsetWidth;
   const h = pickerEl.offsetHeight;
-  let sx = P.x - w - 18; // 优先放在鱼的左边
-  if (sx < 8) sx = P.x + 320;
-  pickerEl.style.left = `${clamp(sx, 8, innerWidth - w - 8)}px`;
-  pickerEl.style.top = `${clamp(P.y + 24, 8, innerHeight - h - 8)}px`;
+  const v = visiblePetRect();
+  let sx = v.left - w - 10; // 贴着角色左侧
+  if (sx < 8) sx = v.right + 10; // 左边放不下就贴右侧
+  pickerEl.style.left = `${clamp(sx, 8, Math.max(8, innerWidth - w - 8))}px`;
+  pickerEl.style.top = `${clamp(v.top - 8, 8, Math.max(8, innerHeight - h - 8))}px`;
   requestAnimationFrame(() => pickerEl.classList.add('show'));
   pickerOpen = true;
   P.frozen = true;
@@ -879,7 +1689,6 @@ function playAction(name) {
     applyDoze();
   }
   playOnce([name], true);
-  say(name, 2400);
 }
 
 pickerEl.addEventListener('click', (e) => {
@@ -949,8 +1758,9 @@ function handlePetClick() {
     wake();
     S.mood = clamp(S.mood + 1, 0, 100);
     playOnce(ANIM.clicks);
+    sfx('click');
     const line = Math.random() < 0.3 ? creditsLine() : null;
-    say(line || pick(QUIPS), 3200, line ? 'ledger' : 'click');
+    say(line || pick(quipsPool()), 3200, line ? 'ledger' : isDsh() ? 'click' : undefined);
     api.updateStats({ satiety: S.satiety, mood: S.mood });
   }, 230);
 }
@@ -1031,14 +1841,26 @@ api.on('init', (st) => {
   S.mood = st.mood;
   S.awake = st.awake;
   S.ledger = st.ledger || null;
-  S.qoder = !!st.qoder;
-  if (!S.qoder) {
-    menuUsageBtn.classList.add('hide');
-    helpLedger.classList.add('hide');
-    usageEl.remove();
+  const set = st.settings || {};
+  S.ledgerOn = set.ledger !== false;
+  S.autoStart = !!set.autoStart;
+  S.launchApp = typeof set.launchApp === 'string' ? set.launchApp : '';
+  applyLedgerUI();
+  applyCharacter(set.character, false);
+  applyFontSize(set.fontSize, false);
+  applySfx(set.sfx, false);
+  applyAutoActionSec(set.autoActionSec || 20, false);
+  S.ledgerSource = API_SOURCES.includes(set.ledgerSource) ? set.ledgerSource : 'qoder';
+  S.autoUpdate = set.autoUpdate !== false;
+  S.apiKeys = st.apiKeys || {};
+  if (st.version) {
+    setVersionEl.textContent = `v${st.version}`;
+    const aboutV = document.getElementById('about-version');
+    if (aboutV) aboutV.textContent = `v${st.version}`;
   }
-  applyScale(st.settings && st.settings.scale, false);
-  applyPomoMin((st.settings && st.settings.pomoMin) || 25, false);
+  applyKeysUI();
+  applyScale(set.scale, false);
+  applyPomoMin(set.pomoMin || 25, false);
   if (st.pomodoro && st.pomodoro.running) setPomodoro(st.pomodoro);
   const b = bounds();
   if (st.pos) {
@@ -1048,12 +1870,19 @@ api.on('init', (st) => {
     P.x = b.maxX - 80;
     P.y = b.maxY - 60;
   }
-  applyDock(st.settings && st.settings.dock, false);
+  applyDock(set.dock, false);
   applyHungry();
   applyDoze();
   applyBase();
+  syncSettingsUI();
   const hi = creditsLine();
-  setTimeout(() => say(hi ? `你好呀，我是蓝色大肥鱼～ ${hi}` : '你好呀，我是蓝色大肥鱼～', 4600), 700);
+  const hello = S.character === 'gpt' ? 'Ciallo～ 我是 GPT 娘' : '你好呀，我是蓝色大肥鱼～';
+  setTimeout(() => say(hi ? `${hello} ${hi}` : hello, 4600), 700);
+});
+
+api.on('keys-updated', (keys) => {
+  S.apiKeys = keys || {};
+  applyKeysUI();
 });
 
 api.on('usage', (l) => {
@@ -1078,7 +1907,7 @@ api.on('awake', (v) => {
   S.awake = !!v;
   if (S.awake) wake();
   applyDoze();
-  if (!S.awake) say(pick(SLEEP_LINES), 2600, 'sleep');
+  if (!S.awake) say(pick(sleepLines()), 2600, isDsh() ? 'sleep' : undefined);
 });
 
 api.on('bubble', (t) => say(t));
@@ -1087,7 +1916,7 @@ api.on('pomodoro', (p) => setPomodoro(p));
 
 api.on('pomodoro-done', () => {
   setPomodoro({ running: false, remaining: 0 });
-  P.swimTo = { x: innerWidth / 2 - PET.cx, y: innerHeight / 2 - PET.cy };
+  if (S.dock !== 'fixed') P.swimTo = { x: innerWidth / 2 - PET.cx, y: innerHeight / 2 - PET.cy };
   playHappy();
   burstHearts(6);
   say('专注结束啦，起来动一动～', 5000);
@@ -1131,14 +1960,16 @@ setInterval(() => {
   if (!S.awake) return;
   if (S.satiety < 32 && now - S.hungryAt > 6 * 60000) {
     S.hungryAt = now;
-    say(pick(HUNGRY_LINES), 3200, 'hungry');
+    say(pick(hungryLines()), 3200, isDsh() ? 'hungry' : undefined);
   }
   if (!S.autoDoze && !S.dragging && !S.pomoRunning && now - S.lastInteract > 100000) {
     S.autoDoze = true;
     applyDoze();
   }
-  maybeShow();
 }, 30000);
+
+// 自动动作心跳：每秒检查一次，到点就随机表演一个
+setInterval(maybeShow, 1000);
 
 requestAnimationFrame(frame);
 
@@ -1179,7 +2010,7 @@ window.__devScene = (name) => {
     S.satiety = 14;
     S.mood = 48;
     applyHungry();
-    say(pick(HUNGRY_LINES));
+    say(pick(hungryLines()));
   } else if (name === 'status') {
     S.satiety = 64;
     S.mood = 88;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; media-src 'self' file:; font-src 'self' file:; script-src 'self'">
-<title>蓝色大肥鱼</title>
+<title>大肥鱼桌宠</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,11 +19,11 @@
           <div class="bar"><span>心情</span><i><b id="bar-mood" class="mood"></b></i></div>
         </div>
         <div id="bubble-usage" class="hide">
-          <div class="u-row"><span>今天吃掉</span><b id="u-today">—</b></div>
-          <div class="u-row"><span>本月吃掉</span><b id="u-month">—</b></div>
-          <div class="u-row"><span>本次会话</span><b id="u-session">—</b></div>
+          <div class="u-row"><span id="u-l1">今天吃掉</span><b id="u-today">—</b></div>
+          <div class="u-row"><span id="u-l2">本月吃掉</span><b id="u-month">—</b></div>
+          <div class="u-row"><span id="u-l3">本次会话</span><b id="u-session">—</b></div>
           <div class="u-quota hide" id="u-quota"><i><b id="u-bar"></b></i><span id="u-quota-text"></span></div>
-          <div class="u-note">白饭 = 你的 Qoder credits</div>
+          <div class="u-note" id="u-note">白饭 = 你的 Qoder credits</div>
         </div>
         <div class="bubble-tail"></div>
       </div>
@@ -38,6 +38,7 @@
             <div id="tilt">
               <div id="squash">
                 <video id="petVid" autoplay muted loop playsinline></video>
+                <img id="petImg" class="hide" draggable="false" alt="">
               </div>
             </div>
           </div>
@@ -49,7 +50,7 @@
   </div>
 
   <div id="menu" class="hide">
-    <button data-act="feed">🍚 <span>喂一碗白饭</span></button>
+    <button data-act="feed">🍚 <span id="menu-feed-txt">喂一碗白饭</span></button>
     <button data-act="acts">🎬 <span>选个动作…</span></button>
     <button data-act="pomodoro"><span id="menu-pomo">🍅 开始专注 25 分钟</span></button>
     <button data-act="usage" id="menu-usage-btn"><span id="menu-usage">🍚 白饭账本</span></button>
@@ -70,55 +71,232 @@
   </div>
 
   <div id="settings" class="hide">
-    <div class="set-title">⚙️ 设置</div>
-    <div class="set-sec">
-      <div class="set-label">尺寸 <b id="set-size-val">100%</b></div>
-      <div class="set-row" id="set-sizes">
-        <button data-size="0.7">小</button>
-        <button data-size="0.85">默认</button>
-        <button data-size="1.1">大</button>
-        <button data-size="1.4">特大</button>
-      </div>
-      <div class="set-row">
-        <button id="size-minus">− 缩小 5%</button>
-        <button id="size-plus">＋ 放大 5%</button>
-      </div>
+    <div class="set-head">
+      <button id="set-back" class="hide">‹ 返回</button>
+      <div class="set-title" id="set-title">⚙️ 设置</div>
     </div>
-    <div class="set-sec">
-      <div class="set-label">待机位置</div>
-      <div class="set-row" id="set-docks">
-        <button data-dock="roam">🐟 到处游</button>
-        <button data-dock="corner">📍 待在右下角</button>
+    <div class="set-body">
+      <div id="set-home">
+        <button class="set-nav" data-page="look"><span>🐟 形象与音效</span><i>›</i></button>
+        <button class="set-nav" data-page="sizefont"><span>📏 尺寸与字体</span><i>›</i></button>
+        <button class="set-nav" data-page="place"><span>📍 待机与自动动作</span><i>›</i></button>
+        <button class="set-nav" data-page="pomo"><span>🍅 番茄钟</span><i>›</i></button>
+        <button class="set-nav" data-page="ledger"><span>🍚 白饭账本</span><i>›</i></button>
+        <button class="set-nav" data-page="startup"><span>🚀 启动与更新</span><i>›</i></button>
+        <button class="set-nav" data-page="help"><span>❓ 关于大肥鱼桌宠</span><i>›</i></button>
       </div>
-    </div>
-    <div class="set-sec">
-      <div class="set-label">番茄钟时长 <b id="set-pomo-val">25 分钟</b></div>
-      <div class="set-row" id="set-pomo-presets">
-        <button data-pomo="15">15 分</button>
-        <button data-pomo="25">25 分</button>
-        <button data-pomo="45">45 分</button>
-        <button data-pomo="60">60 分</button>
+
+      <div class="set-page hide" data-page="look">
+        <div class="set-sec">
+          <div class="set-label">桌宠形象</div>
+          <div id="set-chars">
+            <div class="set-row">
+              <button data-char="v1">大肥鱼v1</button>
+              <button data-char="v2">大肥鱼v2</button>
+              <button data-char="v3">大肥鱼v3</button>
+            </div>
+            <div class="set-row">
+              <button data-char="v4">大肥鱼v4</button>
+              <button data-char="v5">大肥鱼v5</button>
+              <button data-char="v6">大肥鱼v6</button>
+            </div>
+            <div class="set-row">
+              <button data-char="gpt">GPT 娘（测试）</button>
+            </div>
+          </div>
+          <div class="set-hint">v1 是逐帧动画版；v2~v6 是表情立绘（各套画风/动作不同）；GPT 娘为测试内容（不带白饭梗与表情包）</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">音效</div>
+          <div class="set-row" id="set-sfx">
+            <button data-sfx="default">默认</button>
+            <button data-sfx="whale">鲸鱼音效</button>
+            <button data-sfx="off">静音</button>
+          </div>
+        </div>
       </div>
-      <div class="set-row">
-        <button id="pomo-minus">− 5 分钟</button>
-        <button id="pomo-plus">＋ 5 分钟</button>
+
+      <div class="set-page hide" data-page="sizefont">
+        <div class="set-sec">
+          <div class="set-label">尺寸 <b id="set-size-val">100%</b></div>
+          <div class="set-row" id="set-sizes">
+            <button data-size="0.7">小</button>
+            <button data-size="0.85">默认</button>
+            <button data-size="1.1">大</button>
+            <button data-size="1.4">特大</button>
+          </div>
+          <div class="set-row">
+            <button id="size-minus">− 缩小 5%</button>
+            <button id="size-plus">＋ 放大 5%</button>
+          </div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">字体大小 <b id="set-font-val">100%</b></div>
+          <div class="set-row">
+            <button id="font-minus">− 缩小 5%</button>
+            <button id="font-plus">＋ 放大 5%</button>
+          </div>
+          <div class="set-hint">影响气泡里的文字大小</div>
+        </div>
       </div>
-    </div>
-    <div class="set-sec">
-      <div class="set-label">操作说明</div>
-      <div class="set-help">
-        <div><b>单击</b> 摸摸头 · <b>双击</b> 喂一碗白饭</div>
-        <div><b>拖拽</b> 搬到任意位置 · <b>右键</b> 打开菜单</div>
-        <div><b>鼠标靠近</b> 她会朝你看 · 约 100 秒不理她会打瞌睡</div>
-        <div>右键菜单「选个动作」可以让她表演 100 多个节目</div>
-        <div id="help-ledger">右键菜单「白饭账本」显示你消耗的 Qoder credits</div>
+
+      <div class="set-page hide" data-page="place">
+        <div class="set-sec">
+          <div class="set-label">待机位置</div>
+          <div class="set-row" id="set-docks">
+            <button data-dock="roam">🐟 到处游</button>
+            <button data-dock="corner">📍 右下角</button>
+            <button data-dock="fixed">📌 固定不动</button>
+          </div>
+          <div class="set-hint">「固定不动」：先把她拖到想要的位置，她就一直待在那儿</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">自动动作间隔 <b id="set-auto-val">40 秒</b></div>
+          <div class="set-row">
+            <button id="auto-minus">− 5 秒</button>
+            <button id="auto-plus">＋ 5 秒</button>
+          </div>
+          <div class="set-hint">每隔该时间随机做一个动作（拖动中、专注中不打扰）</div>
+        </div>
+      </div>
+
+      <div class="set-page hide" data-page="pomo">
+        <div class="set-sec">
+          <div class="set-label">番茄钟时长 <b id="set-pomo-val">25 分钟</b></div>
+          <div class="set-row" id="set-pomo-presets">
+            <button data-pomo="15">15 分</button>
+            <button data-pomo="25">25 分</button>
+            <button data-pomo="45">45 分</button>
+            <button data-pomo="60">60 分</button>
+          </div>
+          <div class="set-row">
+            <button id="pomo-minus">− 5 分钟</button>
+            <button id="pomo-plus">＋ 5 分钟</button>
+          </div>
+          <div class="set-hint">开始专注后她会挂倒计时牌安静陪你，时间到再蹦跶提醒你休息</div>
+        </div>
+      </div>
+
+      <div class="set-page hide" data-page="ledger">
+        <div class="set-sec">
+          <div class="set-label">白饭账本</div>
+          <div class="set-row" id="set-ledger">
+            <button data-ledger="1">🍚 开启</button>
+            <button data-ledger="0">关闭</button>
+          </div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">账本来源</div>
+          <div id="set-ledger-src">
+            <div class="set-row">
+              <button data-ledger-src="qoder">Qoder credits</button>
+              <button data-ledger-src="deepseek">DeepSeek</button>
+              <button data-ledger-src="moonshot">Kimi</button>
+            </div>
+            <div class="set-row">
+              <button data-ledger-src="siliconflow">SiliconFlow</button>
+              <button data-ledger-src="doubao">豆包</button>
+              <button data-ledger-src="openai">ChatGPT</button>
+            </div>
+            <div class="set-row">
+              <button data-ledger-src="claude">Claude</button>
+            </div>
+          </div>
+          <div class="set-hint">选「Qoder credits」读本机用量；选某个 AI 平台则查询该平台的账单（需先配置对应 API Key）。OpenAI / Claude 需要 Admin Key；豆包填「AK:SK」。</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">API Key 配置</div>
+          <div id="set-api-keys">
+            <div class="set-row">
+              <button data-key="deepseek">DeepSeek Key</button>
+              <button data-key="moonshot">Kimi Key</button>
+              <button data-key="siliconflow">SiliconFlow Key</button>
+            </div>
+            <div class="set-row">
+              <button data-key="doubao">豆包 Key</button>
+              <button data-key="openai">OpenAI Key</button>
+              <button data-key="claude">Claude Key</button>
+            </div>
+          </div>
+          <div class="set-warn">⚠️ 风险提示：API Key 会用 Windows 系统加密（DPAPI）后保存在本机状态文件里，仅本机可解密；查询账单时只会把 Key 发送给对应平台的官方接口。请勿在共用电脑上填写；建议使用只读 / 低额度的 Key；不要把这个状态文件或 Key 发给任何人。是否配置由你自行决定，风险自负。</div>
+        </div>
+      </div>
+
+      <div class="set-page hide" data-page="startup">
+        <div class="set-sec">
+          <div class="set-label">开机自启动</div>
+          <div class="set-row" id="set-autostart">
+            <button data-autostart="1">登录时自动出现</button>
+            <button data-autostart="0">关闭</button>
+          </div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">一起启动的应用 <b id="set-app-name">未设置</b></div>
+          <div class="set-row">
+            <button id="app-pick">选择应用…</button>
+            <button id="app-clear">清除</button>
+          </div>
+          <div class="set-hint">桌宠启动时会把选中的应用一起打开（exe / 快捷方式均可）</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">自动更新</div>
+          <div class="set-row" id="set-autoupdate">
+            <button data-autoupdate="1">开启（发现新版本自动安装）</button>
+            <button data-autoupdate="0">关闭</button>
+          </div>
+          <div class="set-hint">开启后每天首次启动会检查更新，发现新版本自动下载、静默安装并重启桌宠</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">版本 <b id="set-version">-</b></div>
+          <div class="set-row">
+            <button id="check-update">检查 GitHub 更新</button>
+          </div>
+          <div class="set-hint" id="update-hint">检查 GitHub Releases 是否有新版本</div>
+          <div class="set-row hide" id="update-actions">
+            <button id="update-direct">GitHub直链下载</button>
+            <button id="update-accel">GitHub加速下载</button>
+          </div>
+          <div class="set-row hide" id="update-install-row">
+            <button id="update-install">自动安装更新（下载 + 静默安装 + 重启）</button>
+          </div>
+          <div class="set-hint">下载会保存到你的 Downloads（下载）文件夹；选「自动安装更新」则下载到临时目录、静默安装后自动重启桌宠。每天首次启动也会自动检查并安装新版本。</div>
+        </div>
+      </div>
+
+      <div class="set-page hide" data-page="help">
+        <div class="set-sec">
+          <div class="set-label">关于 <b>大肥鱼桌宠 <span id="about-version">-</span></b></div>
+          <div class="set-help">
+            <div>一只住在桌面上的大肥鱼：会吃白饭、会摸鱼、会记账，还能换形象。</div>
+            <div>开源地址、更新日志与问题反馈都在 GitHub 上：</div>
+          </div>
+          <div class="set-row">
+            <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet">GitHub 仓库</button>
+            <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/releases">Releases 更新</button>
+            <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/issues">问题反馈</button>
+          </div>
+          <div class="set-hint">角色素材来自 dsh-pet / dsh-whale-widget-plus / DeepSeek-Balance-Whale-Widget / GPT-Niang（均 MIT，详见仓库 THIRD-PARTY 许可文件）</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">操作说明</div>
+          <div class="set-help">
+            <div><b>单击</b> 摸摸头（随机回应 + 台词） · <b>双击</b> 喂一碗白饭</div>
+            <div><b>拖拽</b> 搬到任意位置 · <b>右键</b> 打开菜单（喂饭 / 选个动作 / 番茄钟 / 白饭账本 / 状态 / 睡觉 / 设置 / 躲起来 / 退出）</div>
+            <div><b>鼠标靠近</b> 她会朝你看 · 约 100 秒不理她会打瞌睡</div>
+            <div><b>自动动作</b> 每隔「自动动作间隔」随机表演一个节目（默认 40 秒，可在设置里调）</div>
+            <div><b>选个动作</b> 右键菜单里可以点播 100 多个节目；立绘形象会用各自的姿势和动作</div>
+            <div><b>待机位置</b> 到处游 / 右下角 / 固定不动（设置里切换）</div>
+            <div><b>番茄钟</b> 时长 5~120 分钟可调，专注时她会安静陪你</div>
+            <div id="help-ledger"><b>白饭账本</b> 显示 Qoder 用量，或在设置里配置 API Key 后查询各 AI 平台的余额</div>
+            <div>托盘图标可以随时叫出/藏起桌宠、打开设置；GPT 娘为测试内容</div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="set-foot">
       <button id="set-close">关闭</button>
     </div>
   </div>
-
 </div>
 <script src="../assets/anims/index.js"></script>
 <script src="pet.js"></script>

@@ -358,6 +358,18 @@ body.nav-open .menu-toggle span:last-child {
   width: 100%;
 }
 
+.button--accelerate {
+  margin-top: 9px;
+  color: var(--blue-deep);
+  border-color: #d8e1ff;
+  background: #eef2ff;
+  box-shadow: none;
+}
+
+.button--accelerate:hover {
+  background: #e3eaff;
+}
+
 /* ---------------------------------------------------------------- hero */
 
 .hero {
@@ -1180,34 +1192,6 @@ body.nav-open .menu-toggle span:last-child {
   font-weight: 600;
 }
 
-.download-alt {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  margin-top: 10px;
-  color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.download-alt:hover {
-  color: var(--blue-deep);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.download-alt svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .download-foot {
   position: relative;
   z-index: 1;
@@ -1342,6 +1326,69 @@ body.nav-open .menu-toggle span:last-child {
 }
 
 /* ---------------------------------------------------------------- responsive */
+
+/* 手机 / 触屏设备：关闭持续动画与毛玻璃，降低合成/重绘压力 */
+@media (max-width: 900px) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    background: linear-gradient(180deg, #f4f7ff 0%, #fbf8fd 48%, var(--bg) 100%);
+  }
+
+  body::before {
+    display: none;
+  }
+
+  .site-header {
+    background: rgba(249, 250, 254, 0.97);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .hero-figure,
+  .float-card,
+  .orbit--one,
+  .orbit--two {
+    animation: none !important;
+  }
+
+  .hero-figure,
+  .character-image,
+  .character-video {
+    filter: none;
+  }
+
+  .float-card,
+  .hero-note,
+  .stats,
+  .character-preview {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .float-card {
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(28, 48, 100, 0.1);
+  }
+
+  .hero-note {
+    background: #fff;
+  }
+
+  .stats {
+    background: #fff;
+  }
+
+  .characters::before {
+    display: none;
+  }
+
+  .character-preview {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
 
 @media (max-width: 1000px) {
   .hero {

@@ -62,6 +62,7 @@
   const desc = document.getElementById("character-desc");
   const options = [...document.querySelectorAll("[data-character]")];
 
+  let characterInView = true;
   const preload = new Set();
   Object.values(characters).forEach((character) => {
     if (character.type !== "image" || preload.has(character.src)) return;
@@ -85,9 +86,11 @@
     if (character.type === "video") {
       image.classList.add("hide");
       video.classList.remove("hide");
-      if (!reduceMotion) {
+      if (!reduceMotion && characterInView && !document.hidden) {
         const playback = video.play();
         if (playback && playback.catch) playback.catch(() => {});
+      } else {
+        video.pause();
       }
       return;
     }
@@ -103,10 +106,34 @@
     button.addEventListener("click", () => selectCharacter(button.dataset.character));
   });
 
-  if (reduceMotion && video) {
-    video.pause();
-    video.removeAttribute("autoplay");
+  const characterSection = document.getElementById("characters");
+  if (characterSection && "IntersectionObserver" in window && video) {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        characterInView = entry.isIntersecting;
+        if (!characterInView || video.classList.contains("hide") || reduceMotion || document.hidden) {
+          video.pause();
+          return;
+        }
+        const playback = video.play();
+        if (playback && playback.catch) playback.catch(() => {});
+      },
+      { threshold: 0.08 },
+    );
+    observer.observe(characterSection);
   }
+
+  document.addEventListener("visibilitychange", () => {
+    if (!video || video.classList.contains("hide") || reduceMotion) return;
+    if (document.hidden || !characterInView) {
+      video.pause();
+      return;
+    }
+    const playback = video.play();
+    if (playback && playback.catch) playback.catch(() => {});
+  });
+
+  if (reduceMotion && video) video.pause();
 
   const navToggle = document.querySelector(".menu-toggle");
   const navLinks = document.getElementById("nav-links");

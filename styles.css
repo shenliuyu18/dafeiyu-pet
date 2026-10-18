@@ -370,6 +370,18 @@ body.nav-open .menu-toggle span:last-child {
   background: #e3eaff;
 }
 
+.button--lanzou {
+  margin-top: 9px;
+  color: #795200;
+  border-color: #f0dcb5;
+  background: #fff6e7;
+  box-shadow: none;
+}
+
+.button--lanzou:hover {
+  background: #ffefd2;
+}
+
 /* ---------------------------------------------------------------- hero */
 
 .hero {

@@ -1180,6 +1180,34 @@ body.nav-open .menu-toggle span:last-child {
   font-weight: 600;
 }
 
+.download-alt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.download-alt:hover {
+  color: var(--blue-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.download-alt svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .download-foot {
   position: relative;
   z-index: 1;

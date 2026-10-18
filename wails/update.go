@@ -30,17 +30,31 @@ func cmpVersion(a, b string) int {
 	nb, pb := parse(b)
 	for i := 0; i < len(na) || i < len(nb); i++ {
 		x, y := 0, 0
-		if i < len(na) { x = na[i] }
-		if i < len(nb) { y = nb[i] }
+		if i < len(na) {
+			x = na[i]
+		}
+		if i < len(nb) {
+			y = nb[i]
+		}
 		if x != y {
-			if x > y { return 1 }
+			if x > y {
+				return 1
+			}
 			return -1
 		}
 	}
-	if pa == pb { return 0 }
-	if pa == "" { return 1 }
-	if pb == "" { return -1 }
-	if pa > pb { return 1 }
+	if pa == pb {
+		return 0
+	}
+	if pa == "" {
+		return 1
+	}
+	if pb == "" {
+		return -1
+	}
+	if pa > pb {
+		return 1
+	}
 	return -1
 }
 
@@ -74,27 +88,12 @@ func (a *App) CheckUpdate() map[string]interface{} {
 	tag := strv(j["tag_name"], "")
 	url := strv(j["html_url"], "https://github.com/shenliuyu18/dafeiyu-pet/releases")
 	assets, _ := j["assets"].([]interface{})
-	var assetName, assetURL string
-	for _, ai := range assets {
-		am, _ := ai.(map[string]interface{})
-		name := strv(am["name"], "")
-		low := strings.ToLower(name)
-		if !strings.HasSuffix(low, "setup.exe") {
-			continue
-		}
-		// 完整版不能下载 Lite 包，Lite 也只下载 Lite 包
-		if strings.Contains(low, "lite") != isLite() {
-			continue
-		}
-		assetName = name
-		assetURL = strv(am["browser_download_url"], "")
-		break
-	}
+	assetName, assetURL := pickUpdateAsset(assets, isLite())
 	has := cmpVersion(tag, cur) > 0
 	out := map[string]interface{}{
 		"current": cur, "latest": tag, "hasUpdate": has,
 		"assetName": assetName, "url": assetURL, "urlPage": url,
-		"proxyUrl": "", "error": "",
+		"proxyUrl": "", "error": "", "variant": Variant,
 	}
 	if assetURL != "" {
 		out["proxyUrl"] = "https://gh-proxy.org/" + assetURL
@@ -106,6 +105,32 @@ func (a *App) CheckUpdate() map[string]interface{} {
 	a.lastUpdate = out
 	a.mu.Unlock()
 	return out
+}
+
+func assetMatchesVariant(name string, lite bool) bool {
+	base := strings.ToLower(filepath.Base(strings.TrimSpace(name)))
+	if !strings.HasSuffix(base, "setup.exe") {
+		return false
+	}
+	if lite {
+		return strings.HasPrefix(base, "dafeiyu-pet-lite-")
+	}
+	return strings.HasPrefix(base, "dafeiyu-pet-") && !strings.Contains(base, "lite")
+}
+
+func pickUpdateAsset(assets []interface{}, lite bool) (string, string) {
+	for _, ai := range assets {
+		am, _ := ai.(map[string]interface{})
+		name := strv(am["name"], "")
+		if !assetMatchesVariant(name, lite) {
+			continue
+		}
+		url := strv(am["browser_download_url"], "")
+		if url != "" {
+			return name, url
+		}
+	}
+	return "", ""
 }
 
 func defaultUpdateAssetName() string {
@@ -204,6 +229,9 @@ func (a *App) DownloadUpdate(mode string) map[string]interface{} {
 	if !boolv(info["hasUpdate"], false) || strv(info["url"], "") == "" {
 		return map[string]interface{}{"started": false, "error": "没有可下载的新版本"}
 	}
+	if !assetMatchesVariant(strv(info["assetName"], ""), isLite()) {
+		return map[string]interface{}{"started": false, "error": "更新包与当前版本不匹配"}
+	}
 	dir, err := os.UserHomeDir()
 	if err != nil {
 		dir = os.TempDir()
@@ -248,6 +276,9 @@ func (a *App) InstallUpdate() map[string]interface{} {
 	info := a.updateInfo()
 	if !boolv(info["hasUpdate"], false) || strv(info["url"], "") == "" {
 		return map[string]interface{}{"started": false, "error": "没有可更新的版本"}
+	}
+	if !assetMatchesVariant(strv(info["assetName"], ""), isLite()) {
+		return map[string]interface{}{"started": false, "error": "更新包与当前版本不匹配"}
 	}
 	a.mu.Lock()
 	a.updateBusy = true

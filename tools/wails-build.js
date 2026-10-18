@@ -50,12 +50,18 @@ const add = (p) => { if (p && fs.existsSync(p) && !pathParts.includes(p)) pathPa
 add(path.join(process.env.LOCALAPPDATA || '', 'go-toolchain', 'go', 'bin'));
 add(path.join(process.env.LOCALAPPDATA || '', 'gopath', 'bin'));
 add('C:\\Program Files (x86)\\NSIS');
+// 不把本机源码/工具链绝对路径写进 exe；同时避免嵌入本机 VCS 信息
+const goFlags = (process.env.GOFLAGS || '').split(/\s+/).filter(Boolean);
+for (const flag of ['-trimpath', '-buildvcs=false']) {
+  if (!goFlags.includes(flag)) goFlags.push(flag);
+}
 const env = {
   ...process.env,
   PATH: pathParts.join(path.delimiter),
   GOPATH: path.join(process.env.LOCALAPPDATA || os.homedir(), 'gopath'),
   GOPROXY: 'https://goproxy.cn,direct',
   GOSUMDB: 'off',
+  GOFLAGS: goFlags.join(' '),
 };
 const wails = path.join(process.env.LOCALAPPDATA || '', 'gopath', 'bin', 'wails.exe');
 const cli = fs.existsSync(wails) ? wails : 'wails';

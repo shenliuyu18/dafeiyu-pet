@@ -2,8 +2,9 @@
 node_modules/
 dist/
 
-# 开发截图
+# 开发截图与图标候选（选定后才写入 assets）
 dev-shots/
+icon-candidates/
 
 # Qoder 会话产物
 .qoder-credits/

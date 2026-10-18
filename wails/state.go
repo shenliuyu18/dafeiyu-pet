@@ -11,27 +11,28 @@ import (
 
 func defaultState() map[string]interface{} {
 	return map[string]interface{}{
-		"satiety":        78,
-		"mood":           82,
-		"pos":            nil,
-		"awake":          true,
-		"scale":          0.85,
-		"dock":           "roam",
-		"pomoMin":        25,
-		"pomoAnimSec":    5,
-		"ledger":         true,
-		"autoStart":      false,
-		"launchApp":      "",
-		"character":      "v1",
-		"fontSize":       1,
-		"sfx":            "default",
-		"autoActionSec":  40,
-		"ledgerSource":   "qoder",
-		"autoUpdate":     true,
-		"customQuips":    []interface{}{},
-		"useCustomQuips": true,
-		"deepseekKey":    "",
-		"apiKeys":        map[string]interface{}{},
+		"satiety":         78,
+		"mood":            82,
+		"pos":             nil,
+		"awake":           true,
+		"scale":           0.85,
+		"dock":            "roam",
+		"pomoMin":         25,
+		"pomoAnimSec":     5,
+		"ledger":          true,
+		"autoStart":       false,
+		"launchApp":       "",
+		"character":       "v1",
+		"fontSize":        1,
+		"sfx":             "default",
+		"autoActionSec":   40,
+		"ledgerSource":    "qoder",
+		"autoUpdate":      true,
+		"customQuips":     []interface{}{},
+		"useCustomQuips":  true,
+		"pinnedActions":   map[string]interface{}{},
+		"deepseekKey":     "",
+		"apiKeys":         map[string]interface{}{},
 		"lastUpdateCheck": 0,
 	}
 }
@@ -153,21 +154,22 @@ func (a *App) petStatus() map[string]interface{} {
 	a.mu.Lock()
 	s := a.state
 	settings := map[string]interface{}{
-		"scale":           a.scaleLocked(),
-		"dock":            dockLocked(s),
-		"pomoMin":         a.pomoMinutesLocked(),
-		"pomoAnimSec":     a.pomoAnimSecLocked(),
-		"ledger":          a.ledgerOnLocked(),
-		"autoStart":       boolv(s["autoStart"], false),
-		"launchApp":       str(s["launchApp"], ""),
-		"character":       a.charIDLocked(),
-		"fontSize":        clampF(numOr(s["fontSize"], 1), 0.8, 1.4),
-		"sfx":             sfxLocked(s),
-		"autoActionSec":   a.autoActionSecLocked(),
-		"ledgerSource":    ledgerSourceLocked(s),
-		"autoUpdate":      boolv(s["autoUpdate"], true),
-		"customQuips":     toStrings(s["customQuips"]),
-		"useCustomQuips":  boolv(s["useCustomQuips"], true),
+		"scale":          a.scaleLocked(),
+		"dock":           dockLocked(s),
+		"pomoMin":        a.pomoMinutesLocked(),
+		"pomoAnimSec":    a.pomoAnimSecLocked(),
+		"ledger":         a.ledgerOnLocked(),
+		"autoStart":      boolv(s["autoStart"], false),
+		"launchApp":      str(s["launchApp"], ""),
+		"character":      a.charIDLocked(),
+		"fontSize":       clampF(numOr(s["fontSize"], 1), 0.8, 1.4),
+		"sfx":            sfxLocked(s),
+		"autoActionSec":  a.autoActionSecLocked(),
+		"ledgerSource":   ledgerSourceLocked(s),
+		"autoUpdate":     boolv(s["autoUpdate"], true),
+		"customQuips":    toStrings(s["customQuips"]),
+		"useCustomQuips": boolv(s["useCustomQuips"], true),
+		"pinnedActions":  pinnedActionsOf(s),
 	}
 	sati := numOr(s["satiety"], 78)
 	mood := numOr(s["mood"], 82)
@@ -214,47 +216,100 @@ func numOr(v interface{}, def float64) float64 {
 	return n
 }
 
+func pinnedActionsOf(s map[string]interface{}) map[string]interface{} {
+	out := map[string]interface{}{}
+	m, _ := s["pinnedActions"].(map[string]interface{})
+	for charID, v := range m {
+		if !validChar(charID) {
+			continue
+		}
+		list := make([]interface{}, 0, 10)
+		seen := map[string]bool{}
+		for _, name := range toStrings(v) {
+			name = strings.TrimSpace(name)
+			if name == "" || len([]rune(name)) > 120 || seen[name] {
+				continue
+			}
+			seen[name] = true
+			list = append(list, name)
+			if len(list) >= 10 {
+				break
+			}
+		}
+		if len(list) > 0 {
+			out[charID] = list
+		}
+	}
+	return out
+}
+
 func (a *App) scaleLocked() float64 { return clampF(numOr(a.state["scale"], 0.85), 0.6, 1.6) }
 func (a *App) ledgerOnLocked() bool { return boolv(a.state["ledger"], true) }
 func (a *App) pomoMinutesLocked() int {
 	n := int(numOr(a.state["pomoMin"], 25))
-	if n < 5 { n = 5 }
-	if n > 120 { n = 120 }
+	if n < 5 {
+		n = 5
+	}
+	if n > 120 {
+		n = 120
+	}
 	return n
 }
 func (a *App) pomoAnimSecLocked() int {
 	n := int(numOr(a.state["pomoAnimSec"], 5))
-	if n < 5 { n = 5 }
-	if n > 120 { n = 120 }
+	if n < 5 {
+		n = 5
+	}
+	if n > 120 {
+		n = 120
+	}
 	return n
 }
 func (a *App) autoActionSecLocked() int {
 	n := int(numOr(a.state["autoActionSec"], 40))
-	if n < 5 { n = 5 }
-	if n > 300 { n = 300 }
+	if n < 5 {
+		n = 5
+	}
+	if n > 300 {
+		n = 300
+	}
 	return n
 }
 func (a *App) charIDLocked() string {
 	v := str(a.state["character"], "v1")
-	if v == "whale1" { return "v1" }
-	if v == "whale2" { return "v5" }
-	if validChar(v) { return v }
+	if v == "whale1" {
+		return "v1"
+	}
+	if v == "whale2" {
+		return "v5"
+	}
+	if validChar(v) {
+		return v
+	}
 	return "v1"
 }
 func dockLocked(s map[string]interface{}) string {
 	d := str(s["dock"], "roam")
-	if d == "corner" || d == "fixed" { return d }
+	if d == "corner" || d == "fixed" {
+		return d
+	}
 	return "roam"
 }
 func sfxLocked(s map[string]interface{}) string {
 	v := str(s["sfx"], "default")
-	if v == "whale" || v == "off" { return v }
+	if v == "whale" || v == "off" {
+		return v
+	}
 	return "default"
 }
 func ledgerSourceLocked(s map[string]interface{}) string {
 	v := str(s["ledgerSource"], "qoder")
-	if v == "qoder" { return v }
-	if _, ok := apiProviders[v]; ok { return v }
+	if v == "qoder" {
+		return v
+	}
+	if _, ok := apiProviders[v]; ok {
+		return v
+	}
 	return "qoder"
 }
 

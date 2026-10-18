@@ -62,6 +62,7 @@ const setAutoStart = document.getElementById('set-autostart');
 const setAppName = document.getElementById('set-app-name');
 const pickerEl = document.getElementById('picker');
 const pickerBody = document.getElementById('picker-body');
+const pickerHint = document.getElementById('picker-hint');
 const menuUsageBtn = document.getElementById('menu-usage-btn');
 const menuFeedTxt = document.getElementById('menu-feed-txt');
 const helpLedger = document.getElementById('help-ledger');
@@ -99,6 +100,7 @@ const AUTO_STEP = 5;
 const FONT_MIN = 0.8;
 const FONT_MAX = 1.4;
 const FONT_STEP = 0.05;
+const PINS_MAX = 10;
 const DEFAULT_SCALE = 0.85;
 let petScale = DEFAULT_SCALE;
 
@@ -194,6 +196,7 @@ const S = {
   autoUpdate: true,
   customQuips: [],
   useCustomQuips: true,
+  pinnedActions: {},
   dock: 'roam',
   pomoMin: 25,
   pomoAnimSec: 5,
@@ -1233,6 +1236,15 @@ function setPomodoro(p) {
 // ---------------------------------------------------------------- 右键菜单
 
 let menuOpen = false;
+let menuAnchor = { x: 0, y: 0 };
+
+function positionMenu() {
+  const w = menuEl.offsetWidth;
+  const h = menuEl.offsetHeight;
+  const pad = 8;
+  menuEl.style.left = `${clamp(menuAnchor.x, pad, Math.max(pad, innerWidth - w - pad))}px`;
+  menuEl.style.top = `${clamp(menuAnchor.y, pad, Math.max(pad, innerHeight - h - pad))}px`;
+}
 
 function refreshMenu() {
   menuFeedTxt.textContent = isDsh() ? '喂一碗白饭' : '投喂';
@@ -1252,15 +1264,28 @@ async function openMenu(x, y) {
   closeSettings();
   closePicker();
   refreshMenu();
+  menuAnchor = { x, y };
   // 先让主进程把 Region 扩成整窗，再显示面板，避免开面板瞬间被裁
   if (api.setPanel) await api.setPanel(true);
   menuEl.classList.remove('hide');
-  const w = menuEl.offsetWidth;
-  const h = menuEl.offsetHeight;
-  menuEl.style.left = `${clamp(x, 4, innerWidth - w - 8)}px`;
-  menuEl.style.top = `${clamp(y, 4, innerHeight - h - 8)}px`;
-  requestAnimationFrame(() => menuEl.classList.add('show'));
+  positionMenu();
   menuOpen = true;
+  // 同步显示，避免窗口被遮挡/后台时 requestAnimationFrame 被节流，首次右键偶发“菜单不出现”
+  void menuEl.offsetWidth;
+  menuEl.classList.add('show');
+  const relayout = () => { if (menuOpen) positionMenu(); };
+  requestAnimationFrame(() => {
+    positionMenu();
+    // 字体加载/文字变化会改变菜单尺寸，显示后再扩一次 Region 并重新夹取
+    if (api.setPanel) api.setPanel(true);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout).catch(() => {});
+    setTimeout(relayout, 120);
+    setTimeout(relayout, 360);
+  });
+}
+
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(() => { if (menuOpen) positionMenu(); }).observe(menuEl);
 }
 
 function closeMenu() {
@@ -1305,6 +1330,7 @@ function saveSettings() {
     autoUpdate: S.autoUpdate,
     customQuips: S.customQuips,
     useCustomQuips: S.useCustomQuips,
+    pinnedActions: S.pinnedActions,
   });
 }
 
@@ -1810,6 +1836,58 @@ const PICKER_GROUPS = [
   { name: '文字碎碎念', list: [...byPool('text'), ...WHISPERS] },
 ];
 
+function pinsFor(charId = S.character) {
+  const arr = S.pinnedActions && S.pinnedActions[charId];
+  return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string') : [];
+}
+
+function actionText(name) {
+  if (!name.startsWith('__pose:')) return name;
+  const pose = name.slice(7);
+  const found = charNow().actions.find(([p]) => p === pose);
+  return found ? found[1] : pose;
+}
+
+function actionAvailable(name) {
+  const ch = charNow();
+  if (ch.kind === 'pose') return ch.actions.some(([p]) => `__pose:${p}` === name);
+  return HAS.has(name);
+}
+
+function updatePickerHint(errorText) {
+  if (!pickerHint) return;
+  const n = pinsFor().filter(actionAvailable).length;
+  pickerHint.textContent = errorText || `点击动作右侧的 ☆ 可置顶，当前 ${n}/${PINS_MAX}`;
+  pickerHint.classList.toggle('err', !!errorText);
+}
+
+function togglePin(name) {
+  const charId = S.character;
+  const arr = [...pinsFor(charId)];
+  const i = arr.indexOf(name);
+  if (i >= 0) {
+    arr.splice(i, 1);
+  } else {
+    if (arr.length >= PINS_MAX) {
+      updatePickerHint(`最多置顶 ${PINS_MAX} 个动作，请先取消一个`);
+      return;
+    }
+    arr.push(name);
+  }
+  S.pinnedActions = { ...S.pinnedActions, [charId]: arr };
+  saveSettings();
+  if (pickerOpen) {
+    const scroll = pickerBody.scrollTop;
+    pickerBuilt = false;
+    pickerBody.innerHTML = '';
+    buildPicker();
+    pickerBody.scrollTop = scroll;
+    positionPicker();
+  } else {
+    pickerBuilt = false;
+  }
+}
+
 function pickerSec(label, items) {
   const sec = document.createElement('div');
   sec.className = 'pick-sec';
@@ -1820,10 +1898,22 @@ function pickerSec(label, items) {
   row.className = 'pick-row';
   for (const it of items) {
     const n = typeof it === 'string' ? it : it.id;
+    const text = typeof it === 'string' ? it : it.text;
+    const item = document.createElement('div');
+    item.className = 'pick-item';
     const b = document.createElement('button');
+    b.type = 'button';
     b.dataset.anim = n;
-    b.textContent = typeof it === 'string' ? it : it.text;
-    row.appendChild(b);
+    b.textContent = text;
+    const pin = document.createElement('button');
+    pin.type = 'button';
+    pin.className = `pick-pin${pinsFor().includes(n) ? ' on' : ''}`;
+    pin.dataset.pin = n;
+    pin.title = pinsFor().includes(n) ? '取消置顶' : '置顶这个动作';
+    pin.setAttribute('aria-label', pin.title);
+    pin.textContent = pinsFor().includes(n) ? '📌' : '☆';
+    item.append(b, pin);
+    row.appendChild(item);
   }
   sec.append(lab, row);
   return sec;
@@ -1832,7 +1922,14 @@ function pickerSec(label, items) {
 function buildPicker() {
   if (pickerBuilt) return;
   pickerBuilt = true;
+  updatePickerHint();
   const ch = charNow();
+  const pinned = pinsFor().filter(actionAvailable);
+  if (pinned.length) {
+    pickerBody.appendChild(
+      pickerSec(`📌 置顶动作 ${pinned.length}/${PINS_MAX}`, pinned.map((n) => ({ id: n, text: actionText(n) }))),
+    );
+  }
   if (ch.kind === 'pose') {
     // 立绘形象：直接列它自己的姿势（__pose: 前缀走同一套播放管线）
     pickerBody.appendChild(
@@ -1858,12 +1955,7 @@ function buildPicker() {
   if (rest.length) pickerBody.appendChild(pickerSec('其他', rest));
 }
 
-async function openPicker() {
-  closeMenu();
-  closeSettings();
-  buildPicker();
-  if (api.setPanel) await api.setPanel(true);
-  pickerEl.classList.remove('hide');
+function positionPicker() {
   const w = pickerEl.offsetWidth;
   const h = pickerEl.offsetHeight;
   const v = visiblePetRect();
@@ -1871,13 +1963,27 @@ async function openPicker() {
   if (sx < 8) sx = v.right + 10; // 左边放不下就贴右侧
   pickerEl.style.left = `${clamp(sx, 8, Math.max(8, innerWidth - w - 8))}px`;
   pickerEl.style.top = `${clamp(v.top - 8, 8, Math.max(8, innerHeight - h - 8))}px`;
-  requestAnimationFrame(() => pickerEl.classList.add('show'));
+}
+
+async function openPicker() {
+  closeMenu();
+  closeSettings();
+  buildPicker();
+  if (api.setPanel) await api.setPanel(true);
+  pickerEl.classList.remove('hide');
+  positionPicker();
   pickerOpen = true;
   P.frozen = true;
   P.vx = 0;
   P.vy = 0;
   P.target = null;
   stage.classList.remove('swim');
+  requestAnimationFrame(() => {
+    positionPicker();
+    pickerEl.classList.add('show');
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (pickerOpen) positionPicker(); }).catch(() => {});
+    setTimeout(() => { if (pickerOpen) positionPicker(); }, 300);
+  });
 }
 
 function closePicker() {
@@ -1907,10 +2013,20 @@ pickerEl.addEventListener('click', (e) => {
     closePicker();
     return;
   }
+  if (btn.hasAttribute('data-pin')) {
+    togglePin(btn.dataset.pin);
+    return;
+  }
   const name = btn.dataset.anim;
   if (!name) return;
   closePicker();
   playAction(name);
+});
+
+window.addEventListener('resize', () => {
+  if (menuOpen) positionMenu();
+  if (settingsOpen) positionSettings();
+  if (pickerOpen) positionPicker();
 });
 
 // Wails 版 API Key / 自定义文字弹窗挂在 #settings 之外，点弹窗时不能被当成"点面板外"
@@ -2154,6 +2270,14 @@ api.on('init', (st) => {
   S.autoUpdate = set.autoUpdate !== false;
   S.customQuips = Array.isArray(set.customQuips) ? set.customQuips : [];
   S.useCustomQuips = set.useCustomQuips !== false;
+  S.pinnedActions = {};
+  if (set.pinnedActions && typeof set.pinnedActions === 'object') {
+    for (const [charId, list] of Object.entries(set.pinnedActions)) {
+      if (Array.isArray(list)) {
+        S.pinnedActions[charId] = list.filter((x) => typeof x === 'string').slice(0, PINS_MAX);
+      }
+    }
+  }
   S.apiKeys = st.apiKeys || {};
   if (st.version) {
     setVersionEl.textContent = `v${st.version}`;

@@ -191,7 +191,9 @@ func (a *App) startup(ctx context.Context) {
 
 func hasArg(want string) bool {
 	for _, a := range os.Args[1:] {
-		if a == want { return true }
+		if a == want {
+			return true
+		}
 	}
 	return false
 }
@@ -368,7 +370,6 @@ func (a *App) scale() float64 {
 	}
 	return clampF(s, 0.6, 1.6)
 }
-
 
 func (a *App) autoActionSec() int {
 	n := int(a.getFloat("autoActionSec", 40))
@@ -588,6 +589,11 @@ func (a *App) SaveSettings(raw string) {
 			if cleaned, err := a.words.Sanitize(lines); err == nil {
 				a.state["customQuips"] = cleaned
 			}
+		}
+	}
+	if v, ok := apply("pinnedActions"); ok {
+		if m, ok := v.(map[string]interface{}); ok {
+			a.state["pinnedActions"] = pinnedActionsOf(map[string]interface{}{"pinnedActions": m})
 		}
 	}
 	a.mu.Unlock()

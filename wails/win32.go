@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"syscall"
 	"time"
 	"unsafe"
@@ -55,26 +56,27 @@ var (
 	gdi32    = windows.NewLazySystemDLL("gdi32.dll")
 	crypt32  = windows.NewLazySystemDLL("crypt32.dll")
 
-	procFindWindowW          = user32.NewProc("FindWindowW")
-	procGetWindowLongPtrW    = user32.NewProc("GetWindowLongPtrW")
-	procSetWindowLongPtrW    = user32.NewProc("SetWindowLongPtrW")
-	procSetWindowPos         = user32.NewProc("SetWindowPos")
-	procShowWindow           = user32.NewProc("ShowWindow")
-	procIsWindowVisible      = user32.NewProc("IsWindowVisible")
-	procGetCursorPos         = user32.NewProc("GetCursorPos")
-	procSetCursorPos         = user32.NewProc("SetCursorPos")
-	procMouseEvent           = user32.NewProc("mouse_event")
-	procGetDpiForWindow      = user32.NewProc("GetDpiForWindow")
-	procSystemParametersInfo = user32.NewProc("SystemParametersInfoW")
-	procSetForegroundWindow  = user32.NewProc("SetForegroundWindow")
-	procSetWindowRgn         = user32.NewProc("SetWindowRgn")
-	procCreateRectRgn        = gdi32.NewProc("CreateRectRgn")
-	procCombineRgn           = gdi32.NewProc("CombineRgn")
-	procDeleteObject         = gdi32.NewProc("DeleteObject")
-	procCreateMutexW         = kernel32.NewProc("CreateMutexW")
-	procLocalFree            = kernel32.NewProc("LocalFree")
-	procCryptProtectData     = crypt32.NewProc("CryptProtectData")
-	procCryptUnprotectData   = crypt32.NewProc("CryptUnprotectData")
+	procFindWindowW              = user32.NewProc("FindWindowW")
+	procGetWindowThreadProcessID = user32.NewProc("GetWindowThreadProcessId")
+	procGetWindowLongPtrW        = user32.NewProc("GetWindowLongPtrW")
+	procSetWindowLongPtrW        = user32.NewProc("SetWindowLongPtrW")
+	procSetWindowPos             = user32.NewProc("SetWindowPos")
+	procShowWindow               = user32.NewProc("ShowWindow")
+	procIsWindowVisible          = user32.NewProc("IsWindowVisible")
+	procGetCursorPos             = user32.NewProc("GetCursorPos")
+	procSetCursorPos             = user32.NewProc("SetCursorPos")
+	procMouseEvent               = user32.NewProc("mouse_event")
+	procGetDpiForWindow          = user32.NewProc("GetDpiForWindow")
+	procSystemParametersInfo     = user32.NewProc("SystemParametersInfoW")
+	procSetForegroundWindow      = user32.NewProc("SetForegroundWindow")
+	procSetWindowRgn             = user32.NewProc("SetWindowRgn")
+	procCreateRectRgn            = gdi32.NewProc("CreateRectRgn")
+	procCombineRgn               = gdi32.NewProc("CombineRgn")
+	procDeleteObject             = gdi32.NewProc("DeleteObject")
+	procCreateMutexW             = kernel32.NewProc("CreateMutexW")
+	procLocalFree                = kernel32.NewProc("LocalFree")
+	procCryptProtectData         = crypt32.NewProc("CryptProtectData")
+	procCryptUnprotectData       = crypt32.NewProc("CryptUnprotectData")
 )
 
 var singleMutex uintptr
@@ -95,11 +97,24 @@ func acquireSingleInstance() bool {
 func findPetWindow(class string) uintptr {
 	cls, _ := syscall.UTF16PtrFromString(class)
 	title, _ := syscall.UTF16PtrFromString(appName())
+	myPID := uint32(os.Getpid())
+	owned := func(h uintptr) bool {
+		if h == 0 {
+			return false
+		}
+		var pid uint32
+		procGetWindowThreadProcessID.Call(h, uintptr(unsafe.Pointer(&pid)))
+		return pid == myPID
+	}
 	for i := 0; i < 120; i++ {
-		if h, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(cls)), 0); h != 0 {
+		// 先按类和标题找，绝不抓另一个进程（完整版 / Lite 同机运行）的窗口
+		if h, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(cls)), uintptr(unsafe.Pointer(title))); owned(h) {
 			return h
 		}
-		if h, _, _ := procFindWindowW.Call(0, uintptr(unsafe.Pointer(title))); h != 0 {
+		if h, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(cls)), 0); owned(h) {
+			return h
+		}
+		if h, _, _ := procFindWindowW.Call(0, uintptr(unsafe.Pointer(title))); owned(h) {
 			return h
 		}
 		time.Sleep(25 * time.Millisecond)
@@ -351,7 +366,6 @@ func (a *App) DebugState() map[string]interface{} {
 	}
 }
 
-
 func (a *App) updateWindowRegion(force bool) {
 	a.regionMu.Lock()
 	defer a.regionMu.Unlock()
@@ -389,7 +403,7 @@ func (a *App) updateWindowRegion(force bool) {
 		boxes = []RegionBox{{X: 0, Y: 0, W: 1, H: 1, Hit: true}}
 	} else if len(boxes) == 0 {
 		// 前端尚未上报时的兜底：尽量贴近 #hit 的实际可见范围
-		boxes = []RegionBox{{X: px + 76*ps, Y: py + 132*ps, W: 150*ps, H: 187*ps, Hit: true}}
+		boxes = []RegionBox{{X: px + 76*ps, Y: py + 132*ps, W: 150 * ps, H: 187 * ps, Hit: true}}
 	}
 	ww := float64(wa.Right - wa.Left)
 	wh := float64(wa.Bottom - wa.Top)

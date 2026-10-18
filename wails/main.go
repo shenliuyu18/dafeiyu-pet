@@ -21,7 +21,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.4.0"
+var Version = "1.4.1"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -110,8 +110,12 @@ func main() {
 	if !acquireSingleInstance() {
 		return
 	}
+	windowClass := "DafeiyuPetWindow"
+	if isLite() {
+		windowClass = "DafeiyuPetWindowLite"
+	}
 	app := &App{
-		className: "DafeiyuPetWindow",
+		className: windowClass,
 		petScale:  0.85,
 	}
 	distFS, err := fs.Sub(frontendAssets, "frontend/dist")
@@ -143,7 +147,7 @@ func main() {
 			BackdropType:                      windows.None,
 			DisableWindowIcon:                 true,
 			DisableFramelessWindowDecorations: true,
-			WindowClassName:                   "DafeiyuPetWindow",
+			WindowClassName:                   windowClass,
 		},
 	})
 	if err != nil {

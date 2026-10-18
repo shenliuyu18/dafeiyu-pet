@@ -2,6 +2,16 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.4.1] - 2026-10-18
+
+### 修复
+
+- **完整版与 Lite 同时运行时大肥鱼闪现/跳动**：两版共用同一个窗口类名，Lite 启动时 `FindWindow` 抓到了完整版的窗口，两个后端轮流给同一个窗口设置位置与 Region，导致画面在两侧状态间闪动；Lite 自己的窗口一直隐藏。现在完整版/Lite 使用独立窗口类名，`findPetWindow` 按当前进程 PID 校验，绝不跨进程绑定；每个版本各管自己的窗口
+
+### 变更
+
+- 正式版安装包：`dafeiyu-pet-1.4.1-setup.exe` / `dafeiyu-pet-lite-1.4.1-setup.exe`
+
 ## [1.4.0] - 2026-10-18
 
 ### 新增

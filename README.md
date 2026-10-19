@@ -4,7 +4,7 @@
 
 角色素材与动画来自开源项目 [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)（MIT）：**106 个 640×360 的高画质 VP9-alpha 透明 WebM 动画**（待机 / 吃白饭 / 吃 Token / 被拖拽悬空 / 5 种点击回应 / 小憩沉眠 / 写代码 / 余额结算 / 玩魔方 / 放烟花 / 中秋赏月 / 装点圣诞树 …）＋ 27 张无损梗图表情包 ＋ 完整上首软糖体 ＋ 光标图标；提示音来自 [QCYTSN/dsh-dafeiyu](https://github.com/QCYTSN/dsh-dafeiyu)。立绘形象取用上游原始 PNG 并按 2 倍分辨率归一到 1280×720 画布，放大桌宠或在 150% DPI 屏幕上依然清晰。
 
-> **架构（1.4.1 正式版）**：已迁移到 **Wails v2 + 系统 WebView2**，不再打包 Chromium，并提供两个版本：**完整版**（全部原始素材，安装包 68.6MiB / 安装后约 74.7MiB）与 **Lite 版**（动画 480×270 VP9-alpha、立绘 720px WebP q84，安装包 39.7MiB / 安装后约 46.0MiB）。完整版素材按原字节装进 store-only 的 `assets.zip`，**不重新编码、不降采样、不做字体子集化**；Lite 版由 `tools/build-lite-assets.py` 生成压缩素材，音效、字体、敏感词库与梗图保留。两版功能一致，使用独立安装目录、状态目录与单实例，可同时运行。安装包内置微软 WebView2 在线引导：目标机缺少运行时会自动下载安装（需要联网），安装向导为简体中文。
+> **架构（1.4.2 正式版）**：已迁移到 **Wails v2 + 系统 WebView2**，不再打包 Chromium，并提供两个版本：**完整版**（全部原始素材，安装包 68.6MiB / 安装后约 74.7MiB）与 **Lite 版**（动画 480×270 VP9-alpha、立绘 720px WebP q84，安装包 39.7MiB / 安装后约 46.0MiB）。完整版素材按原字节装进 store-only 的 `assets.zip`，**不重新编码、不降采样、不做字体子集化**；Lite 版由 `tools/build-lite-assets.py` 生成压缩素材，音效、字体、敏感词库与梗图保留。两版功能一致，使用独立安装目录、状态目录与单实例，可同时运行。安装包内置微软 WebView2 在线引导：目标机缺少运行时会自动下载安装（需要联网），安装向导为简体中文。
 
 ## 下载安装
 
@@ -12,12 +12,14 @@
 
 | 版本 | 文件 | 说明 |
 | --- | --- | --- |
-| 大肥鱼桌宠（正式版·完整） | `dafeiyu-pet-1.4.1-setup.exe` | **Wails/WebView2**；原始素材；用户级安装、桌面/开始菜单快捷方式；中文安装向导；安装包 68.6MiB，安装后约 74.7MiB |
-| 大肥鱼桌宠 Lite（正式版） | `dafeiyu-pet-lite-1.4.1-setup.exe` | **Wails/WebView2**；压缩素材；功能与完整版一致；中文安装向导；安装包 39.7MiB，安装后约 46.0MiB |
+| 大肥鱼桌宠（正式版·完整） | `dafeiyu-pet-1.4.2-setup.exe` | **Wails/WebView2**；原始素材；用户级安装、桌面/开始菜单快捷方式；中文安装向导；安装包 68.6MiB，安装后约 74.7MiB |
+| 大肥鱼桌宠 Lite（正式版） | `dafeiyu-pet-lite-1.4.2-setup.exe` | **Wails/WebView2**；压缩素材；功能与完整版一致；中文安装向导；安装包 39.7MiB，安装后约 46.0MiB |
+
+> 备用下载：[蓝奏云网盘](https://wwaql.lanzouu.com/b01i5xmkri)（密码 **5meo**），完整版与 Lite 版同步提供。
 
 > 安装路径：完整版 `%LOCALAPPDATA%\Programs\大肥鱼桌宠`，Lite 版 `%LOCALAPPDATA%\Programs\大肥鱼桌宠 Lite`；两版可同时安装、同时运行。完整版沿用 `%APPDATA%\dafeiyu-desktop-pet` 的设置与 API Key；Lite 版使用独立的 `%APPDATA%\dafeiyu-desktop-pet-lite`，互不影响。桌面 / 开始菜单快捷方式和托盘图标均为 `assets/logo.png` 生成的图标。
 
-> ⚠️ **从 Electron 旧版（1.3.0 及更早）升级：请先在「Windows 设置 → 应用」卸载旧版，再安装 1.4.1。** 1.4.0 起仓库与本机都不再包含 Electron 代码、运行时和依赖；直接覆盖安装不会清理旧版留下的文件（白占 200MB+），也可能出现新旧快捷方式混杂。Wails 版的完整版与 Lite 版使用独立安装目录，可以同时安装、同时运行。
+> ⚠️ **从 Electron 旧版（1.3.0 及更早）升级：请先在「Windows 设置 → 应用」卸载旧版，再安装 1.4.2。** 1.4.0 起仓库与本机都不再包含 Electron 代码、运行时和依赖；直接覆盖安装不会清理旧版留下的文件（白占 200MB+），也可能出现新旧快捷方式混杂。Wails 版的完整版与 Lite 版使用独立安装目录，可以同时安装、同时运行。
 
 > 安装包没有做代码签名，Windows SmartScreen 可能提示「未知发布者」——点「更多信息」→「仍要运行」就行。
 
@@ -76,7 +78,8 @@ npm run dist-install:lite  # 构建 Lite 版并静默安装到本机 + 启动
 - 前端由 `tools/wails-prepare.js` 从 `renderer/` + `assets/`（完整版）或 `assets-lite/`（Lite 版）生成：HTML/JS/CSS 改写相对路径，素材装进 `assets.zip`，Wails 用虚拟 fs 直接读取并支持视频 Range 请求。完整版保持 store-only 原字节；Lite 版素材由 `tools/build-lite-assets.py` 预压缩（`--lite` 构建时自动调用）。
 - Go 后端在 `wails/`：透明置顶全屏窗口、Win32 鼠标 Region 与点击穿透、托盘、番茄钟、Qoder credits、API 账单与 DPAPI Key、敏感词过滤、更新检查/静默安装。构建启用 `-trimpath` 与 `-buildvcs=false`，不会把本机工具链路径或 VCS 信息写进 exe。
 - 安装包使用 `-webview2 download`：安装器检测到缺少 WebView2 时会下载并安装；Wails NSIS 已内置微软在线引导，因此完整版安装包体积为 68.6MiB。发布资产命名为 `dafeiyu-pet-<正式版本>-setup.exe` / `dafeiyu-pet-lite-<正式版本>-setup.exe`（不再带 `wails` 后缀），更新检查会按 `setup.exe` 后缀与 lite 标识选择对应版本。安装向导使用简体中文（NSIS `SimpChinese`）。
-- **版本号约定**：开发期间用测试版版本号（如 `1.5.0-beta.1`），只在发布到 GitHub 时才改成正式版号（如 `1.5.0`），并同步 CHANGELOG/README/安装包名。当前正式版为 **1.4.1**；Wails 的 Windows 文件版本使用数字段 `1.4.1.0`，应用内关于页与更新检查使用完整版本号。
+- 正式版发布时同步更新 **GitHub Release** 与 **蓝奏云网盘**（<https://wwaql.lanzouu.com/b01i5xmkri>，密码 **5meo**）。蓝奏云使用半自动脚本 `npm run lanzou:upload -- dist/dafeiyu-pet-<版本>-setup.exe dist/dafeiyu-pet-lite-<版本>-setup.exe`：首次在独立 Edge 手动登录，之后脚本自动填入两个安装包，不读取或保存密码 / Cookie。
+- **版本号约定**：开发期间用测试版版本号（如 `1.5.0-beta.1`），只在发布到 GitHub 时才改成正式版号（如 `1.5.0`），并同步 CHANGELOG/README/安装包名。当前正式版为 **1.4.2**；Wails 的 Windows 文件版本使用数字段 `1.4.2.0`，应用内关于页与更新检查使用完整版本号。
 
 ## 目录结构
 
@@ -149,7 +152,7 @@ docs/                   动作生成提示词库 + 通知图标提示词
 
 ## 更新日志
 
-见 [CHANGELOG.md](CHANGELOG.md)——v1.0.0（2026-10-15）首个正式版；v1.1.0 新增设置界面与右下角停靠；v1.2.0 新增番茄钟自定义时长与「选个动作」、默认尺寸 85%；v1.3.0 合并为单一版本，新增多形象（大肥鱼v1~v6 + GPT 娘）、多平台 AI 账单账本（API Key 加密保存）、二级菜单设置、自动更新、音效包、字体大小、固定位置、自启动与自动动作间隔；**v1.4.0（2026-10-18）正式版**恢复上游最高画质素材、加入自定义互动文字与离线敏感词过滤，修复长动作后半段被截断与全屏窗口吞点击，迁移到 Wails + 系统 WebView2，并同时提供完整版（素材零压缩）与 Lite 版（压缩素材），两版可并存。安装向导为简体中文。v1.4.1 修复完整版与 Lite 同时运行时的窗口互相抢占导致的闪现问题。
+见 [CHANGELOG.md](CHANGELOG.md)——v1.0.0（2026-10-15）首个正式版；v1.1.0 新增设置界面与右下角停靠；v1.2.0 新增番茄钟自定义时长与「选个动作」、默认尺寸 85%；v1.3.0 合并为单一版本，新增多形象（大肥鱼v1~v6 + GPT 娘）、多平台 AI 账单账本（API Key 加密保存）、二级菜单设置、自动更新、音效包、字体大小、固定位置、自启动与自动动作间隔；**v1.4.0（2026-10-18）正式版**恢复上游最高画质素材、加入自定义互动文字与离线敏感词过滤，修复长动作后半段被截断与全屏窗口吞点击，迁移到 Wails + 系统 WebView2，并同时提供完整版（素材零压缩）与 Lite 版（压缩素材），两版可并存。安装向导为简体中文。v1.4.1 修复完整版与 Lite 同时运行时的窗口互相抢占导致的闪现问题；v1.4.2 增加蓝奏云下载入口，并让 GitHub 直链/加速下载在完成后自动打开安装程序。
 
 ## 素材来源与许可
 
@@ -167,4 +170,4 @@ docs/                   动作生成提示词库 + 通知图标提示词
 
 ## 关于旧版
 
-1.4.0 起不再提供 Electron 版本：仓库中没有 Electron 主进程、预加载脚本、旧编辑窗口或 electron/electron-builder 依赖，也没有回退构建。若本机还装有 1.3.0 或更早的 Electron 版，请先在「Windows 设置 → 应用」中卸载，再安装 1.4.1。
+1.4.0 起不再提供 Electron 版本：仓库中没有 Electron 主进程、预加载脚本、旧编辑窗口或 electron/electron-builder 依赖，也没有回退构建。若本机还装有 1.3.0 或更早的 Electron 版，请先在「Windows 设置 → 应用」中卸载，再安装 1.4.2。

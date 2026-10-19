@@ -21,7 +21,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.4.1"
+var Version = "1.4.2"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -641,8 +641,9 @@ func (a *App) OpenExternal(url string) {
 
 func allowedURL(s string) bool {
 	const repo = "https://github.com/shenliuyu18/dafeiyu-pet"
+	const lanzou = "https://wwaql.lanzouu.com/b01i5xmkri"
 	return s == repo || strings.HasPrefix(s, repo+"/") ||
-		strings.HasPrefix(s, "https://gh-proxy.org/")
+		strings.HasPrefix(s, "https://gh-proxy.org/") || s == lanzou
 }
 
 func (a *App) Notify(text string) {

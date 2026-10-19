@@ -1,0 +1,12 @@
+{
+  "name": "dafeiyu-lanzou-upload",
+  "version": "1.0.0",
+  "private": true,
+  "description": "大肥鱼桌宠蓝奏云安装包上传辅助脚本",
+  "scripts": {
+    "check": "node upload.js --check"
+  },
+  "dependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}

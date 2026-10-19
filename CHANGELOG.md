@@ -2,6 +2,17 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.4.2] - 2026-10-19
+
+### 新增
+
+- **蓝奏云网盘下载入口**：官网下载区与程序「启动与更新」页的第三个更新按钮提供「蓝奏云网盘下载（密码 5meo）」；以后正式版发布时 GitHub Release 与蓝奏云网盘同步更新
+- **GitHub 下载后直接安装**：更新页的「GitHub直链下载」「GitHub加速下载」下载完成后会自动关闭当前桌宠、打开交互式安装程序，安装结束或取消后自动重新打开桌宠
+
+### 变更
+
+- 正式版安装包：`dafeiyu-pet-1.4.2-setup.exe` / `dafeiyu-pet-lite-1.4.2-setup.exe`
+
 ## [1.4.1] - 2026-10-18
 
 ### 修复

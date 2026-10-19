@@ -261,7 +261,13 @@ func (a *App) DownloadUpdate(mode string) map[string]interface{} {
 			a.emit("update-done", map[string]interface{}{"ok": false, "error": err.Error()})
 			return
 		}
-		a.emit("update-done", map[string]interface{}{"ok": true, "file": filepath.Base(dest), "path": dest})
+		if !a.spawnInteractiveUpdate(dest) {
+			a.emit("update-done", map[string]interface{}{"ok": false, "error": "无法打开安装程序"})
+			return
+		}
+		a.emit("update-done", map[string]interface{}{"ok": true, "launching": true, "file": filepath.Base(dest), "path": dest})
+		time.Sleep(500 * time.Millisecond)
+		a.Quit()
 	}()
 	return map[string]interface{}{"started": true}
 }
@@ -317,6 +323,29 @@ func (a *App) InstallUpdate() map[string]interface{} {
 		a.Quit()
 	}()
 	return map[string]interface{}{"started": true}
+}
+
+// 下载完成后先退出桌宠，再打开交互式安装界面；安装结束（或取消）后重新启动桌宠。
+func (a *App) spawnInteractiveUpdate(installer string) bool {
+	exe, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	script := filepath.Join(os.TempDir(), fmt.Sprintf("dafeiyu-update-ui-%d.cmd", time.Now().UnixNano()))
+	lines := []string{
+		"@echo off",
+		"ping -n 4 127.0.0.1 >nul",
+		fmt.Sprintf(`start /wait "" "%s"`, installer),
+		"ping -n 3 127.0.0.1 >nul",
+		fmt.Sprintf(`start "" "%s"`, exe),
+		`del "%~f0"`,
+	}
+	if os.WriteFile(script, []byte(strings.Join(lines, "\r\n")+"\r\n"), 0644) != nil {
+		return false
+	}
+	cmd := exec.Command("cmd.exe", "/c", script)
+	cmd.SysProcAttr = hiddenProcAttr()
+	return cmd.Start() == nil
 }
 
 func (a *App) spawnSilentUpdate(installer string) bool {

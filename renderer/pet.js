@@ -49,7 +49,7 @@ const setVersionEl = document.getElementById('set-version');
 const updateHint = document.getElementById('update-hint');
 const updateActions = document.getElementById('update-actions');
 const updateInstallRow = document.getElementById('update-install-row');
-const updateInstall = document.getElementById('update-install');
+const updateLanzou = document.getElementById('update-lanzou');
 const updateDirect = document.getElementById('update-direct');
 const updateAccel = document.getElementById('update-accel');
 const setAutoVal = document.getElementById('set-auto-val');
@@ -1471,7 +1471,6 @@ function applyLinkedApp(p, save) {
 // ---- 检查更新（内联显示结果，不弹系统窗口）----
 let updateInfo = null;
 let updateDownloading = false;
-let updateAutoInstall = false;
 
 function showUpdateButtons(show) {
   updateActions.classList.toggle('hide', !show);
@@ -1480,10 +1479,9 @@ function showUpdateButtons(show) {
 
 function resetUpdateButtons() {
   updateDownloading = false;
-  updateAutoInstall = false;
   updateDirect.disabled = false;
   updateAccel.disabled = false;
-  updateInstall.disabled = false;
+  if (updateLanzou) updateLanzou.disabled = false;
 }
 
 async function doCheckUpdate() {
@@ -1508,33 +1506,12 @@ async function doCheckUpdate() {
   }
 }
 
-async function startAutoInstall() {
-  if (updateDownloading || !updateInfo || !updateInfo.hasUpdate) return;
-  updateDownloading = true;
-  updateAutoInstall = true;
-  updateDirect.disabled = true;
-  updateAccel.disabled = true;
-  updateInstall.disabled = true;
-  updateHint.textContent = '正在下载并自动安装，完成后会重启桌宠…';
-  try {
-    const r = await api.installUpdate();
-    if (r && r.started === false) {
-      resetUpdateButtons();
-      updateHint.textContent = `自动更新未开始：${r.error || '未知错误'}`;
-    }
-  } catch (e) {
-    resetUpdateButtons();
-    updateHint.textContent = `自动更新失败：${e.message || '未知错误'}`;
-  }
-}
-
 async function startUpdateDownload(mode) {
   if (updateDownloading || !updateInfo || !updateInfo.hasUpdate) return;
   updateDownloading = true;
-  updateAutoInstall = false;
   updateDirect.disabled = true;
   updateAccel.disabled = true;
-  updateInstall.disabled = true;
+  if (updateLanzou) updateLanzou.disabled = true;
   updateHint.textContent = '开始下载…';
   try {
     const r = await api.downloadUpdate(mode);
@@ -1550,15 +1527,18 @@ async function startUpdateDownload(mode) {
 
 api.on('update-progress', (p) => {
   if (!p) return;
-  const suffix = updateAutoInstall ? '（下载完成后自动安装）' : '（保存到 Downloads）';
+  const suffix = '（完成后打开安装程序）';
   updateHint.textContent = p.total > 0 ? `下载中… ${p.percent}%${suffix}` : `下载中…${suffix}`;
 });
 
 api.on('update-done', (d) => {
-  const auto = updateAutoInstall;
+  if (d && d.ok && d.launching) {
+    updateHint.textContent = '下载完成，正在关闭桌宠并打开安装程序…';
+    return;
+  }
   resetUpdateButtons();
-  if (d && d.ok) updateHint.textContent = auto ? '安装程序已启动，桌宠即将重启…' : `已保存到 Downloads：${d.file}`;
-  else updateHint.textContent = `${auto ? '自动更新失败' : '下载失败'}：${(d && d.error) || '网络错误'}`;
+  if (d && d.ok) updateHint.textContent = `已保存到 Downloads：${d.file}`;
+  else updateHint.textContent = `下载失败：${(d && d.error) || '网络错误'}`;
 });
 
 async function pickLinkedApp() {
@@ -1768,8 +1748,8 @@ settingsEl.addEventListener('click', (e) => {
     startUpdateDownload(btn.id === 'update-accel' ? 'accel' : 'direct');
     return;
   }
-  if (btn.id === 'update-install') {
-    startAutoInstall();
+  if (btn.id === 'update-lanzou') {
+    api.openExternal('https://wwaql.lanzouu.com/b01i5xmkri');
     return;
   }
   if (btn.id === 'set-words-edit') {

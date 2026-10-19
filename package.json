@@ -1,13 +1,14 @@
 {
   "name": "dafeiyu-desktop-pet",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "大肥鱼桌宠 —— 会吃白饭、会摸鱼、会记账的桌面伙伴",
   "private": true,
   "scripts": {
     "build": "node tools/wails-build.js",
     "build:lite": "node tools/wails-build.js --lite",
     "dist-install": "node tools/wails-build.js --install",
-    "dist-install:lite": "node tools/wails-build.js --lite --install"
+    "dist-install:lite": "node tools/wails-build.js --lite --install",
+    "lanzou:upload": "node tools/lanzou-upload/upload.js"
   },
   "author": "shenliuyu"
 }

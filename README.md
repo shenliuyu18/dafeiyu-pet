@@ -15,7 +15,7 @@
 | 大肥鱼桌宠（正式版·完整） | `dafeiyu-pet-1.4.3-setup.exe` | **Wails/WebView2**；原始素材；用户级安装、桌面/开始菜单快捷方式；中文安装向导；安装包 68.6MiB，安装后约 74.7MiB |
 | 大肥鱼桌宠 Lite（正式版） | `dafeiyu-pet-lite-1.4.3-setup.exe` | **Wails/WebView2**；压缩素材；功能与完整版一致；中文安装向导；安装包 39.7MiB，安装后约 46.0MiB |
 
-> 备用下载：[蓝奏云网盘](https://wwaql.lanzouu.com/b01i5xmkri)（密码 **5meo**）。本次 1.4.3 仅发布 GitHub，蓝奏云暂未更新，网盘内仍为 1.4.2。
+> 备用下载：[蓝奏云网盘](https://wwaql.lanzouu.com/b01i5xmkri)（密码 **5meo**）。
 
 > 安装路径：完整版 `%LOCALAPPDATA%\Programs\大肥鱼桌宠`，Lite 版 `%LOCALAPPDATA%\Programs\大肥鱼桌宠 Lite`；两版可同时安装、同时运行。完整版沿用 `%APPDATA%\dafeiyu-desktop-pet` 的设置与 API Key；Lite 版使用独立的 `%APPDATA%\dafeiyu-desktop-pet-lite`，互不影响。桌面 / 开始菜单快捷方式和托盘图标均为 `assets/logo.png` 生成的图标。
 

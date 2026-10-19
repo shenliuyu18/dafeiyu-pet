@@ -12,7 +12,6 @@
 ### 变更
 
 - 正式版安装包：`dafeiyu-pet-1.4.3-setup.exe` / `dafeiyu-pet-lite-1.4.3-setup.exe`
-- 本次仅发布 GitHub，蓝奏云暂不更新
 
 ## [1.4.2] - 2026-10-19
 

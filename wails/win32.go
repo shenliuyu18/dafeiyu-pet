@@ -70,6 +70,7 @@ var (
 	procSystemParametersInfo     = user32.NewProc("SystemParametersInfoW")
 	procSetForegroundWindow      = user32.NewProc("SetForegroundWindow")
 	procSetWindowRgn             = user32.NewProc("SetWindowRgn")
+	procGetWindowRgn             = user32.NewProc("GetWindowRgn")
 	procCreateRectRgn            = gdi32.NewProc("CreateRectRgn")
 	procCombineRgn               = gdi32.NewProc("CombineRgn")
 	procDeleteObject             = gdi32.NewProc("DeleteObject")
@@ -366,6 +367,17 @@ func (a *App) DebugState() map[string]interface{} {
 	}
 }
 
+// 窗口没有 Region（整窗）时 GetWindowRgn 返回 ERROR；有 Region 时返回具体类型。
+func windowRegionIsFull(h uintptr) bool {
+	rgn, _, _ := procCreateRectRgn.Call(0, 0, 0, 0)
+	if rgn == 0 {
+		return false
+	}
+	defer procDeleteObject.Call(rgn)
+	t, _, _ := procGetWindowRgn.Call(h, rgn)
+	return t == 0
+}
+
 func (a *App) updateWindowRegion(force bool) {
 	a.regionMu.Lock()
 	defer a.regionMu.Unlock()
@@ -388,11 +400,22 @@ func (a *App) updateWindowRegion(force bool) {
 	}
 	full := panel || drag || hold
 	if full {
-		if a.regionSet && a.regionFull {
+		// 不能只信 regionFull 标志：窗口样式/显隐变化后系统可能重置 Region，
+		// 此时标志仍是 true，菜单会落在桌宠 Region 外，表现为显示不全且点不动。
+		if a.regionSet && a.regionFull && windowRegionIsFull(h) {
 			a.regionAt = time.Now()
 			return
 		}
-		procSetWindowRgn.Call(h, 0, 1)
+		ok, _, _ := procSetWindowRgn.Call(h, 0, 1)
+		if ok == 0 {
+			time.Sleep(2 * time.Millisecond)
+			ok, _, _ = procSetWindowRgn.Call(h, 0, 1)
+		}
+		if ok == 0 {
+			a.regionFull = false
+			a.regionAt = time.Now()
+			return
+		}
 		a.regionSet = true
 		a.regionFull = true
 		a.regionSig = ""

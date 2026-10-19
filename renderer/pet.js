@@ -1260,14 +1260,36 @@ function refreshMenu() {
   }
 }
 
+async function ensurePanelOpen() {
+  // 首开面板时字体可能仍在 swap，等字体落定再显示，避免文字层空白
+  if (document.fonts && document.fonts.ready) {
+    try {
+      await Promise.race([
+        document.fonts.ready,
+        new Promise((r) => setTimeout(r, 300)),
+      ]);
+    } catch { /* ignore */ }
+  }
+  if (!api.setPanel) return;
+  for (let i = 0; i < 3; i++) {
+    try {
+      await api.setPanel(true);
+      return;
+    } catch {
+      await new Promise((r) => setTimeout(r, 30));
+    }
+  }
+}
+
 async function openMenu(x, y) {
   closeSettings();
   closePicker();
   refreshMenu();
   menuAnchor = { x, y };
   // 先让主进程把 Region 扩成整窗，再显示面板，避免开面板瞬间被裁
-  if (api.setPanel) await api.setPanel(true);
+  await ensurePanelOpen();
   menuEl.classList.remove('hide');
+  menuEl.scrollTop = 0;
   positionMenu();
   menuOpen = true;
   // 同步显示，避免窗口被遮挡/后台时 requestAnimationFrame 被节流，首次右键偶发“菜单不出现”
@@ -1705,7 +1727,7 @@ async function openSettings() {
   closePicker();
   syncSettingsUI();
   // 先扩 Region 再显示设置；等待串行队列把之前的关闭调用处理完
-  if (api.setPanel) await api.setPanel(true);
+  await ensurePanelOpen();
   settingsEl.classList.remove('hide');
   showHome();
   positionSettings();
@@ -1949,7 +1971,7 @@ async function openPicker() {
   closeMenu();
   closeSettings();
   buildPicker();
-  if (api.setPanel) await api.setPanel(true);
+  await ensurePanelOpen();
   pickerEl.classList.remove('hide');
   positionPicker();
   pickerOpen = true;

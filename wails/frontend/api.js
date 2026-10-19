@@ -34,6 +34,12 @@
     uiChain = uiChain.then(() => invoke(name, ...args)).catch(() => {});
     return uiChain;
   };
+  // 面板扩 Region 必须知道调用是否真的送达；失败时前端要重试，不能当作已展开
+  const queueUiStrict = (name, ...args) => {
+    const p = uiChain.then(() => invoke(name, ...args));
+    uiChain = p.catch(() => {});
+    return p;
+  };
 
   // 设置是整份快照；连续点击时若并发调用，旧快照可能后落盘覆盖新设置
   let saveChain = Promise.resolve();
@@ -239,7 +245,7 @@
       const boxes = typeof window.__petHitBoxes === 'function' ? window.__petHitBoxes() : [];
       invoke('ReportPos', Number(pos.x) || 0, Number(pos.y) || 0, Number(pos.s) || 1, JSON.stringify(boxes)).catch(() => {});
     },
-    setPanel: (open) => { if (!runtimeReady) return Promise.resolve(); return queueUi('SetPanel', !!open); },
+    setPanel: (open) => { if (!runtimeReady) return Promise.resolve(); return queueUiStrict('SetPanel', !!open); },
     setDragging: (on) => { if (runtimeReady) queueUi('SetDragging', !!on); },
     setFocusable: (on) => { if (runtimeReady) queueUi('SetFocusable', !!on); },
     updateStats: (s) => { if (s) invoke('UpdateStats', Number(s.satiety) || 0, Number(s.mood) || 0).catch(() => {}); },

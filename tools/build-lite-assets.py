@@ -29,6 +29,8 @@ CORE = {
 }
 TEXT = {"是啊，吃什么", "深度思考碎碎念", "碎碎念-擦桌碎碎念", "碎碎念-发呆碎碎念", "碎碎念-对屏碎碎念"}
 PORTRAIT_DIRS = {"fish2", "fish3", "fish4", "fish5", "fish6", "gpt"}
+ARCHIVE_MEME_DIR = os.path.join("memes", "archive")
+GPT_SPRITESHEET = os.path.join("gpt", "spritesheet.webp")
 
 
 def run(cmd, **kw):
@@ -96,13 +98,45 @@ def encode_video(name):
             os.remove(tmp)
 
 
+def compress_archive_meme(rel):
+    src = os.path.join(SRC, rel)
+    dst = os.path.join(OUT, os.path.splitext(rel)[0] + ".webp")
+    if fresh(src, dst):
+        return ("skip", os.path.relpath(dst, OUT), os.path.getsize(dst))
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    try:
+        from PIL import Image
+        im = Image.open(src)
+        im.load()
+        if getattr(im, "n_frames", 1) > 1:
+            shutil.copy2(src, os.path.join(OUT, rel))
+            return ("copy-animated", rel, os.path.getsize(os.path.join(OUT, rel)))
+        rgb = im.convert("RGBA")
+        w, h = rgb.size
+        if max(w, h) > 480:
+            scale = 480 / max(w, h)
+            rgb = rgb.resize((max(1, round(w * scale)), max(1, round(h * scale))), Image.LANCZOS)
+        rgb.save(dst, "WEBP", quality=84, method=6)
+        if os.path.getsize(dst) >= os.path.getsize(src):
+            shutil.copy2(src, dst)
+        return ("ok", os.path.relpath(dst, OUT), os.path.getsize(dst))
+    except Exception as e:
+        shutil.copy2(src, dst)
+        return ("fallback:" + str(e)[:80], os.path.relpath(dst, OUT), os.path.getsize(dst))
+
+
 def compress_image(rel):
     src = os.path.join(SRC, rel)
     dst = os.path.join(OUT, rel)
     if fresh(src, dst):
         return ("skip", rel, os.path.getsize(dst))
     os.makedirs(os.path.dirname(dst), exist_ok=True)
+    if rel.startswith(ARCHIVE_MEME_DIR + os.sep):
+        return compress_archive_meme(rel)
     if rel.startswith("memes" + os.sep) or rel.startswith("pic" + os.sep):
+        shutil.copy2(src, dst)
+        return ("copy", rel, os.path.getsize(dst))
+    if rel == GPT_SPRITESHEET:
         shutil.copy2(src, dst)
         return ("copy", rel, os.path.getsize(dst))
     top = rel.split(os.sep, 1)[0]

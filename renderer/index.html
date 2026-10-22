@@ -43,6 +43,7 @@
             </div>
           </div>
         </div>
+        <canvas id="petSprite" class="hide" width="192" height="208"></canvas>
         <div class="zzz"><span>Z</span><span>Z</span><span>Z</span></div>
         <div id="hit"></div>
       </div>
@@ -103,10 +104,10 @@
               <button data-char="v6">大肥鱼v6</button>
             </div>
             <div class="set-row">
-              <button data-char="gpt">GPT 娘（测试）</button>
+              <button data-char="gpt">GPT 娘</button>
             </div>
           </div>
-          <div class="set-hint">v1 是逐帧动画版；v2~v6 是表情立绘（各套画风/动作不同）；GPT 娘为测试内容（不带白饭梗与表情包）</div>
+          <div class="set-hint">v1 是逐帧动画版；v2~v6 是表情立绘（各套画风/动作不同）；GPT 娘使用 73 帧透明图集，支持待机、奔跑、挥手、工作、庆祝和 16 方向视线（不带白饭梗与表情包）</div>
         </div>
         <div class="set-sec">
           <div class="set-label">音效</div>
@@ -326,7 +327,7 @@
             <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/blob/main/CHANGELOG.md">更新日志</button>
             <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/issues">问题反馈</button>
           </div>
-          <div class="set-hint">角色动画与立绘使用上游原始高画质素材，来自 dsh-pet / dsh-whale-widget-plus / DeepSeek-Balance-Whale-Widget / GPT-Niang（均 MIT）；敏感词库来自 Sensitive-lexicon（MIT）。详见仓库 THIRD-PARTY 许可文件</div>
+          <div class="set-hint">角色动画与立绘使用上游原始高画质素材，来自 dsh-pet / dsh-whale-widget-plus / DeepSeek-Balance-Whale-Widget / GPT-Niang（均 MIT）；GPT 娘图集来自 gpt-pet（MIT）；精选档案馆表情来自蓝色大肥鱼档案馆（CC BY-NC-SA 4.0，非商业使用并保留出处）；敏感词库来自 Sensitive-lexicon（MIT）。详见仓库 THIRD-PARTY 许可文件</div>
         </div>
         <div class="set-sec">
           <div class="set-label">操作说明</div>
@@ -340,7 +341,7 @@
             <div><b>待机位置</b> 到处游 / 右下角 / 固定不动（设置里切换）</div>
             <div><b>番茄钟</b> 时长 5~120 分钟可调，专注时她会安静陪你</div>
             <div id="help-ledger"><b>白饭账本</b> 显示 Qoder 用量，或在设置里配置 API Key 后查询各 AI 平台的余额</div>
-            <div>托盘图标可以随时叫出/藏起桌宠、打开设置；GPT 娘为测试内容</div>
+            <div>托盘图标可以随时叫出/藏起桌宠、打开设置；GPT 娘使用完整图集动画</div>
           </div>
         </div>
       </div>
@@ -351,6 +352,7 @@
   </div>
 </div>
 <script src="../assets/anims/index.js"></script>
+<script src="archive-memes.js"></script>
 <script src="pet.js"></script>
 </body>
 </html>

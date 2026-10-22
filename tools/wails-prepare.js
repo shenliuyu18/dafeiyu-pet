@@ -21,7 +21,7 @@ if (!fs.existsSync(srcAssets)) {
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 
-for (const f of ['index.html', 'style.css', 'pet.js']) {
+for (const f of ['index.html', 'style.css', 'archive-memes.js', 'pet.js']) {
   fs.copyFileSync(path.join(srcRenderer, f), path.join(out, f));
 }
 fs.copyFileSync(path.join(root, 'wails', 'frontend', 'api.js'), path.join(out, 'api.js'));
@@ -120,6 +120,7 @@ const rewrite = (f) => {
 rewrite('index.html');
 rewrite('pet.js');
 rewrite('style.css');
+rewrite('archive-memes.js');
 
 // Wails 运行时由 WebView2 注入；为 Wails 副本放宽 CSP，避免本地 runtime/事件被拦
 let html = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
@@ -128,7 +129,9 @@ html = html.replace(
   '<meta http-equiv="Content-Security-Policy" content="default-src \'self\' data: file: blob:; style-src \'self\' \'unsafe-inline\'; script-src \'self\' \'unsafe-inline\'; img-src \'self\' data: file: blob:; media-src \'self\' file: blob:; font-src \'self\' file: data:; connect-src \'self\' ws: wss: http: https:;">',
 );
 html = html.replace('<link rel="stylesheet" href="style.css">', `<link rel="stylesheet" href="style.css?v=${pkg.version}">`);
-html = html.replace('<script src="assets/anims/index.js"></script>', `<script src="assets/anims/index.js?v=${pkg.version}"></script>`);
+html = html.replace('<script src="assets/anims/index.js"></script>', `<script>window.__DAFEIYU_LITE = ${lite ? 'true' : 'false'};</script>
+<script src="assets/anims/index.js?v=${pkg.version}"></script>`);
+html = html.replace('<script src="archive-memes.js"></script>', `<script src="archive-memes.js?v=${pkg.version}"></script>`);
 html = html.replace('<script src="pet.js"></script>', `<script src="api.js?v=${pkg.version}"></script>
 <script src="pet.js?v=${pkg.version}"></script>`);
 fs.writeFileSync(path.join(out, 'index.html'), html);

@@ -6,6 +6,7 @@ const hitEl = document.getElementById('hit');
 const leanEl = document.getElementById('lean');
 const vidEl = document.getElementById('petVid');
 const petImgEl = document.getElementById('petImg');
+const petSpriteEl = document.getElementById('petSprite');
 const memeEl = document.getElementById('bubble-meme');
 const flipEl = document.getElementById('flip');
 const bubbleEl = document.getElementById('bubble');
@@ -754,24 +755,208 @@ const CHARS = {
     actions: [['rua', '摸摸头']],
   },
   gpt: {
-    label: 'GPT 娘（测试）',
-    kind: 'pose',
+    label: 'GPT 娘',
+    kind: 'sprite',
     dsh: false,
     dir: '../assets/gpt/',
-    idle: ['gpt'],
-    map: {
-      '原地小憩沉眠': 'gpt',
-      '工作状态-垂头叹气冒汗': 'gpt',
-      '被鼠标拖拽悬空反馈': 'gpt',
-    },
-    fallback: ['gpt'],
-    actions: [['gpt', '打个招呼']],
+    actions: [
+      ['idle', '待机眨眼'],
+      ['waving', '挥手打招呼'],
+      ['jumping', '悬停招手'],
+      ['work', '敲键盘'],
+      ['review', '拍手庆祝'],
+      ['waiting', '歪头等待'],
+      ['failed', '低头鼓劲'],
+      ['runRight', '向右奔跑'],
+      ['runLeft', '向左奔跑'],
+    ],
   },
 };
 const charOf = (id) => CHARS[id] || CHARS.v1;
 const charNow = () => charOf(S.character);
 // 是否有 DeepSeek 味（白饭梗/表情包）；GPT 娘没有
 const isDsh = () => charNow().dsh !== false;
+
+const SPRITE = {
+  sheet: '../assets/gpt/spritesheet.webp',
+  cellW: 192,
+  cellH: 208,
+  cols: 8,
+  rows: 11,
+  sequences: {
+    idle: { row: 0, count: 6, times: [1680, 660, 660, 840, 840, 1920] },
+    runRight: { row: 1, count: 8, times: [120, 120, 120, 120, 120, 120, 120, 220] },
+    runLeft: { row: 2, count: 8, times: [120, 120, 120, 120, 120, 120, 120, 220] },
+    waving: { row: 3, count: 4, times: [140, 140, 140, 280] },
+    jumping: { row: 4, count: 5, times: [140, 140, 140, 140, 280] },
+    failed: { row: 5, count: 8, times: [140, 140, 140, 140, 140, 140, 140, 240] },
+    waiting: { row: 6, count: 6, times: [150, 150, 150, 150, 150, 260] },
+    work: { row: 7, count: 6, times: [120, 120, 120, 120, 120, 220] },
+    review: { row: 8, count: 6, times: [150, 150, 150, 150, 150, 280] },
+    sleep: { row: 0, count: 1, times: [1200], frame: 2 },
+  },
+};
+const SPRITE_MAP = {
+  '待机呼吸休闲': 'idle',
+  '原地漂浮踏步': 'run',
+  '螃蟹走路': 'run',
+  '原地左转奔跑': 'run',
+  '被鼠标拖拽悬空反馈': 'jumping',
+  '原地小憩沉眠': 'sleep',
+  '工作状态-垂头叹气冒汗': 'failed',
+  '工作状态-雀跃庆祝': 'review',
+  写代码: 'work',
+  '工作状态-思考冒泡': 'waiting',
+  '工作状态-忙碌点按': 'work',
+  '工作状态-清点归档': 'work',
+  吃白饭: 'review',
+  吃Token: 'review',
+  大口吃零食: 'review',
+  '点击回应-开心跃动': 'review',
+  '点击回应-害羞惊讶': 'jumping',
+  '点击回应-傲娇生气': 'failed',
+  '点击回应-挠痒咯咯笑': 'waving',
+  '点击回应-元气挥手': 'waving',
+  '余额-数金皱眉': 'waiting',
+  '余额-钱袋满溢': 'review',
+  '是啊，吃什么': 'waiting',
+  '深度思考碎碎念': 'waiting',
+};
+let spriteSheetImg = null;
+let spriteMode = 'idle';
+let spriteTimer = null;
+let spriteSeqId = 0;
+let spriteFrame = 0;
+let spriteLookIndex = null;
+let spriteDrawn = '';
+let lastCursorAt = 0;
+
+function ensureSpriteSheet() {
+  if (spriteSheetImg) return spriteSheetImg;
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = SPRITE.sheet;
+  img.onload = () => {
+    if (charNow().kind === 'sprite') applyBase();
+  };
+  spriteSheetImg = img;
+  return img;
+}
+
+function drawSpriteCell(row, col) {
+  const key = `${row}:${col}`;
+  if (key === spriteDrawn) return;
+  const img = ensureSpriteSheet();
+  if (!img || !img.naturalWidth) return;
+  const ctx = petSpriteEl.getContext('2d');
+  ctx.clearRect(0, 0, SPRITE.cellW, SPRITE.cellH);
+  ctx.drawImage(img, col * SPRITE.cellW, row * SPRITE.cellH, SPRITE.cellW, SPRITE.cellH, 0, 0, SPRITE.cellW, SPRITE.cellH);
+  spriteDrawn = key;
+}
+
+function stopSpriteAnimation() {
+  spriteSeqId++;
+  clearTimeout(spriteTimer);
+  spriteTimer = null;
+  spriteMode = 'idle';
+  spriteLookIndex = null;
+}
+
+function spriteSequence(key) {
+  return SPRITE.sequences[key] || SPRITE.sequences.waiting;
+}
+
+function spriteDurationKey(key) {
+  const seq = spriteSequence(key);
+  const start = seq.frame || 0;
+  return seq.times.slice(start).reduce((a, b) => a + b, 0);
+}
+
+function spriteKeyFor(name) {
+  const raw = name && name.startsWith('__sprite:') ? name.slice(9) : SPRITE_MAP[name] || 'waiting';
+  // 移动类动作按朝向选左右两套装帧（图集里两套发饰方向不同，不做镜像）
+  return raw === 'run' ? (P.facing === 'left' ? 'runLeft' : 'runRight') : raw;
+}
+
+function spriteDuration(name) {
+  return spriteDurationKey(spriteKeyFor(name));
+}
+
+function spriteLookIndexAt() {
+  const r = petSpriteEl.getBoundingClientRect();
+  if (!(r.width > 0) || !(r.height > 0)) return null;
+  const dx = S.mouse.x - (r.left + r.width / 2);
+  const dy = S.mouse.y - (r.top + r.height / 2);
+  if (Math.hypot(dx, dy) < 1) return null;
+  return Math.round(((Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360) / 22.5) % 16;
+}
+
+function startSpriteSequence(key, loop) {
+  const seq = spriteSequence(key);
+  const id = ++spriteSeqId;
+  clearTimeout(spriteTimer);
+  spriteMode = 'sequence';
+  spriteLookIndex = null;
+  spriteFrame = seq.frame || 0;
+  const tick = () => {
+    if (id !== spriteSeqId || charNow().kind !== 'sprite' || spriteMode !== 'sequence') return;
+    drawSpriteCell(seq.row, spriteFrame);
+    const ms = seq.times[spriteFrame] || 150;
+    spriteFrame++;
+    if (spriteFrame >= seq.count) {
+      if (loop) {
+        spriteFrame = seq.frame || 0;
+      } else {
+        spriteTimer = null;
+        return;
+      }
+    }
+    spriteTimer = setTimeout(tick, ms);
+  };
+  tick();
+}
+
+function startSpriteIdle() {
+  const id = ++spriteSeqId;
+  clearTimeout(spriteTimer);
+  spriteMode = 'idle';
+  spriteFrame = 0;
+  spriteLookIndex = null;
+  const idle = SPRITE.sequences.idle;
+  const tick = () => {
+    if (id !== spriteSeqId || charNow().kind !== 'sprite' || spriteMode !== 'idle') return;
+    const look = performance.now() - lastCursorAt < 1800 ? spriteLookIndexAt() : null;
+    if (look !== null) {
+      if (look !== spriteLookIndex) {
+        spriteLookIndex = look;
+        drawSpriteCell(9 + Math.floor(look / 8), look % 8);
+      }
+      spriteTimer = setTimeout(tick, 90);
+      return;
+    }
+    spriteLookIndex = null;
+    drawSpriteCell(idle.row, spriteFrame);
+    const ms = idle.times[spriteFrame] || 150;
+    spriteFrame = (spriteFrame + 1) % idle.count;
+    spriteTimer = setTimeout(tick, ms);
+  };
+  tick();
+}
+
+function playSprite(name, loop, restart) {
+  const key = spriteKeyFor(name);
+  // 同一状态被重复触发时不要从头重放，否则待机/工作会被反复打断
+  if (!restart && name === curAnim && spriteTimer) {
+    if (key === 'idle' && spriteMode === 'idle') return;
+    if (key !== 'idle' && spriteMode === 'sequence') return;
+  }
+  curAnim = name;
+  curNoMirror = true;
+  refreshFlip();
+  if (key === 'idle') startSpriteIdle();
+  else startSpriteSequence(key, loop);
+}
+
 let curPose = '';
 
 function refreshFlip() {
@@ -807,6 +992,10 @@ function poseForName(name) {
 function playAnim(pool, loop, restart) {
   const name = Array.isArray(pool) ? pick(pool) : pool;
   const ch = charNow();
+  if (ch.kind === 'sprite') {
+    playSprite(name, loop, restart);
+    return;
+  }
   if (ch.kind === 'pose') {
     curAnim = name;
     curNoMirror = true; // 立绘不做左右镜像，避免看起来怪
@@ -848,7 +1037,10 @@ function playOnce(pool, restart) {
   // 视频切换后 vidEl.duration 可能还是上一段的旧值（或 0），不能拿它定返回时间；
   // 先挂一个硬上限，等 metadata 到达后再按真实时长重新计时，避免长动作后半段被截断。
   oneShotTimer = setTimeout(back, 13000);
-  if (charNow().kind === 'pose') {
+  if (charNow().kind === 'sprite') {
+    clearTimeout(oneShotTimer);
+    oneShotTimer = setTimeout(back, Math.min(8000, spriteDuration(curAnim) + 220));
+  } else if (charNow().kind === 'pose') {
     clearTimeout(oneShotTimer);
     oneShotTimer = setTimeout(back, 2600);
   } else {
@@ -880,7 +1072,10 @@ const NO_MIRROR = new Set(['是啊，吃什么', '深度思考碎碎念']);
 // 余额账本按已用百分比分档播动画
 const BALANCE_TIERS = ['余额-钱袋满溢', '余额-金袋叮当', '余额-钱袋如常', '余额-数金皱眉', '余额-袋空如洗', '余额-分文不剩'];
 
-const usable = (list) => list.filter((n) => HAS.has(n));
+const usable = (list) => {
+  if (charNow().kind === 'sprite') return list.filter((n) => Boolean(SPRITE_MAP[n]));
+  return list.filter((n) => HAS.has(n));
+};
 const pickWeighted = () => {
   const total = ACTIONS.reduce((a, c) => a + c.weight, 0);
   let r = Math.random() * total;
@@ -941,11 +1136,16 @@ function maybeShow() {
   if (now - lastAutoAt < S.autoActionSec * 1000) return;
   if (oneShotPlaying || S.dragging || !S.awake || S.autoDoze || S.pomoRunning) return;
   lastAutoAt = now;
+  if (charNow().kind === 'sprite') {
+    const key = pick(['waving', 'jumping', 'review', 'waiting', 'failed', 'work']);
+    playOnce([`__sprite:${key}`]);
+    return;
+  }
   if (Math.random() < 0.25) {
     const w = usable(WHISPERS);
     if (w.length) {
       playOnce(w);
-      say(pick(quipsPool()), 3600, usingCustomQuips() || !isDsh() ? undefined : 'click');
+      sayScene('click', pick(quipsPool()), 3600);
       return;
     }
   }
@@ -957,6 +1157,13 @@ function maybeShow() {
 function applyBase() {
   if (oneShotPlaying) return;
   const ch = charNow();
+  if (ch.kind === 'sprite') {
+    if (S.dragging) return playAnim(ANIM.drag, true);
+    if (!S.awake || S.autoDoze) return playAnim(ANIM.sleep, true);
+    if (S.pomoRunning) return playAnim(pomoResting ? ANIM.idle : pomoAnim || ANIM.work, true);
+    if (S.satiety < 32) return playAnim(ANIM.sad, true);
+    return playAnim(P.swimming ? ANIM.move : ANIM.idle, true);
+  }
   if (ch.kind === 'pose') {
     if (S.dragging) return playAnim(ANIM.drag, true);
     if (!S.awake || S.autoDoze) return playAnim(ANIM.sleep, true);
@@ -989,12 +1196,14 @@ function applyLean(x, y) {
 
 // ---------------------------------------------------------------- 气泡
 
-function say(text, ms = 3200, memeKey) {
+function say(text, ms = 3200, memeKey, memeFile) {
   clearTimeout(S.bubbleTimer);
   bubbleText.textContent = text;
   const pool = memeKey && MEMES[memeKey];
-  if (pool && pool.length) {
-    memeEl.src = `../assets/memes/${pick(pool)}.webp`;
+  const file = memeFile || (pool && pool.length ? `../assets/memes/${pick(pool)}.webp` : '');
+  if (file) {
+    memeEl.classList.toggle('archive', !!memeFile);
+    memeEl.src = file;
     memeEl.classList.remove('hide');
   } else {
     memeEl.classList.add('hide');
@@ -1005,6 +1214,25 @@ function say(text, ms = 3200, memeKey) {
   positionBubble();
   S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), ms);
 }
+
+function sayScene(scene, fallbackText, ms = 3200) {
+  if (!isDsh() || usingCustomQuips()) {
+    say(fallbackText, ms);
+    return;
+  }
+  const pool = (window.ARCHIVE_MEMES || []).filter((m) => m.scenes.includes(scene));
+  if (!pool.length) {
+    say(fallbackText, ms, scene);
+    return;
+  }
+  const picked = pick(pool);
+  const ext = window.__DAFEIYU_LITE ? 'webp' : picked.ext;
+  say(picked.text, ms, null, `../assets/memes/archive/${picked.file}.${ext}`);
+}
+
+memeEl.addEventListener('load', () => {
+  if (bubbleEl.classList.contains('show')) positionBubble();
+});
 
 function showStatus() {
   clearTimeout(S.bubbleTimer);
@@ -1118,7 +1346,7 @@ function playEat() {
     stage.classList.remove('eat');
     playHappy();
     burstHearts(4);
-    say(pick(feedLines()));
+    sayScene('feed', pick(feedLines()));
   }, 1150);
 }
 
@@ -1628,24 +1856,45 @@ async function pickLinkedApp() {
   if (p) applyLinkedApp(p, true);
 }
 
-// 切换形象：video 形象显示 <video>，立绘形象显示 <img>；重置动画记录并重建动作面板
+// 切换形象：video 显示 <video>，立绘显示 <img>，图集显示 <canvas>；重置动画记录并重建动作面板
 function applyCharacter(id, save) {
   S.character = CHARS[id] ? id : 'v1';
-  const pose = charNow().kind === 'pose';
-  vidEl.classList.toggle('hide', pose);
-  petImgEl.classList.toggle('hide', !pose);
+  const kind = charNow().kind;
+  vidEl.classList.toggle('hide', kind !== 'video');
+  petImgEl.classList.toggle('hide', kind !== 'pose');
+  petSpriteEl.classList.toggle('hide', kind !== 'sprite');
   curAnim = '';
   curPose = '';
   oneShotPlaying = false;
   oneShotSeq++;
   clearTimeout(oneShotTimer);
+  stopSpriteAnimation();
   pickerBuilt = false;
   pickerBody.innerHTML = '';
-  if (pose) {
+  if (kind === 'video') {
+    petImgEl.removeAttribute('src');
+    petSpriteEl.getContext('2d').clearRect(0, 0, SPRITE.cellW, SPRITE.cellH);
+    spriteDrawn = '';
+  } else {
     vidEl.pause();
     vidEl.removeAttribute('src');
-  } else {
+  }
+  if (kind === 'pose') {
+    petSpriteEl.getContext('2d').clearRect(0, 0, SPRITE.cellW, SPRITE.cellH);
+    spriteDrawn = '';
+  }
+  if (kind === 'sprite') {
     petImgEl.removeAttribute('src');
+    ensureSpriteSheet();
+    hitEl.style.left = '126px';
+    hitEl.style.top = '36px';
+    hitEl.style.width = '173px';
+    hitEl.style.height = '187px';
+  } else {
+    hitEl.style.left = '';
+    hitEl.style.top = '';
+    hitEl.style.width = '';
+    hitEl.style.height = '';
   }
   refreshMenu();
   syncSettingsUI();
@@ -1910,15 +2159,17 @@ function pinsFor(charId = S.character) {
 }
 
 function actionText(name) {
-  if (!name.startsWith('__pose:')) return name;
-  const pose = name.slice(7);
-  const found = charNow().actions.find(([p]) => p === pose);
-  return found ? found[1] : pose;
+  const prefix = name.startsWith('__pose:') ? '__pose:' : name.startsWith('__sprite:') ? '__sprite:' : '';
+  if (!prefix) return name;
+  const key = name.slice(prefix.length);
+  const found = charNow().actions.find(([p]) => p === key);
+  return found ? found[1] : key;
 }
 
 function actionAvailable(name) {
   const ch = charNow();
   if (ch.kind === 'pose') return ch.actions.some(([p]) => `__pose:${p}` === name);
+  if (ch.kind === 'sprite') return ch.actions.some(([p]) => `__sprite:${p}` === name);
   return HAS.has(name);
 }
 
@@ -1997,6 +2248,16 @@ function buildPicker() {
     pickerBody.appendChild(
       pickerSec(`📌 置顶动作 ${pinned.length}/${PINS_MAX}`, pinned.map((n) => ({ id: n, text: actionText(n) }))),
     );
+  }
+  if (ch.kind === 'sprite') {
+    // GPT 娘：直接列图集动作（__sprite: 前缀走同一套播放管线）
+    pickerBody.appendChild(
+      pickerSec(
+        `${ch.label} 的动作`,
+        ch.actions.map(([p, text]) => ({ id: `__sprite:${p}`, text })),
+      ),
+    );
+    return;
   }
   if (ch.kind === 'pose') {
     // 立绘形象：直接列它自己的姿势（__pose: 前缀走同一套播放管线）
@@ -2160,7 +2421,8 @@ function handlePetClick() {
     sfx('click');
     const custom = usingCustomQuips();
     const line = !custom && Math.random() < 0.3 ? creditsLine() : null;
-    say(line || pick(quipsPool()), 3200, line ? 'ledger' : custom || !isDsh() ? undefined : 'click');
+    if (custom) say(pick(quipsPool()), 3200);
+    else sayScene(line ? 'ledger' : 'click', line || pick(quipsPool()));
     api.updateStats({ satiety: S.satiety, mood: S.mood });
   }, 230);
 }
@@ -2202,14 +2464,14 @@ function alphaBounds(el, w, h) {
 }
 
 function petRenderBox() {
-  const pose = charNow().kind === 'pose';
-  const el = pose ? petImgEl : vidEl;
-  const src = el.currentSrc || el.getAttribute('src') || '';
+  const kind = charNow().kind;
+  const el = kind === 'pose' ? petImgEl : kind === 'sprite' ? petSpriteEl : vidEl;
+  const src = kind === 'sprite' ? `sprite:${spriteDrawn}` : el.currentSrc || el.getAttribute('src') || '';
   const now = performance.now();
-  if (maskCache.box && maskCache.src === src && maskCache.pose === pose && now - maskCache.at < 120) return maskCache.box;
+  if (maskCache.box && maskCache.src === src && maskCache.pose === kind && now - maskCache.at < 120) return maskCache.box;
   const rect = el.getBoundingClientRect();
-  const iw = pose ? petImgEl.naturalWidth : vidEl.videoWidth;
-  const ih = pose ? petImgEl.naturalHeight : vidEl.videoHeight;
+  const iw = kind === 'pose' ? petImgEl.naturalWidth : kind === 'sprite' ? SPRITE.cellW : vidEl.videoWidth;
+  const ih = kind === 'pose' ? petImgEl.naturalHeight : kind === 'sprite' ? SPRITE.cellH : vidEl.videoHeight;
   const ab = alphaBounds(el, iw, ih);
   let box = null;
   if (ab && rect.width > 0 && rect.height > 0) {
@@ -2223,7 +2485,7 @@ function petRenderBox() {
       h: (ab.y1 - ab.y0) * rect.height,
     };
   }
-  maskCache = { at: now, src, pose, box };
+  maskCache = { at: now, src, pose: kind, box };
   return box;
 }
 
@@ -2432,7 +2694,7 @@ api.on('awake', (v) => {
   S.awake = !!v;
   if (S.awake) wake();
   applyDoze();
-  if (!S.awake) say(pick(sleepLines()), 2600, isDsh() ? 'sleep' : undefined);
+  if (!S.awake) sayScene('sleep', pick(sleepLines()), 2600);
 });
 
 api.on('bubble', (t) => say(t));
@@ -2444,7 +2706,7 @@ api.on('pomodoro-done', () => {
   if (S.dock === 'roam') P.swimTo = { x: innerWidth / 2 - PET.cx, y: innerHeight / 2 - PET.cy };
   playHappy();
   burstHearts(6);
-  say('专注结束啦，起来动一动～', 5000);
+  sayScene('happy', '专注结束啦，起来动一动～', 5000);
 });
 
 api.on('show-status', showStatus);
@@ -2457,6 +2719,7 @@ api.on('show-picker', () => openPicker());
 api.on('cursor', (c) => {
   S.mouse.x = c.x;
   S.mouse.y = c.y;
+  lastCursorAt = performance.now();
   applyLean(c.x, c.y);
   if (c.over && !S.over) wake();
   S.over = !!c.over;
@@ -2485,7 +2748,7 @@ setInterval(() => {
   if (!S.awake) return;
   if (S.satiety < 32 && now - S.hungryAt > 6 * 60000) {
     S.hungryAt = now;
-    say(pick(hungryLines()), 3200, isDsh() ? 'hungry' : undefined);
+    sayScene('hungry', pick(hungryLines()), 3200);
   }
   if (!S.autoDoze && !S.dragging && !S.pomoRunning && now - S.lastInteract > 100000) {
     S.autoDoze = true;

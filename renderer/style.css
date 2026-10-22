@@ -86,8 +86,19 @@ body.dev-bg {
   animation: poseAlive 2.8s ease-in-out infinite;
 }
 
+#petSprite {
+  position: absolute;
+  left: 126px;
+  top: 36px;
+  width: 173px;
+  height: 187px;
+  display: block;
+  animation: poseAlive 2.8s ease-in-out infinite;
+}
+
 #petImg.hide,
-#petVid.hide {
+#petVid.hide,
+#petSprite.hide {
   display: none;
 }
 
@@ -311,6 +322,11 @@ body.dev-bg {
   width: 132px;
   margin: 0 auto 7px;
   border-radius: 10px;
+}
+
+#bubble-meme.archive {
+  width: 200px;
+  max-width: 100%;
 }
 
 #bubble-meme.hide {

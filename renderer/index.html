@@ -153,6 +153,14 @@
           <div class="set-hint">「固定不动」：先把她拖到想要的位置，她就一直待在那儿</div>
         </div>
         <div class="set-sec">
+          <div class="set-label">全屏视频 / 游戏</div>
+          <div class="set-row" id="set-fullscreen-hide">
+            <button data-fullscreenhide="1">开启（全屏时自动隐藏）</button>
+            <button data-fullscreenhide="0">关闭</button>
+          </div>
+          <div class="set-hint">检测到全屏视频、游戏或演示时自动藏起，退出全屏后重新回到其他窗口上方；普通窗口和最大化窗口不受影响。</div>
+        </div>
+        <div class="set-sec">
           <div class="set-label">自动动作间隔 <b id="set-auto-val">40 秒</b></div>
           <div class="set-row">
             <button id="auto-minus">− 5 秒</button>
@@ -242,9 +250,19 @@
         <div class="set-sec">
           <div class="set-label">开机自启动</div>
           <div class="set-row" id="set-autostart">
-            <button data-autostart="1">登录时自动出现</button>
             <button data-autostart="0">关闭</button>
+            <button data-autostart="normal">普通自启</button>
+            <button data-autostart="high">高优先级自启</button>
           </div>
+          <div class="set-hint">高优先级自启会让桌宠以 Windows 高进程优先级运行，系统繁忙时更不容易卡顿，但可能影响其他前台程序的响应。</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">休眠/睡眠恢复</div>
+          <div class="set-row" id="set-safe-resume">
+            <button data-saferesume="1">开启（自检，异常自动重启）</button>
+            <button data-saferesume="0">关闭</button>
+          </div>
+          <div class="set-hint">从休眠/睡眠唤醒后检查窗口、置顶和渲染状态；异常时自动重启桌宠并保留设置。主动隐藏桌宠时不会自动恢复。</div>
         </div>
         <div class="set-sec">
           <div class="set-label">一起启动的应用 <b id="set-app-name">未设置</b></div>

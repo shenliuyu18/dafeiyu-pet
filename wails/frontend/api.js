@@ -246,6 +246,7 @@
       invoke('ReportPos', Number(pos.x) || 0, Number(pos.y) || 0, Number(pos.s) || 1, JSON.stringify(boxes)).catch(() => {});
     },
     setPanel: (open) => { if (!runtimeReady) return Promise.resolve(); return queueUiStrict('SetPanel', !!open); },
+    powerAck: (seq) => { if (runtimeReady) invoke('PowerAck', Number(seq) || 0).catch(() => {}); },
     setDragging: (on) => { if (runtimeReady) queueUi('SetDragging', !!on); },
     setFocusable: (on) => { if (runtimeReady) queueUi('SetFocusable', !!on); },
     updateStats: (s) => { if (s) invoke('UpdateStats', Number(s.satiety) || 0, Number(s.mood) || 0).catch(() => {}); },

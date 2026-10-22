@@ -59,6 +59,8 @@ const setPomoAnimVal = document.getElementById('set-pomo-anim-val');
 const setPomoAnimPresets = document.getElementById('set-pomo-anim-presets');
 const setLedger = document.getElementById('set-ledger');
 const setAutoStart = document.getElementById('set-autostart');
+const setSafeResume = document.getElementById('set-safe-resume');
+const setFullscreenHide = document.getElementById('set-fullscreen-hide');
 const setAppName = document.getElementById('set-app-name');
 const pickerEl = document.getElementById('picker');
 const pickerBody = document.getElementById('picker-body');
@@ -186,6 +188,9 @@ const S = {
   awake: true,
   ledgerOn: true,
   autoStart: false,
+  highPriority: false,
+  safeResume: true,
+  fullscreenHide: true,
   launchApp: '',
   character: 'v1',
   fontScale: 1,
@@ -312,16 +317,17 @@ function step(dt) {
     // 位置由鼠标事件直接驱动，只做速度归零
     P.vx = 0;
     P.vy = 0;
+  } else if (S.dock === 'corner') {
+    // 右下角停靠是位置约束，优先于睡眠/小节目：被拖走后无论当前在播什么都要游回去
+    const c = cornerSpot(b);
+    if (steer(c.x, c.y, 120, dt) < 8) {
+      P.vx = 0;
+      P.vy = 0;
+    }
   } else if (oneShotPlaying) {
     coast(dt, 0.86); // 播小节目时站定，别边跳边飘
   } else if (S.pomoRunning) {
-    if (S.dock === 'corner') {
-      const c = cornerSpot(b);
-      if (steer(c.x, c.y, 120, dt) < 8) {
-        P.vx = 0;
-        P.vy = 0;
-      }
-    } else if (P.swimTo) {
+    if (P.swimTo) {
       if (steer(P.swimTo.x, P.swimTo.y, 150, dt) < 12) {
         P.swimTo = null;
         P.vx = 0;
@@ -332,13 +338,6 @@ function step(dt) {
     }
   } else if (!S.awake || S.autoDoze) {
     coast(dt, 0.9);
-  } else if (S.dock === 'corner') {
-    // 右下角停靠：一直朝角落游（位置给气泡留空间），被拖走后也会自己晃回去
-    const c = cornerSpot(b);
-    if (steer(c.x, c.y, 120, dt) < 8) {
-      P.vx = 0;
-      P.vy = 0;
-    }
   } else if (S.dock === 'fixed') {
     // 固定不动：停在原地，只有拖拽能改变位置
     coast(dt, 0.9);
@@ -1343,6 +1342,9 @@ function saveSettings() {
     pomoAnimSec: S.pomoAnimSec,
     ledger: S.ledgerOn,
     autoStart: S.autoStart,
+    highPriority: S.highPriority,
+    safeResume: S.safeResume,
+    fullscreenHide: S.fullscreenHide,
     launchApp: S.launchApp,
     character: S.character,
     fontSize: S.fontScale,
@@ -1391,8 +1393,19 @@ function syncSettingsUI() {
   for (const btn of setLedger.querySelectorAll('button')) {
     btn.classList.toggle('on', (btn.dataset.ledger === '1') === S.ledgerOn);
   }
+  const startupMode = !S.autoStart ? '0' : (S.highPriority ? 'high' : 'normal');
   for (const btn of setAutoStart.querySelectorAll('button')) {
-    btn.classList.toggle('on', (btn.dataset.autostart === '1') === S.autoStart);
+    btn.classList.toggle('on', btn.dataset.autostart === startupMode);
+  }
+  if (setSafeResume) {
+    for (const btn of setSafeResume.querySelectorAll('button')) {
+      btn.classList.toggle('on', (btn.dataset.saferesume === '1') === S.safeResume);
+    }
+  }
+  if (setFullscreenHide) {
+    for (const btn of setFullscreenHide.querySelectorAll('button')) {
+      btn.classList.toggle('on', (btn.dataset.fullscreenhide === '1') === S.fullscreenHide);
+    }
   }
   const setAutoUpdate = document.getElementById('set-autoupdate');
   if (setAutoUpdate) {
@@ -1478,8 +1491,23 @@ function applyAutoUpdate(on, save) {
   if (save) saveSettings();
 }
 
-function applyAutoStart(on, save) {
-  S.autoStart = !!on;
+function applyAutoStart(mode, save) {
+  const high = mode === 'high';
+  const normal = mode === 'normal' || mode === '1';
+  S.autoStart = high || normal;
+  S.highPriority = high;
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+function applySafeResume(on, save) {
+  S.safeResume = !!on;
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+function applyFullscreenHide(on, save) {
+  S.fullscreenHide = !!on;
   syncSettingsUI();
   if (save) saveSettings();
 }
@@ -1493,10 +1521,16 @@ function applyLinkedApp(p, save) {
 // ---- 检查更新（内联显示结果，不弹系统窗口）----
 let updateInfo = null;
 let updateDownloading = false;
+let updateChecking = false;
+
+function relayoutUpdatePanel() {
+  if (settingsOpen) requestAnimationFrame(positionSettings);
+}
 
 function showUpdateButtons(show) {
   updateActions.classList.toggle('hide', !show);
   updateInstallRow.classList.toggle('hide', !show);
+  relayoutUpdatePanel();
 }
 
 function resetUpdateButtons() {
@@ -1507,24 +1541,44 @@ function resetUpdateButtons() {
 }
 
 async function doCheckUpdate() {
-  if (updateDownloading) return;
+  if (updateDownloading || updateChecking) return;
+  updateChecking = true;
+  const prev = updateInfo;
   updateHint.textContent = '正在检查 GitHub Releases…';
-  showUpdateButtons(false);
   try {
     const r = await api.checkUpdate();
-    updateInfo = r || null;
     if (!r || r.error) {
-      updateHint.textContent = `检查失败：${(r && r.error) || '网络错误'}`;
+      if (prev && prev.hasUpdate) {
+        updateInfo = prev;
+        updateHint.textContent = `检查失败：${(r && r.error) || '网络错误'}；仍可下载上次发现的新版本 ${prev.latest}`;
+        showUpdateButtons(true);
+      } else {
+        updateInfo = r || null;
+        updateHint.textContent = `检查失败：${(r && r.error) || '网络错误'}`;
+        showUpdateButtons(false);
+      }
       return;
     }
+    updateInfo = r;
     if (!r.hasUpdate) {
       updateHint.textContent = `已是最新版本 v${r.current}`;
+      showUpdateButtons(false);
       return;
     }
     updateHint.textContent = `发现新版本 ${r.latest}（当前 v${r.current}），选择下载方式：`;
     showUpdateButtons(true);
   } catch {
-    updateHint.textContent = '检查失败：网络错误';
+    if (prev && prev.hasUpdate) {
+      updateInfo = prev;
+      updateHint.textContent = `检查失败：网络错误；仍可下载上次发现的新版本 ${prev.latest}`;
+      showUpdateButtons(true);
+    } else {
+      updateHint.textContent = '检查失败：网络错误';
+      showUpdateButtons(false);
+    }
+  } finally {
+    updateChecking = false;
+    relayoutUpdatePanel();
   }
 }
 
@@ -1540,10 +1594,12 @@ async function startUpdateDownload(mode) {
     if (r && r.started === false) {
       resetUpdateButtons();
       updateHint.textContent = `下载未开始：${r.error || '未知错误'}`;
+      relayoutUpdatePanel();
     }
   } catch (e) {
     resetUpdateButtons();
     updateHint.textContent = `下载失败：${e.message || '未知错误'}`;
+    relayoutUpdatePanel();
   }
 }
 
@@ -1551,16 +1607,19 @@ api.on('update-progress', (p) => {
   if (!p) return;
   const suffix = '（完成后打开安装程序）';
   updateHint.textContent = p.total > 0 ? `下载中… ${p.percent}%${suffix}` : `下载中…${suffix}`;
+  relayoutUpdatePanel();
 });
 
 api.on('update-done', (d) => {
   if (d && d.ok && d.launching) {
     updateHint.textContent = '下载完成，正在关闭桌宠并打开安装程序…';
+    relayoutUpdatePanel();
     return;
   }
   resetUpdateButtons();
   if (d && d.ok) updateHint.textContent = `已保存到 Downloads：${d.file}`;
   else updateHint.textContent = `下载失败：${(d && d.error) || '网络错误'}`;
+  relayoutUpdatePanel();
 });
 
 async function pickLinkedApp() {
@@ -1812,7 +1871,9 @@ settingsEl.addEventListener('click', (e) => {
   else if (btn.id === 'auto-minus') applyAutoActionSec(S.autoActionSec - AUTO_STEP, true);
   else if (btn.id === 'auto-plus') applyAutoActionSec(S.autoActionSec + AUTO_STEP, true);
   else if (btn.dataset.ledger) applyLedger(btn.dataset.ledger === '1', true);
-  else if (btn.dataset.autostart) applyAutoStart(btn.dataset.autostart === '1', true);
+  else if (btn.dataset.autostart) applyAutoStart(btn.dataset.autostart, true);
+  else if (btn.dataset.saferesume) applySafeResume(btn.dataset.saferesume === '1', true);
+  else if (btn.dataset.fullscreenhide) applyFullscreenHide(btn.dataset.fullscreenhide === '1', true);
   else if (btn.dataset.autoupdate) applyAutoUpdate(btn.dataset.autoupdate === '1', true);
   else if (btn.id === 'pomo-minus') applyPomoMin(S.pomoMin - POMO_STEP, true);
   else if (btn.id === 'pomo-plus') applyPomoMin(S.pomoMin + POMO_STEP, true);
@@ -1824,6 +1885,11 @@ settingsEl.addEventListener('click', (e) => {
 // ---------------------------------------------------------------- 选个动作
 
 let pickerOpen = false;
+
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(() => { if (settingsOpen) positionSettings(); }).observe(settingsEl);
+  new ResizeObserver(() => { if (pickerOpen) positionPicker(); }).observe(pickerEl);
+}
 let pickerBuilt = false;
 
 const byPool = (id) => (ACTIONS.find((a) => a.id === id) || { pool: [] }).pool;
@@ -2262,6 +2328,9 @@ api.on('init', (st) => {
   const set = st.settings || {};
   S.ledgerOn = set.ledger !== false;
   S.autoStart = !!set.autoStart;
+  S.highPriority = !!set.highPriority && S.autoStart;
+  S.safeResume = set.safeResume !== false;
+  S.fullscreenHide = set.fullscreenHide !== false;
   S.launchApp = typeof set.launchApp === 'string' ? set.launchApp : '';
   applyLedgerUI();
   applyCharacter(set.character, false);
@@ -2314,6 +2383,20 @@ api.on('init', (st) => {
   const hi = creditsLine();
   const hello = S.character === 'gpt' ? 'Ciallo～ 我是 GPT 娘' : '你好呀，我是蓝色大肥鱼～';
   setTimeout(() => say(hi ? `${hello} ${hi}` : hello, 4600), 700);
+});
+
+api.on('power-resume', (p) => {
+  try {
+    if (p && Number.isFinite(p.x)) P.x = p.x;
+    if (p && Number.isFinite(p.y)) P.y = p.y;
+    clampInBounds();
+    api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale });
+    if (menuOpen) positionMenu();
+    if (settingsOpen) positionSettings();
+    if (pickerOpen) positionPicker();
+  } finally {
+    if (api.powerAck) api.powerAck(p && p.seq);
+  }
 });
 
 api.on('keys-updated', (keys) => {

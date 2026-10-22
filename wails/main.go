@@ -21,7 +21,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.4.3"
+var Version = "1.4.4"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -86,6 +86,7 @@ type App struct {
 
 	apiFetching  bool
 	lastUpdate   map[string]interface{}
+	lastUpdateAt time.Time
 	updateBusy   bool
 	autoUpdating bool
 
@@ -94,6 +95,14 @@ type App struct {
 
 	lastSavedPos time.Time
 	quitting     bool
+
+	lastResumeCheck time.Time
+	resumeChecking  bool
+	powerSeq        int
+	powerAckAt      time.Time
+
+	fsHidden     bool
+	fsClearSince time.Time
 
 	regionMu    sync.Mutex
 	regionSet   bool
@@ -107,6 +116,10 @@ type App struct {
 }
 
 func main() {
+	if hasArg("--resume-restart-helper") {
+		runResumeRestartHelper()
+		return
+	}
 	if !acquireSingleInstance() {
 		return
 	}
@@ -164,7 +177,10 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.words = NewWordsFilter(lex)
 	a.loadState()
+	a.applyProcessPriority()
+	go startPowerMonitor(a)
 	a.SetupWindow()
+	go a.fullscreenLoop()
 	go a.cursorLoop()
 	go a.startTray()
 	if hasArg("--dev-debug") {
@@ -386,6 +402,17 @@ func (a *App) autoActionSec() int {
 	return n
 }
 
+// 高优先级自启只在自动启动开启时生效；关闭自启后当前进程恢复普通优先级。
+func (a *App) applyProcessPriority() {
+	high := a.getBool("autoStart", false) && a.getBool("highPriority", false)
+	flag := uintptr(normalPriorityClass)
+	if high {
+		flag = highPriorityClass
+	}
+	h, _, _ := procGetCurrentProcess.Call()
+	procSetPriorityClass.Call(h, flag)
+}
+
 // applyLoginItem 写 HKCU Run；完整版与 Lite 使用各自的产品名作为注册表值名。
 func (a *App) applyLoginItem() {
 	on := a.getBool("autoStart", false)
@@ -536,6 +563,27 @@ func (a *App) SaveSettings(raw string) {
 			a.state["autoStart"] = b
 		}
 	}
+	if v, ok := apply("highPriority"); ok {
+		if b, ok := v.(bool); ok {
+			a.state["highPriority"] = b
+			if b {
+				a.state["autoStart"] = true
+			}
+		}
+	}
+	if !boolv(a.state["autoStart"], false) {
+		a.state["highPriority"] = false
+	}
+	if v, ok := apply("safeResume"); ok {
+		if b, ok := v.(bool); ok {
+			a.state["safeResume"] = b
+		}
+	}
+	if v, ok := apply("fullscreenHide"); ok {
+		if b, ok := v.(bool); ok {
+			a.state["fullscreenHide"] = b
+		}
+	}
 	if v, ok := apply("launchApp"); ok {
 		if str, ok := v.(string); ok {
 			if len(str) > 1024 {
@@ -601,6 +649,7 @@ func (a *App) SaveSettings(raw string) {
 		}
 	}
 	a.mu.Unlock()
+	a.applyProcessPriority()
 	a.applyLoginItem()
 	a.saveState()
 	if a.ledgerOn() {

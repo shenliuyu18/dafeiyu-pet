@@ -59,15 +59,27 @@ func cmpVersion(a, b string) int {
 }
 
 func fetchLatestRelease() (map[string]interface{}, error) {
-	req, _ := http.NewRequest(http.MethodGet, "https://api.github.com/repos/shenliuyu18/dafeiyu-pet/releases/latest", nil)
+	url := fmt.Sprintf("https://api.github.com/repos/shenliuyu18/dafeiyu-pet/releases/latest?_=%d", time.Now().UnixMilli())
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	req.Header.Set("User-Agent", "dafeiyu-pet")
 	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Cache-Control", "no-cache")
 	client := &http.Client{Timeout: 8 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("网络请求失败")
 	}
 	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		switch res.StatusCode {
+		case http.StatusForbidden, http.StatusTooManyRequests:
+			return nil, fmt.Errorf("GitHub 请求过于频繁，请稍后再试")
+		case http.StatusNotFound:
+			return nil, fmt.Errorf("没有找到发布版本")
+		default:
+			return nil, fmt.Errorf("GitHub HTTP %d", res.StatusCode)
+		}
+	}
 	body, _ := io.ReadAll(io.LimitReader(res.Body, 2<<20))
 	var j map[string]interface{}
 	if json.Unmarshal(body, &j) != nil {
@@ -79,8 +91,26 @@ func fetchLatestRelease() (map[string]interface{}, error) {
 	return j, nil
 }
 
+func cloneUpdateInfo(src map[string]interface{}) map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]interface{}, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
 func (a *App) CheckUpdate() map[string]interface{} {
 	cur := Version
+	a.mu.Lock()
+	if a.lastUpdate != nil && !a.lastUpdateAt.IsZero() && time.Since(a.lastUpdateAt) < 8*time.Second {
+		cached := cloneUpdateInfo(a.lastUpdate)
+		a.mu.Unlock()
+		return cached
+	}
+	a.mu.Unlock()
 	j, err := fetchLatestRelease()
 	if err != nil {
 		return map[string]interface{}{"current": cur, "error": err.Error()}
@@ -101,9 +131,12 @@ func (a *App) CheckUpdate() map[string]interface{} {
 	if has && assetURL == "" {
 		out["error"] = "最新版本没有找到安装包"
 	}
-	a.mu.Lock()
-	a.lastUpdate = out
-	a.mu.Unlock()
+	if strv(out["error"], "") == "" {
+		a.mu.Lock()
+		a.lastUpdate = out
+		a.lastUpdateAt = time.Now()
+		a.mu.Unlock()
+	}
 	return out
 }
 

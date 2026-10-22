@@ -95,6 +95,13 @@ FunctionEnd
 Section
     !insertmacro wails.setShellContext
 
+    ; 安装前先关闭正在运行的桌宠，避免覆盖 exe 时文件被占用
+    DetailPrint "正在关闭正在运行的 ${INFO_PRODUCTNAME}…"
+    nsExec::Exec 'taskkill /IM "${PRODUCT_EXECUTABLE}" /T'
+    Sleep 700
+    nsExec::Exec 'taskkill /IM "${PRODUCT_EXECUTABLE}" /T /F'
+    Sleep 300
+
     !insertmacro wails.webview2runtime
 
     SetOutPath $INSTDIR
@@ -112,6 +119,12 @@ SectionEnd
 
 Section "uninstall"
     !insertmacro wails.setShellContext
+
+    ; 卸载前先关闭桌宠，避免安装目录内的文件无法删除
+    nsExec::Exec 'taskkill /IM "${PRODUCT_EXECUTABLE}" /T'
+    Sleep 700
+    nsExec::Exec 'taskkill /IM "${PRODUCT_EXECUTABLE}" /T /F'
+    Sleep 300
 
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
 

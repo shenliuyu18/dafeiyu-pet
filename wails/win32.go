@@ -48,6 +48,12 @@ const (
 	swpFrameChanged  = 0x0020
 	spiGetWorkArea   = 0x0030
 	rgnOr            = 2
+
+	normalPriorityClass = 0x00000020
+	highPriorityClass   = 0x00000080
+	smtoBlock           = 0x0001
+	smtoAbortIfHung     = 0x0002
+	wmNull              = 0x0000
 )
 
 var (
@@ -62,7 +68,9 @@ var (
 	procSetWindowLongPtrW        = user32.NewProc("SetWindowLongPtrW")
 	procSetWindowPos             = user32.NewProc("SetWindowPos")
 	procShowWindow               = user32.NewProc("ShowWindow")
+	procIsWindow                 = user32.NewProc("IsWindow")
 	procIsWindowVisible          = user32.NewProc("IsWindowVisible")
+	procSendMessageTimeoutW      = user32.NewProc("SendMessageTimeoutW")
 	procGetCursorPos             = user32.NewProc("GetCursorPos")
 	procSetCursorPos             = user32.NewProc("SetCursorPos")
 	procMouseEvent               = user32.NewProc("mouse_event")
@@ -75,6 +83,8 @@ var (
 	procCombineRgn               = gdi32.NewProc("CombineRgn")
 	procDeleteObject             = gdi32.NewProc("DeleteObject")
 	procCreateMutexW             = kernel32.NewProc("CreateMutexW")
+	procGetCurrentProcess        = kernel32.NewProc("GetCurrentProcess")
+	procSetPriorityClass         = kernel32.NewProc("SetPriorityClass")
 	procLocalFree                = kernel32.NewProc("LocalFree")
 	procCryptProtectData         = crypt32.NewProc("CryptProtectData")
 	procCryptUnprotectData       = crypt32.NewProc("CryptUnprotectData")
@@ -135,9 +145,14 @@ func (a *App) SetupWindow() {
 	if dpi <= 0 {
 		dpi = 96
 	}
+	// 启动时如果已经有全屏应用在前台，先不要露头，等退出全屏后再显示
+	suppress := a.fullscreenEnabled() && immersiveFullscreenActive()
 	a.mu.Lock()
 	a.workArea = wa
 	a.dpi = float64(dpi) / 96.0
+	if suppress {
+		a.fsHidden = true
+	}
 	a.mu.Unlock()
 
 	ex := getExStyle(h)
@@ -145,6 +160,10 @@ func (a *App) SetupWindow() {
 	ex |= wsExToolWindow | wsExNoActivate | wsExTransparent
 	setExStyle(h, ex)
 	// 先铺满工作区再显示，避免 800×600 的闪烁
+	if suppress {
+		procSetWindowPos.Call(h, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpFrameChanged)
+		return
+	}
 	procSetWindowPos.Call(h, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpShowWindow|swpFrameChanged)
 	procShowWindow.Call(h, swShowNoActivate)
 	a.updateWindowRegion(true)
@@ -251,10 +270,13 @@ func (a *App) cursorLoop() {
 		scale := float64(dpi) / 96.0
 		a.mu.Lock()
 		changed := !a.hidden && (wa != a.workArea || scale != a.dpi)
+		fsHidden := a.fsHidden
 		if changed {
 			a.workArea = wa
 			a.dpi = scale
-			procSetWindowPos.Call(a.hwnd, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpShowWindow)
+			if !fsHidden {
+				procSetWindowPos.Call(a.hwnd, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpShowWindow)
+			}
 		}
 		px, py, ps, init := a.petX, a.petY, a.petScale, a.petInit
 		panel, drag := a.panelOpen, a.dragging
@@ -291,6 +313,8 @@ func (a *App) cursorLoop() {
 func (a *App) hideWindow() {
 	a.mu.Lock()
 	a.hidden = true
+	a.fsHidden = false
+	a.fsClearSince = time.Time{}
 	h := a.hwnd
 	a.mu.Unlock()
 	if h != 0 {
@@ -303,9 +327,23 @@ func (a *App) showInactive() {
 	a.hidden = false
 	h := a.hwnd
 	a.mu.Unlock()
-	if h != 0 {
-		procShowWindow.Call(h, swShowNoActivate)
+	if h == 0 {
+		return
 	}
+	// 全屏应用还在前台时先不露头，等退出全屏后由 fullscreenLoop 恢复
+	if a.fullscreenEnabled() && immersiveFullscreenActive() {
+		a.mu.Lock()
+		a.fsHidden = true
+		a.fsClearSince = time.Time{}
+		a.mu.Unlock()
+		return
+	}
+	a.mu.Lock()
+	a.fsHidden = false
+	a.fsClearSince = time.Time{}
+	a.mu.Unlock()
+	ensureTopmost(h)
+	procShowWindow.Call(h, swShowNoActivate)
 	a.applyInteractive()
 	a.updateWindowRegion(true)
 }
@@ -359,7 +397,7 @@ func (a *App) DebugState() map[string]interface{} {
 	return map[string]interface{}{
 		"hwnd": a.hwnd, "petX": a.petX, "petY": a.petY, "petScale": a.petScale,
 		"petInit": a.petInit, "interactive": a.interact, "panel": a.panelOpen,
-		"dragging": a.dragging, "focusable": a.focusable, "hidden": a.hidden,
+		"dragging": a.dragging, "focusable": a.focusable, "hidden": a.hidden, "fsHidden": a.fsHidden,
 		"dpi": a.dpi, "workArea": a.workArea, "cursorX": p.X, "cursorY": p.Y,
 		"pomoRunning": a.pomo.running, "trayReady": a.trayReady,
 		"regionSet": a.regionSet, "regionFull": a.regionFull, "region": a.regionLast,

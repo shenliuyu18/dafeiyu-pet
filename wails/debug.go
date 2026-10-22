@@ -73,6 +73,31 @@ func startDebugServer(a *App) {
 		}
 		w.Write([]byte("ok"))
 	})
+	mux.HandleFunc("/fullscreen", func(w http.ResponseWriter, r *http.Request) {
+		a.mu.Lock()
+		fsHidden, hidden, h := a.fsHidden, a.hidden, a.hwnd
+		a.mu.Unlock()
+		resp := map[string]interface{}{
+			"active":   immersiveFullscreenActive(),
+			"fsHidden": fsHidden,
+			"hidden":   hidden,
+			"visible":  a.windowVisible(),
+			"hwnd":     h,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	mux.HandleFunc("/resume", func(w http.ResponseWriter, r *http.Request) {
+		a.scheduleResumeCheck()
+		w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("/resume-restart", func(w http.ResponseWriter, r *http.Request) {
+		a.mu.Lock()
+		a.state["lastResumeRestart"] = 0
+		a.mu.Unlock()
+		a.restartAfterResume("调试模拟")
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
 		a.Quit()
 		w.Write([]byte("bye"))

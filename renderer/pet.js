@@ -41,6 +41,7 @@ const setChars = document.getElementById('set-chars');
 const setSizeVal = document.getElementById('set-size-val');
 const setFontVal = document.getElementById('set-font-val');
 const setSfx = document.getElementById('set-sfx');
+const setMemeOrder = document.getElementById('set-meme-order');
 const setLedgerSrc = document.getElementById('set-ledger-src');
 const setBack = document.getElementById('set-back');
 const setTitle = document.getElementById('set-title');
@@ -192,6 +193,7 @@ const S = {
   highPriority: false,
   safeResume: true,
   fullscreenHide: true,
+  memeOrder: 'queue',
   launchApp: '',
   character: 'v1',
   fontScale: 1,
@@ -1230,6 +1232,47 @@ function sayScene(scene, fallbackText, ms = 3200) {
   say(picked.text, ms, null, `../assets/memes/archive/${picked.file}.${ext}`);
 }
 
+let clickMemeQueue = [];
+let lastClickMeme = '';
+
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function nextClickMeme(pool) {
+  if (S.memeOrder === 'random') return pick(pool);
+  if (!clickMemeQueue.length) {
+    clickMemeQueue = shuffleInPlace(pool.slice());
+    // 新一轮的第一张不能和上一轮最后一张相同，避免跨轮连续重复
+    if (clickMemeQueue.length > 1 && clickMemeQueue[0].file === lastClickMeme) {
+      const j = 1 + Math.floor(Math.random() * (clickMemeQueue.length - 1));
+      [clickMemeQueue[0], clickMemeQueue[j]] = [clickMemeQueue[j], clickMemeQueue[0]];
+    }
+  }
+  const picked = clickMemeQueue.shift();
+  lastClickMeme = picked.file;
+  return picked;
+}
+
+function sayClickCombo(fallbackText, ms = 3200) {
+  if (!isDsh() || usingCustomQuips()) {
+    say(fallbackText, ms);
+    return;
+  }
+  const pool = (window.ARCHIVE_MEMES || []).filter((m) => m.scenes.includes('click'));
+  if (!pool.length) {
+    say(fallbackText, ms, 'click');
+    return;
+  }
+  const picked = nextClickMeme(pool);
+  const ext = window.__DAFEIYU_LITE ? 'webp' : picked.ext;
+  say(picked.text, ms, null, `../assets/memes/archive/${picked.file}.${ext}`);
+}
+
 memeEl.addEventListener('load', () => {
   if (bubbleEl.classList.contains('show')) positionBubble();
 });
@@ -1573,6 +1616,7 @@ function saveSettings() {
     highPriority: S.highPriority,
     safeResume: S.safeResume,
     fullscreenHide: S.fullscreenHide,
+    memeOrder: S.memeOrder,
     launchApp: S.launchApp,
     character: S.character,
     fontSize: S.fontScale,
@@ -1633,6 +1677,11 @@ function syncSettingsUI() {
   if (setFullscreenHide) {
     for (const btn of setFullscreenHide.querySelectorAll('button')) {
       btn.classList.toggle('on', (btn.dataset.fullscreenhide === '1') === S.fullscreenHide);
+    }
+  }
+  if (setMemeOrder) {
+    for (const btn of setMemeOrder.querySelectorAll('button')) {
+      btn.classList.toggle('on', btn.dataset.memeorder === S.memeOrder);
     }
   }
   const setAutoUpdate = document.getElementById('set-autoupdate');
@@ -1736,6 +1785,14 @@ function applySafeResume(on, save) {
 
 function applyFullscreenHide(on, save) {
   S.fullscreenHide = !!on;
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+function applyMemeOrder(mode, save) {
+  S.memeOrder = mode === 'random' ? 'random' : 'queue';
+  clickMemeQueue = [];
+  lastClickMeme = '';
   syncSettingsUI();
   if (save) saveSettings();
 }
@@ -2123,6 +2180,7 @@ settingsEl.addEventListener('click', (e) => {
   else if (btn.dataset.autostart) applyAutoStart(btn.dataset.autostart, true);
   else if (btn.dataset.saferesume) applySafeResume(btn.dataset.saferesume === '1', true);
   else if (btn.dataset.fullscreenhide) applyFullscreenHide(btn.dataset.fullscreenhide === '1', true);
+  else if (btn.dataset.memeorder) applyMemeOrder(btn.dataset.memeorder, true);
   else if (btn.dataset.autoupdate) applyAutoUpdate(btn.dataset.autoupdate === '1', true);
   else if (btn.id === 'pomo-minus') applyPomoMin(S.pomoMin - POMO_STEP, true);
   else if (btn.id === 'pomo-plus') applyPomoMin(S.pomoMin + POMO_STEP, true);
@@ -2422,7 +2480,8 @@ function handlePetClick() {
     const custom = usingCustomQuips();
     const line = !custom && Math.random() < 0.3 ? creditsLine() : null;
     if (custom) say(pick(quipsPool()), 3200);
-    else sayScene(line ? 'ledger' : 'click', line || pick(quipsPool()));
+    else if (line) sayScene('ledger', line);
+    else sayClickCombo(pick(quipsPool()), 3200);
     api.updateStats({ satiety: S.satiety, mood: S.mood });
   }, 230);
 }
@@ -2593,6 +2652,7 @@ api.on('init', (st) => {
   S.highPriority = !!set.highPriority && S.autoStart;
   S.safeResume = set.safeResume !== false;
   S.fullscreenHide = set.fullscreenHide !== false;
+  S.memeOrder = set.memeOrder === 'random' ? 'random' : 'queue';
   S.launchApp = typeof set.launchApp === 'string' ? set.launchApp : '';
   applyLedgerUI();
   applyCharacter(set.character, false);

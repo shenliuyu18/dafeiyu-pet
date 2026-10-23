@@ -21,7 +21,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.4.5"
+var Version = "1.4.6"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -582,6 +582,11 @@ func (a *App) SaveSettings(raw string) {
 	if v, ok := apply("fullscreenHide"); ok {
 		if b, ok := v.(bool); ok {
 			a.state["fullscreenHide"] = b
+		}
+	}
+	if v, ok := apply("memeOrder"); ok {
+		if s, ok := v.(string); ok && (s == "queue" || s == "random") {
+			a.state["memeOrder"] = s
 		}
 	}
 	if v, ok := apply("launchApp"); ok {

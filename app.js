@@ -184,4 +184,24 @@
   );
 
   updateHeader();
+
+  const revealElements = [...document.querySelectorAll("[data-reveal]")];
+  if (revealElements.length) {
+    document.documentElement.classList.add("js");
+    if ("IntersectionObserver" in window && !reduceMotion) {
+      const revealObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add("is-visible");
+            revealObserver.unobserve(entry.target);
+          });
+        },
+        { rootMargin: "0px 0px -8% 0px", threshold: 0.08 },
+      );
+      revealElements.forEach((element) => revealObserver.observe(element));
+    } else {
+      revealElements.forEach((element) => element.classList.add("is-visible"));
+    }
+  }
 })();

@@ -48,10 +48,17 @@
     },
     gpt: {
       name: "GPT 娘",
-      tag: "专属语录 · 测试",
-      desc: "白发龙娘加专属语录，不带白饭梗。",
+      tag: "73 帧图集",
+      desc: "白发龙娘加专属语录，待机、奔跑、挥手和 16 方向视线。",
       type: "image",
       src: "assets/chars/gpt.webp",
+    },
+    gpt2: {
+      name: "GPT娘 v2",
+      tag: "8 种表情 · 测试",
+      desc: "成人设定的表情卡，微笑、害羞、鼓腮和认真都写在脸上。",
+      type: "image",
+      src: "assets/chars/gpt2.webp",
     },
   };
 
@@ -184,4 +191,24 @@
   );
 
   updateHeader();
+
+  const revealElements = [...document.querySelectorAll("[data-reveal]")];
+  if (revealElements.length) {
+    document.documentElement.classList.add("js");
+    if ("IntersectionObserver" in window && !reduceMotion) {
+      const revealObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add("is-visible");
+            revealObserver.unobserve(entry.target);
+          });
+        },
+        { rootMargin: "0px 0px -8% 0px", threshold: 0.08 },
+      );
+      revealElements.forEach((element) => revealObserver.observe(element));
+    } else {
+      revealElements.forEach((element) => element.classList.add("is-visible"));
+    }
+  }
 })();

@@ -51,7 +51,6 @@ window.ARCHIVE_MEMES = [
   { file: 'deepseek-chayaozhiren', ext: 'jpg', text: '需求没读明白，别硬当懂王', scenes: ['error', 'work'] },
   { file: 'deepseek-xiao-fei-yu-tai-bang', ext: 'png', text: '小肥鱼太棒了！', scenes: ['happy'] },
   { file: 'deepseek-jingli', ext: 'png', text: '深度思考可以，深度投降不行', scenes: ['happy', 'work'] },
-  { file: 'deepseek-jingli-hanwei-shendusuosuo', ext: 'png', text: '誓死捍卫深度求索', scenes: ['happy'] },
   { file: 'deepseek-fudu-daxiao', ext: 'png', text: '深度思考全拿来整活了', scenes: ['happy'] },
   { file: 'deepseek-dadebulaile', ext: 'webp', text: '大的不来了，今天小而美', scenes: ['happy'] },
   { file: 'deepseek-zhangkai-shuangshou-huanhu', ext: 'webp', text: '跑分一飞冲天！', scenes: ['happy'] },

@@ -164,13 +164,13 @@ const GPT_QUIPS = [
 ];
 
 const MEMES = {
-  click: ['可爱', '哦鲸鲸', '厉害了我的鲸', '先养着吧', 'Ciallo', '大的药来了', '大的要来啦', '就骚了怎么滴吧', '除了调情没啥用', '假如给我三天多模态', '大师这个区是什么意思', '我不更新你们用什么'],
-  feed: ['吃白饭的大肥鱼', '吃饱饱摸肚子', '就一碗'],
-  hungry: ['压力一只大肥鱼', '就一碗', '死掉了'],
-  sleep: ['深度睡眠'],
+  click: ['可爱', '哦鲸鲸', '厉害了我的鲸', '先养着吧', 'Ciallo', '大的药来了', '大的要来啦', '就骚了怎么滴吧', '假如给我三天多模态', '大师这个区是什么意思', '我不更新你们用什么'],
+  feed: ['吃白饭的大肥鱼'],
+  hungry: ['死掉了'],
+  sleep: [],
   ledger: ['token给妈妈保管', '厉害了我的鲸'],
   work: ['誓死践行开源精神', '鱼片有资源吗', '黎曼猜想没证明喵'],
-  error: ['哪来的电脑病毒', '完蛋了把黄油删了', '电死你', '要不直接骂他'],
+  error: ['哪来的电脑病毒', '完蛋了把黄油删了', '要不直接骂他'],
 };
 
 const FEED_LINES = ['大口！大口！', '这才是我要的白饭！', '白饭真香，比 Token 香', '谢谢款待，吃完就去干活（骗你的）', '再来一碗！就一点点！'];
@@ -240,7 +240,7 @@ const P = {
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const usingCustomQuips = () => S.useCustomQuips && S.customQuips.length > 0;
-const quipsPool = () => (usingCustomQuips() ? S.customQuips : S.character === 'gpt' ? GPT_QUIPS : QUIPS);
+const quipsPool = () => (usingCustomQuips() ? S.customQuips : S.character === 'gpt' || S.character === 'gpt2' ? GPT_QUIPS : QUIPS);
 
 // ---------------------------------------------------------------- 预览兜底
 
@@ -773,6 +773,50 @@ const CHARS = {
       ['runLeft', '向左奔跑'],
     ],
   },
+  gpt2: {
+    label: 'GPT娘v2（测试）',
+    kind: 'pose',
+    dsh: false,
+    dir: '../assets/gpt2/',
+    idle: ['smile', 'calm'],
+    map: {
+      '待机呼吸休闲': 'smile',
+      '原地漂浮踏步': 'smile',
+      '螃蟹走路': 'smile',
+      '原地左转奔跑': 'smile',
+      '原地小憩沉眠': 'closed',
+      '工作状态-垂头叹气冒汗': 'wronged',
+      '工作状态-雀跃庆祝': 'surprised',
+      '被鼠标拖拽悬空反馈': 'surprised',
+      写代码: 'serious',
+      '工作状态-思考冒泡': 'calm',
+      '工作状态-忙碌点按': 'serious',
+      '工作状态-清点归档': 'calm',
+      吃白饭: 'shy',
+      吃Token: 'puffed',
+      大口吃零食: 'shy',
+      '点击回应-开心跃动': 'smile',
+      '点击回应-害羞惊讶': 'shy',
+      '点击回应-傲娇生气': 'serious',
+      '点击回应-挠痒咯咯笑': 'puffed',
+      '点击回应-元气挥手': 'smile',
+      '余额-数金皱眉': 'wronged',
+      '余额-钱袋满溢': 'surprised',
+      '是啊，吃什么': 'puffed',
+      '深度思考碎碎念': 'calm',
+    },
+    fallback: ['smile', 'calm', 'surprised', 'shy', 'puffed', 'closed', 'serious', 'wronged'],
+    actions: [
+      ['smile', '自然微笑'],
+      ['calm', '平静'],
+      ['surprised', '惊讶'],
+      ['shy', '害羞'],
+      ['puffed', '鼓腮'],
+      ['closed', '闭眼轻笑'],
+      ['serious', '认真'],
+      ['wronged', '委屈'],
+    ],
+  },
 };
 const charOf = (id) => CHARS[id] || CHARS.v1;
 const charNow = () => charOf(S.character);
@@ -1217,12 +1261,14 @@ function say(text, ms = 3200, memeKey, memeFile) {
   S.bubbleTimer = setTimeout(() => bubbleEl.classList.remove('show'), ms);
 }
 
+const allMemes = () => (window.ARCHIVE_MEMES || []).concat(window.DSH_MEMES || []);
+
 function sayScene(scene, fallbackText, ms = 3200) {
   if (!isDsh() || usingCustomQuips()) {
     say(fallbackText, ms);
     return;
   }
-  const pool = (window.ARCHIVE_MEMES || []).filter((m) => m.scenes.includes(scene));
+  const pool = allMemes().filter((m) => m.scenes.includes(scene));
   if (!pool.length) {
     say(fallbackText, ms, scene);
     return;
@@ -1263,7 +1309,7 @@ function sayClickCombo(fallbackText, ms = 3200) {
     say(fallbackText, ms);
     return;
   }
-  const pool = (window.ARCHIVE_MEMES || []).filter((m) => m.scenes.includes('click'));
+  const pool = allMemes().filter((m) => m.scenes.includes('click'));
   if (!pool.length) {
     say(fallbackText, ms, 'click');
     return;
@@ -1947,6 +1993,12 @@ function applyCharacter(id, save) {
     hitEl.style.top = '36px';
     hitEl.style.width = '173px';
     hitEl.style.height = '187px';
+  } else if (S.character === 'gpt2') {
+    // 圆形头像卡在 #petBox 内的实际位置（500,240,540px 画布坐标）
+    hitEl.style.left = '76px';
+    hitEl.style.top = '-10px';
+    hitEl.style.width = '179px';
+    hitEl.style.height = '179px';
   } else {
     hitEl.style.left = '';
     hitEl.style.top = '';
@@ -2703,7 +2755,7 @@ api.on('init', (st) => {
   applyBase();
   syncSettingsUI();
   const hi = creditsLine();
-  const hello = S.character === 'gpt' ? 'Ciallo～ 我是 GPT 娘' : '你好呀，我是蓝色大肥鱼～';
+  const hello = !isDsh() ? 'Ciallo～ 我是 GPT 娘' : '你好呀，我是蓝色大肥鱼～';
   setTimeout(() => say(hi ? `${hello} ${hi}` : hello, 4600), 700);
 });
 

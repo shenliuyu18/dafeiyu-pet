@@ -28,7 +28,7 @@ CORE = {
     "吃白饭", "吃Token", "大口吃零食",
 }
 TEXT = {"是啊，吃什么", "深度思考碎碎念", "碎碎念-擦桌碎碎念", "碎碎念-发呆碎碎念", "碎碎念-对屏碎碎念"}
-PORTRAIT_DIRS = {"fish2", "fish3", "fish4", "fish5", "fish6", "gpt"}
+PORTRAIT_DIRS = {"fish2", "fish3", "fish4", "fish5", "fish6", "gpt", "gpt2"}
 ARCHIVE_MEME_DIR = os.path.join("memes", "archive")
 GPT_SPRITESHEET = os.path.join("gpt", "spritesheet.webp")
 

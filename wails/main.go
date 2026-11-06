@@ -21,7 +21,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.4.6"
+var Version = "1.4.8-beta.1"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -375,7 +375,7 @@ func (a *App) charID() string {
 		return "v5"
 	}
 	switch v {
-	case "v1", "v2", "v3", "v4", "v5", "v6", "gpt":
+	case "v1", "v2", "v3", "v4", "v5", "v6", "gpt", "gpt2":
 		return v
 	}
 	return "v1"
@@ -672,7 +672,7 @@ func mathRound(f float64) float64 {
 
 func validChar(s string) bool {
 	switch s {
-	case "v1", "v2", "v3", "v4", "v5", "v6", "gpt":
+	case "v1", "v2", "v3", "v4", "v5", "v6", "gpt", "gpt2":
 		return true
 	}
 	return false

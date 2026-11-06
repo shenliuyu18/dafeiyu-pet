@@ -1,0 +1,19 @@
+GPT娘v2（测试）表情卡素材
+
+来源仓库：https://github.com/lmy414/ai-chan-sheets
+角色设定与原始立绘：ZipZipPipe（Bilibili: https://space.bilibili.com/4168597）
+设定图补全与表情素材整理：lmy414
+授权：CC BY-NC-SA 4.0（https://creativecommons.org/licenses/by-nc-sa/4.0/）
+用途：非商业使用，保留出处与作者信息，二次创作遵循相同方式共享。
+
+本程序使用该仓库 GPT娘（白龙娘）表情图中的 8 张表情：
+  smile.webp      自然微笑
+  calm.webp       平静
+  surprised.webp  惊讶
+  shy.webp        害羞
+  puffed.webp     鼓腮
+  closed.webp     闭眼轻笑
+  serious.webp    认真
+  wronged.webp    委屈
+
+这些图片经过裁切、圆形遮罩与画布归一化处理，未改变角色设定；GPT娘v2 在程序内标注为“测试”形象。若将本程序用于商业用途，需先取得相应权利人授权。

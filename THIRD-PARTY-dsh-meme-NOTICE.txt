@@ -1,0 +1,80 @@
+dsh-meme 表情图库素材
+
+导入来源：
+  https://github.com/yyh-001/dsh-meme
+  https://github.com/yyh-001/dsh-meme-packs
+
+授权说明（重要）：
+  1. dafeiyu-001：图库标记 personal，仓库明确注明“商业使用或再分发前，请先获得权利人许可”。
+  2. dafeiyu-learned：图库标记 personal，贡献者 hZsFN；商业使用或再分发前，请先获得权利人许可。
+  3. pack-mvc2p5cv（GPT生大肥鱼）：CC BY-NC-SA 4.0，投稿与署名 Anterique0，来源 https://github.com/yyh-001/dsh-meme-packs/issues/7 。
+     非商业使用、署名、相同方式共享。
+
+本次导入的去重后文件（共 64 张）：
+  dsh001-01.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-02.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-03.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-04.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-05.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-06.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-08.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-09.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-10.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-11.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-12.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-13.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-14.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-15.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-16.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-17.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-18.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-19.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-20.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-21.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-22.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-23.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dsh001-24.jpg  （dsh-meme 内置大肥鱼图库（yyh-001），personal）
+  dshlearn-01.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-02.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-03.jpeg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-04.jpeg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-05.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-07.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-09.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-10.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-11.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-14.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-15.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-18.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-19.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-20.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-21.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-22.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-23.jpeg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-24.jpeg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-26.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-27.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-29.jpeg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-30.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshlearn-31.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
+  dshgpt-01.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-02.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-03.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-04.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-05.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-06.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-07.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-08.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-09.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-10.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-11.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-12.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-13.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-14.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-15.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-16.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-17.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-18.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+
+说明：dsh-meme 仓库代码采用 MIT；上述图片素材的授权按各自图库 manifest / dsh-meme-packs LICENSES.md 执行，不随代码 MIT 改变。
+如果要把本程序公开发布或商业使用，personal 图库部分必须先取得 yyh-001 及对应贡献者的许可。

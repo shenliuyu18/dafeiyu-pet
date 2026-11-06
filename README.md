@@ -28,12 +28,12 @@
 
 | 版本 | 文件 | 体积 | 说明 |
 | --- | --- | --- | --- |
-| 完整版 | `dafeiyu-pet-<版本>-setup.exe` | 安装包约 114 MiB，安装后约 120 MiB | 全部原始素材，不重新编码、不降采样 |
-| Lite 版 | `dafeiyu-pet-lite-<版本>-setup.exe` | 安装包约 44 MiB，安装后约 51 MiB | 压缩素材，功能与完整版一致 |
+| 完整版 | `dafeiyu-pet-<版本>-setup.exe` | 126.2 MiB | 全部原始素材，不重新编码、不降采样 |
+| Lite 版 | `dafeiyu-pet-lite-<版本>-setup.exe` | 46.2 MiB | 压缩素材，功能与完整版一致 |
 
 备用下载：[蓝奏云网盘](https://wwaql.lanzouu.com/b01i5xmkri)（密码 **5meo**）。
 
-> **版本说明**：当前正式版为 **1.4.6**。仓库 `main` 分支为开发版 **1.4.8-beta.1**，新增 GPT娘v2（测试）与 dsh-meme 去重图库，安装包尚未发布。
+> **版本说明**：当前正式版为 **1.4.7**。
 
 ### 完整版还是 Lite？
 
@@ -164,7 +164,7 @@ npm run dist-install:lite  # 构建 Lite 版、静默安装到本机并启动
 - `tools/wails-build.js` 负责同步版本号、调用 Wails 构建 NSIS 安装包、拷贝到 `dist/`，并支持 `--lite` / `--install`。
 - 安装包使用 `-webview2 download`：检测到缺少 WebView2 时会下载并安装。安装向导为简体中文（NSIS `SimpChinese`）。
 - 发布资产命名为 `dafeiyu-pet-<正式版本>-setup.exe` / `dafeiyu-pet-lite-<正式版本>-setup.exe`，更新检查会按 `setup.exe` 后缀和 lite 标识选择对应版本。
-- **版本号约定**：开发期使用测试版号（如 `1.5.0-beta.1`），发布到 GitHub 时改成正式版号（如 `1.5.0`），并同步 CHANGELOG / README / 安装包名。Wails 的 Windows 文件版本使用数字段（如 `1.4.6.0`），应用内关于页与更新检查使用完整版本号。
+- **版本号约定**：版本号在 `package.json` 中维护，发布时同步 CHANGELOG / README / 安装包名。Wails 的 Windows 文件版本使用数字段（如 `1.4.7.0`），应用内关于页与更新检查使用完整版本号。
 
 ## 目录结构
 
@@ -266,8 +266,7 @@ docs/                     动作生成提示词库 + 通知图标提示词
 - v1.4.1–v1.4.4：双版本闪现、蓝奏云入口、右键菜单 Region 修复、全屏自动避让、高优先级自启与唤醒自检。
 - v1.4.5：档案馆精选表情与 GPT 娘 73 帧图集动画。
 - v1.4.6：点击表情播放顺序可选。
-- v1.4.7-beta.1：GPT娘v2（测试）。
-- v1.4.8-beta.1：dsh-meme 去重图库与重复表情清理。
+- v1.4.7：GPT娘v2（测试）与 dsh-meme 去重图库，表情库增至 143 张。
 
 ## 素材来源与许可
 

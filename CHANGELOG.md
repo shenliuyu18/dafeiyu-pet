@@ -2,29 +2,20 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [1.4.8-beta.1] - 2026-10-23
+## [1.4.7] - 2026-11-06
 
 ### 新增
 
+- **GPT娘v2（测试）**：新增成人设定的白发白龙娘形象，使用 ai-chan-sheets 的 8 种表情做成圆形头像卡，待机、点击、喂饭、工作、睡眠、心情等状态会切换对应表情；在设置中与 GPT 娘并列可选
 - **dsh-meme 大肥鱼图库**：从 yyh-001/dsh-meme 与 dsh-meme-packs 导入去重后的 64 张表情，覆盖点击、吃饭、工作、睡觉、开心、报错、账本等场景，并逐张配文
 - **表情库去重**：清理现有 7 张重复经典梗图（压力一只大肥鱼、吃吃饱摸肚子、大烧货、就一碗、深度睡眠、电死你、除了调情没啥用）和 1 张重复档案馆图；新图包中与现有重复的 9 张未重复导入
 
 ### 变更
 
 - 表情库现为经典梗图 20 张 + 档案馆精选 59 张 + dsh-meme 64 张，共 143 张
-- dafeiyu-001 / dafeiyu-learned 为 personal 图库，商业使用或再分发需取得权利人许可；pack-mvc2p5cv 为 CC BY-NC-SA 4.0，署名说明见 `THIRD-PARTY-dsh-meme-NOTICE.txt`
-- 开发版安装包：`dafeiyu-pet-1.4.8-beta.1-setup.exe` / `dafeiyu-pet-lite-1.4.8-beta.1-setup.exe`
-
-## [1.4.7-beta.1] - 2026-10-23
-
-### 新增
-
-- **GPT娘v2（测试）**：新增成人设定的白发白龙娘形象，使用 ai-chan-sheets 的 8 种表情做成圆形头像卡，待机、点击、喂饭、工作、睡眠、心情等状态会切换对应表情；在设置中与 GPT 娘并列可选
-
-### 变更
-
 - GPT娘v2 素材按 CC BY-NC-SA 4.0 非商业使用并保留出处，署名见 `THIRD-PARTY-ai-chan-sheets-NOTICE.txt`
-- 开发版安装包：`dafeiyu-pet-1.4.7-beta.1-setup.exe` / `dafeiyu-pet-lite-1.4.7-beta.1-setup.exe`
+- dafeiyu-001 / dafeiyu-learned 为 personal 图库，商业使用或再分发需取得权利人许可；pack-mvc2p5cv 为 CC BY-NC-SA 4.0，署名说明见 `THIRD-PARTY-dsh-meme-NOTICE.txt`
+- 正式版安装包：`dafeiyu-pet-1.4.7-setup.exe` / `dafeiyu-pet-lite-1.4.7-setup.exe`
 
 ## [1.4.6] - 2026-10-22
 

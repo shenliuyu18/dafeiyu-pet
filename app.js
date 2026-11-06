@@ -48,10 +48,17 @@
     },
     gpt: {
       name: "GPT 娘",
-      tag: "专属语录 · 测试",
-      desc: "白发龙娘加专属语录，不带白饭梗。",
+      tag: "73 帧图集",
+      desc: "白发龙娘加专属语录，待机、奔跑、挥手和 16 方向视线。",
       type: "image",
       src: "assets/chars/gpt.webp",
+    },
+    gpt2: {
+      name: "GPT娘 v2",
+      tag: "8 种表情 · 测试",
+      desc: "成人设定的表情卡，微笑、害羞、鼓腮和认真都写在脸上。",
+      type: "image",
+      src: "assets/chars/gpt2.webp",
     },
   };
 

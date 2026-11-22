@@ -7,7 +7,7 @@
   <p>
     <a href="https://github.com/shenliuyu18/dafeiyu-pet/releases">ダウンロード</a> ·
     <a href="https://shenliuyu18.github.io/dafeiyu-pet/">公式サイト</a> ·
-    <a href="CHANGELOG.md">更新履歴</a> ·
+    <a href="CHANGELOG.ja.md">更新履歴</a> ·
     <a href="https://github.com/shenliuyu18/dafeiyu-pet/issues">不具合報告</a>
   </p>
 </div>

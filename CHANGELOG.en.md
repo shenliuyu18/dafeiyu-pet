@@ -6,7 +6,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 ## [1.5.3] - 2026-11-22
 
-Main changes since 1.5.2: failed ledger queries can be self-diagnosed and re-checked, mandatory verification of update packages, fullscreen debouncing and diagnostics, state schema v2, diagnostic bundle export, and a batch of performance and stability improvements.
+Main changes since 1.5.2: failed ledger queries can be self-diagnosed and re-checked, mandatory verification of update packages, fullscreen debouncing and diagnostics, state schema v2, diagnostic bundle export, complete Chinese / English / Japanese UI with a localized installer, and a batch of performance and stability improvements.
 
 ### Added
 

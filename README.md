@@ -39,7 +39,7 @@
 | Lite 版 | `dafeiyu-pet-lite-1.5.3-setup.exe` | 42.5 MiB | 内置素材压缩；可下载形象包自动选择 480×270 |
 
 备用下载（同步可能延迟）：
-[蓝奏云网盘](https://wwaql.lanzouu.com/b01i5xmkri)（密码 **5meo**）。
+[蓝奏云网盘](https://wwaql.lanzouu.com/b01i5xmkri)（密码 **5meo**）;
 [夸克网盘](https://pan.quark.cn/s/5014da1a2a54)
 
 > **当前正式版：1.5.3**（2026-11-22）。账单诊断与重新检测、更新包 SHA256/可选签名校验、全屏防抖与诊断、诊断包导出、专注统计、状态 schema v2，以及性能与稳定性优化。

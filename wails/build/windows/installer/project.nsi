@@ -69,13 +69,22 @@ ManifestDPIAware true
 
 !insertmacro MUI_UNPAGE_INSTFILES # Uinstalling page
 
-!insertmacro MUI_LANGUAGE "SimpChinese" # 安装向导语言：简体中文
+!insertmacro MUI_LANGUAGE "English"
+!insertmacro MUI_LANGUAGE "SimpChinese"
+!insertmacro MUI_LANGUAGE "Japanese"
+
+LangString AppName      ${LANG_ENGLISH}     "Big Fat Fish Desktop Pet"
+LangString AppName      ${LANG_SIMPCHINESE} "大肥鱼桌宠"
+LangString AppName      ${LANG_JAPANESE}    "大肥魚デスクトップペット"
+LangString ShortcutName ${LANG_ENGLISH}     "Big Fat Fish Desktop Pet"
+LangString ShortcutName ${LANG_SIMPCHINESE} "大肥鱼桌宠"
+LangString ShortcutName ${LANG_JAPANESE}    "大肥魚デスクトップペット"
 
 ## The following two statements can be used to sign the installer and the uninstaller. The path to the binaries are provided in %1
 #!uninstfinalize 'signtool --file "%1"'
 #!finalize 'signtool --file "%1"'
 
-Name "${INFO_PRODUCTNAME}"
+Name "$(AppName)"
 OutFile "..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
 !ifdef WAILS_INSTALL_SCOPE
   !if "${WAILS_INSTALL_SCOPE}" == "user"
@@ -108,8 +117,8 @@ Section
 
     !insertmacro wails.files
 
-    CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
-    CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+    CreateShortcut "$SMPROGRAMS\$(ShortcutName).lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+    CreateShortCut "$DESKTOP\$(ShortcutName).lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
 
     !insertmacro wails.associateFiles
     !insertmacro wails.associateCustomProtocols
@@ -130,8 +139,14 @@ Section "uninstall"
 
     RMDir /r $INSTDIR
 
-    Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk"
-    Delete "$DESKTOP\${INFO_PRODUCTNAME}.lnk"
+    Delete "$SMPROGRAMS\$(ShortcutName).lnk"
+    Delete "$DESKTOP\$(ShortcutName).lnk"
+    Delete "$SMPROGRAMS\大肥鱼桌宠.lnk"
+    Delete "$DESKTOP\大肥鱼桌宠.lnk"
+    Delete "$SMPROGRAMS\Big Fat Fish Desktop Pet.lnk"
+    Delete "$DESKTOP\Big Fat Fish Desktop Pet.lnk"
+    Delete "$SMPROGRAMS\大肥魚デスクトップペット.lnk"
+    Delete "$DESKTOP\大肥魚デスクトップペット.lnk"
 
     !insertmacro wails.unassociateFiles
     !insertmacro wails.unassociateCustomProtocols

@@ -133,15 +133,17 @@ func (a *App) finishPomodoro() {
 		a.mu.Unlock()
 		return
 	}
+	mins := a.pomoMinutesLocked()
 	a.pomo.running = false
 	if a.pomo.stop != nil {
 		close(a.pomo.stop)
 		a.pomo.stop = nil
 	}
 	a.mu.Unlock()
+	a.recordPomodoro(mins)
 	a.emit("pomodoro", map[string]interface{}{"running": false, "remaining": 0})
 	a.emit("pomodoro-done", nil)
-	a.balloon("done", appName(), "专注时间结束啦，起来动一动吧！")
+	a.balloon("done", a.displayName(), a.t("专注时间结束啦，起来动一动吧！", "Focus session complete — time to stretch!", "集中時間が終わりました。体を動かしてね！"))
 	a.trayRefresh()
 }
 

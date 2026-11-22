@@ -25,6 +25,7 @@
           <div class="u-row"><span id="u-l3">本次会话</span><b id="u-session">—</b></div>
           <div class="u-quota hide" id="u-quota"><i><b id="u-bar"></b></i><span id="u-quota-text"></span></div>
           <div class="u-note" id="u-note">白饭 = 你的 Qoder credits</div>
+          <button class="u-retry hide" id="u-retry">重新检测</button>
         </div>
         <div class="bubble-tail"></div>
       </div>
@@ -173,6 +174,15 @@
           <div class="set-hint">检测到全屏视频、游戏或演示时自动藏起，退出全屏后重新回到其他窗口上方；普通窗口和最大化窗口不受影响。</div>
         </div>
         <div class="set-sec">
+          <div class="set-label">全屏判定诊断</div>
+          <div class="set-row">
+            <button id="fs-diag-refresh">刷新判定记录</button>
+            <button id="fs-diag-toggle">显示 / 隐藏详情</button>
+          </div>
+          <div class="set-hint" id="fs-diag-status">如果桌宠在切换窗口时反复闪现，把下面的记录贴到 issue #2。</div>
+          <pre id="fs-diag-log" class="diag-log hide"></pre>
+        </div>
+        <div class="set-sec">
           <div class="set-label">自动动作间隔 <b id="set-auto-val">40 秒</b></div>
           <div class="set-row">
             <button id="auto-minus">− 5 秒</button>
@@ -210,6 +220,12 @@
             <button id="pomo-anim-plus">＋ 5 秒</button>
           </div>
           <div class="set-hint">上一个工作动作完整播完后，休息该时间再播下一个（写代码 / 思考 / 忙碌 / 清点）；不会执行其他自动动作</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">专注统计</div>
+          <div class="set-hint" id="pomo-stats-summary">今天 0 分钟 · 近 7 天 0 分钟 · 累计 0 分钟</div>
+          <div class="pomo-chart" id="pomo-chart"></div>
+          <div class="set-hint">完成一次专注后自动记录；只保存在本机状态文件里</div>
         </div>
       </div>
 
@@ -255,6 +271,15 @@
             </div>
           </div>
           <div class="set-warn">⚠️ 风险提示：API Key 会用 Windows 系统加密（DPAPI）后保存在本机状态文件里，仅本机可解密；查询账单时只会把 Key 发送给对应平台的官方接口。请勿在共用电脑上填写；建议使用只读 / 低额度的 Key；不要把这个状态文件或 Key 发给任何人。是否配置由你自行决定，风险自负。</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">账单诊断</div>
+          <div class="set-row">
+            <button id="ledger-recheck">重新检测</button>
+            <button id="ledger-diag-toggle">查看诊断详情</button>
+          </div>
+          <div class="set-hint" id="ledger-diag-status">查询失败时，这里会显示错误码、HTTP 状态、耗时与上次成功时间。</div>
+          <pre id="ledger-diag-detail" class="diag-log hide"></pre>
         </div>
       </div>
 
@@ -334,10 +359,27 @@
           </div>
           <div class="set-row">
             <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet">GitHub 仓库</button>
-            <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/blob/main/CHANGELOG.md">更新日志</button>
+            <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/blob/main/README.md" data-doc="readme">README</button>
+            <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/blob/main/CHANGELOG.md" data-doc="CHANGELOG">更新日志</button>
             <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/issues">问题反馈</button>
           </div>
           <div class="set-hint">程序代码以 MIT 开源。角色动画与表情来自 dsh-pet、dsh-whale-widget-plus、GPT-Niang、gpt-pet（MIT）；GPT娘v2 / Claude / Gemini / GLM / Grok / Kimi / Qwen 动作包转码自 hunmer/aboutme-pets，基础立绘来自 lokicorvus/crosspet（CC BY-NC-SA 4.0，署名、非商业、相同方式共享）；大肥鱼 plus 的 dsh 素材禁止商用、公开二创须署名；档案馆表情来自蓝色大肥鱼档案馆（CC BY-NC-SA 4.0）；dsh-meme 图库按各图库 manifest 授权；敏感词库来自 Sensitive-lexicon（MIT）。详见仓库 README 与 THIRD-PARTY 许可文件</div>
+        </div>
+<div class="set-sec">
+          <div class="set-label">语言 / Language</div>
+          <div class="set-row" id="set-lang">
+            <button data-lang="zh">中文</button>
+            <button data-lang="en">English</button>
+            <button data-lang="ja">日本語</button>
+          </div>
+          <div class="set-hint">界面、角色台词、梗图配文与内置动作名都会跟随切换；下载的形象包动作名使用包内原文。</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">诊断</div>
+          <div class="set-row">
+            <button id="export-diagnostics">导出诊断包…</button>
+          </div>
+          <div class="set-hint" id="diagnostics-status">导出包含版本、窗口与全屏判定、最近错误日志；不含 API Key 与自定义文字内容。上传 issue 前请先自行检查。</div>
         </div>
         <div class="set-sec">
           <div class="set-label">操作说明</div>
@@ -364,6 +406,69 @@
 <script src="../assets/anims/index.js"></script>
 <script src="archive-memes.js"></script>
 <script src="dsh-memes.js"></script>
+<script src="lib/format.js"></script>
+<script src="lib/i18n.js"></script>
+  <script src="lib/lines-i18n.js"></script>
+  <script src="lib/geometry-config.js"></script>
+<script src="lib/dialogue-data.js"></script>
+  <script src="lib/memes-i18n.js"></script>
+  <script src="lib/meme-gallery-i18n.js"></script>
+  <script src="lib/ui-i18n.js"></script>
+<script src="lib/action-i18n.js"></script>
+<script src="lib/motion.js"></script>
+<script src="lib/meme-queue.js"></script>
+  <script src="lib/bubble-layout.js"></script>
+  <script src="lib/meme-pool.js"></script>
+  <script src="lib/anim-actions.js"></script>
+  <script src="lib/frame-schedule.js"></script>
+  <script src="lib/time-format.js"></script>
+<script src="lib/pet-rect.js"></script>
+  <script src="lib/anim.js"></script>
+<script src="features/animation-data.js"></script>
+<script src="features/character-settings.js"></script>
+<script src="features/fs-diag.js"></script>
+<script src="features/settings-toggles.js"></script>
+<script src="features/usage.js"></script>
+<script src="features/picker-pins.js"></script>
+<script src="features/settings-content.js"></script>
+<script src="features/update.js"></script>
+<script src="features/pomodoro.js"></script>
+<script src="features/bubble.js"></script>
+<script src="features/interaction.js"></script>
+<script src="features/hit.js"></script>
+<script src="features/dialogue.js"></script>
+<script src="features/sprite.js"></script>
+<script src="features/animation-playback.js"></script>
+<script src="features/actions.js"></script>
+<script src="features/lifecycle.js"></script>
+<script src="features/loop.js"></script>
+<script src="features/runtime.js"></script>
+<script src="features/status.js"></script>
+<script src="features/picker.js"></script>
+<script src="features/menu.js"></script>
+<script src="features/ledger-format.js"></script>
+<script src="features/animation.js"></script>
+<script src="features/settings.js"></script>
 <script src="pet.js"></script>
+<script src="features/pointer-events.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

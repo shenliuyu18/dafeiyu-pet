@@ -202,7 +202,7 @@ func (t *Tray) run() {
 		hIcon:            icon,
 	}
 	t.nid.cbSize = uint32(unsafe.Sizeof(t.nid))
-	utf16Copy(t.nid.szTip[:], appName())
+	utf16Copy(t.nid.szTip[:], t.app.t("大肥鱼桌宠", "Big Fat Fish Desktop Pet", "大肥魚デスクトップペット"))
 	if r, _, _ := procShellNotifyIcon.Call(nimAdd, uintptr(unsafe.Pointer(&t.nid))); r != 0 {
 		t.app.mu.Lock()
 		t.app.trayReady = true
@@ -304,30 +304,30 @@ func (t *Tray) showMenu() {
 	}
 
 	if visible {
-		add(1, "🙈  藏起桌宠")
+		add(1, a.t("🙈  藏起桌宠", "🙈  Hide pet", "🙈  ペットを隠す"))
 	} else {
-		add(1, "🐟  叫出桌宠")
+		add(1, a.t("🐟  叫出桌宠", "🐟  Show pet", "🐟  ペットを呼ぶ"))
 	}
-	add(2, "🍚  投喂")
+	add(2, a.t("🍚  投喂", "🍚  Feed", "🍚  ご飯をあげる"))
 	if a.pomoRunning() {
-		add(3, fmt.Sprintf("🍅  结束专注（剩 %s）", clockLeft(a.pomoStatusRemaining())))
+		add(3, fmt.Sprintf(a.t("🍅  结束专注（剩 %s）", "🍅  End focus (%s left)", "🍅  集中を終了（残り %s）"), clockLeft(a.pomoStatusRemaining())))
 	} else {
-		add(3, fmt.Sprintf("🍅  开始专注 %d 分钟", a.pomoMinutes()))
+		add(3, fmt.Sprintf(a.t("🍅  开始专注 %d 分钟", "🍅  Start a %d-minute focus", "🍅  %d分の集中を開始"), a.pomoMinutes()))
 	}
-	add(4, "🎬  选个动作…")
+	add(4, a.t("🎬  选个动作…", "🎬  Pick an action…", "🎬  アクションを選ぶ…"))
 	if a.ledgerOn() {
 		add(5, a.trayLedgerLabel())
 	}
 	sep()
-	add(6, "⚙️  设置")
-	add(7, "📊  看看状态")
+	add(6, a.t("⚙️  设置", "⚙️  Settings", "⚙️  設定"))
+	add(7, a.t("📊  看看状态", "📊  Status", "📊  状態を見る"))
 	// 只在 Win10（< 22621）出现：那里的「背景发虚」修复靠清 AccentPolicy 实现，
 	// 留一个能当场取消的开关，万一某台机器因此黑屏，用户两下点击就能自救。
 	if windowsBuildNumber() < backdropBuildThreshold {
-		addCheck(8, "🩹  修复 Win10 背景发虚（黑屏就取消勾选）", a.getBool("blurFix", true))
-		add(10, "退出")
+		addCheck(8, a.t("🩹  修复 Win10 背景发虚（黑屏就取消勾选）", "🩹  Fix Win10 blur (uncheck if screen goes black)", "🩹  Win10の背景ぼやけを修正（黒画面なら解除）"), a.getBool("blurFix", true))
+		add(10, a.t("退出", "Exit", "終了"))
 	} else {
-		add(9, "退出")
+		add(9, a.t("退出", "Exit", "終了"))
 	}
 	procSetForeground.Call(t.hwnd)
 	cmd, _, _ := procTrackPopupMenu.Call(menu, tpmReturnCmd|tpmNoNotify|tpmRightButton, uintptr(pt.X), uintptr(pt.Y), 0, t.hwnd, 0)
@@ -398,7 +398,7 @@ func (a *App) trayLedgerLabel() string {
 	l := a.ledger
 	a.mu.Unlock()
 	if l == nil {
-		return "🍚  白饭账本"
+		return a.t("🍚  白饭账本", "🍚  Rice ledger", "🍚  ご飯帳簿")
 	}
 	if src := strv(l["source"], "qoder"); src != "qoder" {
 		short := strv(l["providerShort"], "API")
@@ -408,7 +408,7 @@ func (a *App) trayLedgerLabel() string {
 		return "🍚  " + short
 	}
 	if boolv(l["available"], false) {
-		return fmt.Sprintf("🍚  本月白饭 %v credits", l["month"])
+		return fmt.Sprintf(a.t("🍚  本月白饭 %v credits", "🍚  %v credits of rice this month", "🍚  今月のご飯 %v クレジット"), l["month"])
 	}
-	return "🍚  白饭账本"
+	return a.t("🍚  白饭账本", "🍚  Rice ledger", "🍚  ご飯帳簿")
 }

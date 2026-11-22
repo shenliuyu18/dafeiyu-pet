@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -38,6 +40,101 @@ var keyHints = map[string]string{
 	"claude":      "需要 Anthropic Admin Key（sk-ant-admin…）",
 }
 
+// apiError 是账单查询失败的结构化原因：前端据此给出可操作的提示，
+// 用户反馈 issue #3 时也能直接看到错误码、HTTP 状态与耗时。
+type apiError struct {
+	Code       string
+	Message    string
+	Hint       string
+	HTTPStatus int
+}
+
+func (e *apiError) Error() string { return e.Message }
+
+func apiFailure(code, msg, hint string) map[string]interface{} {
+	out := map[string]interface{}{"error": msg, "errorCode": code}
+	if hint != "" {
+		out["errorHint"] = hint
+	}
+	return out
+}
+
+// failureResult 把 fetch 里的 error 统一转成前端可读的诊断字段。
+func failureResult(prefix string, err error) map[string]interface{} {
+	msg := err.Error()
+	if prefix != "" && !strings.HasPrefix(msg, prefix) {
+		msg = prefix + "：" + msg
+	}
+	out := map[string]interface{}{"error": msg, "errorCode": "UNKNOWN"}
+	var ae *apiError
+	if errors.As(err, &ae) {
+		out["errorCode"] = ae.Code
+		if ae.Hint != "" {
+			out["errorHint"] = ae.Hint
+		}
+		if ae.HTTPStatus != 0 {
+			out["httpStatus"] = ae.HTTPStatus
+		}
+	}
+	return out
+}
+
+func httpFailure(status int, body []byte) *apiError {
+	e := &apiError{
+		HTTPStatus: status,
+		Code:       "HTTP_ERROR",
+		Message:    fmt.Sprintf("请求失败（HTTP %d）", status),
+	}
+	if m := providerErrorMessage(body); m != "" {
+		e.Message += "：" + m
+	}
+	switch status {
+	case 401:
+		e.Code = "UNAUTHORIZED"
+		e.Hint = "API Key 无效或已过期，请重新复制（不要带引号或空格）"
+	case 403:
+		e.Code = "FORBIDDEN"
+		e.Hint = "该 Key 没有账单查询权限；OpenAI / Claude 需要 Admin Key"
+	case 404:
+		e.Code = "NOT_FOUND"
+		e.Hint = "接口地址不存在，平台接口可能已变更，请反馈 issue"
+	case 429:
+		e.Code = "RATE_LIMITED"
+		e.Hint = "请求过于频繁，请稍后重试"
+	default:
+		if status >= 500 {
+			e.Code = "SERVER_ERROR"
+			e.Hint = "平台服务异常，请稍后重试"
+		}
+	}
+	return e
+}
+
+// providerErrorMessage 尽量从各平台的错误响应里挖出一句人话。
+func providerErrorMessage(body []byte) string {
+	var j map[string]interface{}
+	if json.Unmarshal(body, &j) != nil {
+		return ""
+	}
+	if e, ok := j["error"].(map[string]interface{}); ok {
+		if m := strv(e["message"], ""); m != "" {
+			return m
+		}
+	}
+	if s, ok := j["error"].(string); ok && s != "" {
+		return s
+	}
+	if m := strv(j["message"], ""); m != "" {
+		return m
+	}
+	if rm, ok := j["ResponseMetadata"].(map[string]interface{}); ok {
+		if e, ok := rm["Error"].(map[string]interface{}); ok {
+			return strv(e["Message"], "")
+		}
+	}
+	return ""
+}
+
 func (a *App) ledgerSource() string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -45,6 +142,10 @@ func (a *App) ledgerSource() string {
 }
 
 func (a *App) refreshUsage() map[string]interface{} {
+	return a.refreshUsageForce(false)
+}
+
+func (a *App) refreshUsageForce(force bool) map[string]interface{} {
 	a.mu.Lock()
 	if !a.ledgerOnLocked() {
 		a.mu.Unlock()
@@ -57,7 +158,7 @@ func (a *App) refreshUsage() map[string]interface{} {
 	if _, ok := apiProviders[src]; ok {
 		// 打开账本、改 Key、切来源时都希望看到最新余额：
 		// 缓存超过 45 秒或来源变了就重新拉一次，否则一直显示旧数字。
-		stale := true
+		stale := force
 		if cached != nil {
 			at := int64(num(cached["updatedAt"]))
 			same := strv(cached["source"], "") == src
@@ -87,7 +188,9 @@ func (a *App) refreshUsage() map[string]interface{} {
 	}
 	// 没找到任何 Qoder 会话时给出明确原因，否则前端只能显示一片 “—”
 	if !boolv(data["available"], false) {
-		ledger["error"] = "没找到本机 Qoder 会话记录（~/.qoder-cn/projects），可改用 API 余额，或先登录 Qoder 跑一次"
+		ledger["errorCode"] = "NO_QODER_SESSIONS"
+		ledger["error"] = "没找到本机 Qoder 会话记录（~/.qoder-cn/projects）"
+		ledger["errorHint"] = "先登录 Qoder 跑一次会话；或在设置 → 白饭账本里改用 API 余额"
 	}
 	a.mu.Lock()
 	a.ledger = ledger
@@ -103,41 +206,162 @@ func minF(a, b float64) float64 {
 	return b
 }
 
+// RefreshUsage 是前端「重新检测」按钮的同步入口：跳过 45 秒缓存，
+// 直接把这一次请求的结果（含错误码 / HTTP 状态 / 耗时）返回给页面。
+func (a *App) RefreshUsage() map[string]interface{} {
+	if !a.ledgerOn() {
+		return map[string]interface{}{
+			"source": a.ledgerSource(), "available": false,
+			"error": "账本已在设置里关闭", "errorCode": "LEDGER_OFF",
+			"errorHint": "在设置 → 白饭账本里重新开启",
+		}
+	}
+	src := a.ledgerSource()
+	if def, ok := apiProviders[src]; ok {
+		if !a.beginFetch(src) {
+			return a.ledgerPending(src, def)
+		}
+		defer a.endFetch(src)
+		return a.fetchApiBalance(src)
+	}
+	return a.refreshUsageForce(true)
+}
+
+func (a *App) ledgerPending(provider string, def apiProvider) map[string]interface{} {
+	a.mu.Lock()
+	cached := a.ledger
+	a.mu.Unlock()
+	out := map[string]interface{}{
+		"source": provider, "provider": provider,
+		"providerLabel": def.label, "providerShort": def.short,
+		"pending": true, "available": false, "rows": []map[string]string{},
+		"error": "上一次检测还没结束", "errorCode": "PENDING",
+		"errorHint": "稍等几秒，结果回来会自动刷新", "updatedAt": nowMillis(),
+	}
+	if cached != nil {
+		for k, v := range cached {
+			if _, exists := out[k]; !exists {
+				out[k] = v
+			}
+		}
+	}
+	return out
+}
+
 func (a *App) fetchApiBalanceAsync(provider string) {
 	// 按平台分别去重：以前用一个全局标志，某个平台卡住时别的平台也跟着拿不到数据
 	if !a.beginFetch(provider) {
 		return
 	}
 	defer a.endFetch(provider)
-	def, ok := apiProviders[provider]
-	base := map[string]interface{}{
-		"source": provider, "providerLabel": provider, "providerShort": provider,
-		"available": false, "rows": []map[string]string{}, "updatedAt": nowMillis(), "error": "",
-	}
-	if ok {
-		base["providerLabel"] = def.label
-		base["providerShort"] = def.short
-	}
-	key := a.apiKey(provider)
+	a.fetchApiBalance(provider)
+}
+
+// fetchApiBalance 查询一次平台余额并写入账本缓存。调用方负责 beginFetch/endFetch。
+func (a *App) fetchApiBalance(provider string) map[string]interface{} {
+	def := apiProviders[provider]
+	key, keySource := a.apiKeyAndSource(provider)
 	if provider == "doubao" && key == "" {
 		ak, sk := os.Getenv("VOLC_ACCESSKEY"), os.Getenv("VOLC_SECRETKEY")
 		if ak != "" && sk != "" {
 			key = ak + ":" + sk
+			keySource = "env"
 		}
 	}
-	if key == "" {
-		base["error"] = fmt.Sprintf("未配置 %s API Key", base["providerLabel"])
-		a.setLedger(base)
-		return
+	now := nowMillis()
+	base := map[string]interface{}{
+		"source": provider, "provider": provider,
+		"providerLabel": def.label, "providerShort": def.short,
+		"available": false, "rows": []map[string]string{}, "updatedAt": now,
+		"checkedAt": now, "latencyMs": 0, "keySource": keySource,
+		"error": "", "errorCode": "", "errorHint": "", "httpStatus": 0,
 	}
+	if key == "" {
+		base["errorCode"] = "MISSING_KEY"
+		base["error"] = fmt.Sprintf("未配置 %s API Key", def.label)
+		hint := keyHints[provider]
+		if provider == "doubao" {
+			hint += "；也可以用环境变量 VOLC_ACCESSKEY 与 VOLC_SECRETKEY"
+		} else if def.env != "" {
+			hint += "；也可以用环境变量 " + def.env
+		}
+		base["errorHint"] = hint
+		a.setLedger(base)
+		return base
+	}
+
+	begin := time.Now()
 	r := def.fetch(key)
+	base["latencyMs"] = time.Since(begin).Milliseconds()
+	base["updatedAt"] = nowMillis()
+	base["checkedAt"] = base["updatedAt"]
 	for k, v := range r {
 		base[k] = v
 	}
 	_, hasErr := r["error"]
 	base["available"] = !hasErr
-	base["updatedAt"] = nowMillis()
+	if hasErr {
+		if strv(base["errorCode"], "") == "" {
+			base["errorCode"] = "UNKNOWN"
+		}
+		if code := strv(base["errorCode"], ""); code == "UNAUTHORIZED" || code == "FORBIDDEN" {
+			base["errorHint"] = keyHints[provider]
+		}
+		a.mu.Lock()
+		if a.ledgerOK != nil {
+			if at := a.ledgerOK[provider]; at > 0 {
+				base["lastOkAt"] = at
+			}
+		}
+		a.mu.Unlock()
+	} else {
+		base["lastOkAt"] = base["updatedAt"]
+		a.mu.Lock()
+		if a.ledgerOK == nil {
+			a.ledgerOK = map[string]int64{}
+		}
+		a.ledgerOK[provider] = int64(num(base["updatedAt"]))
+		a.mu.Unlock()
+	}
 	a.setLedger(base)
+	return base
+}
+
+// KeyCheck 在保存前验证一次 Key（不写状态、不发事件），让「保存成功但读不到账本」
+// 的问题在保存那一刻就暴露出来。网络类错误不阻止保存，交由用户决定。
+func (a *App) KeyCheck(provider, key string) map[string]interface{} {
+	def, ok := apiProviders[provider]
+	if !ok {
+		return map[string]interface{}{"ok": false, "error": "未知的平台", "errorCode": "UNKNOWN_PROVIDER"}
+	}
+	k := strings.TrimSpace(key)
+	if len([]rune(k)) < 8 {
+		return map[string]interface{}{
+			"ok": false, "error": "Key 太短，看起来不像有效的 API Key",
+			"errorCode": "INVALID_KEY_FORMAT", "errorHint": keyHints[provider],
+		}
+	}
+	begin := time.Now()
+	r := def.fetch(k)
+	lat := time.Since(begin).Milliseconds()
+	if code := strv(r["errorCode"], ""); code != "" {
+		out := map[string]interface{}{
+			"ok": false, "errorCode": code, "latencyMs": lat,
+			"error": strv(r["error"], "验证失败"),
+		}
+		if h := strv(r["errorHint"], ""); h != "" {
+			out["errorHint"] = h
+		}
+		if st := int(numv(r["httpStatus"])); st != 0 {
+			out["httpStatus"] = st
+		}
+		return out
+	}
+	out := map[string]interface{}{"ok": true, "latencyMs": lat}
+	if note := strv(r["note"], ""); note != "" {
+		out["note"] = note
+	}
+	return out
 }
 
 func (a *App) beginFetch(provider string) bool {
@@ -329,9 +553,9 @@ func (a *App) checkQuotaWarning(ledger map[string]interface{}) {
 		a.mu.Unlock()
 		a.saveState()
 		if tier == 3 {
-			a.balloon("truncated", "用量账本", fmt.Sprintf("本月套餐已经被用光了（%v credits）…", ledger["month"]))
+			a.balloon("truncated", a.t("用量账本", "Usage ledger", "使用量帳簿"), fmt.Sprintf(a.t("本月套餐已经被用光了（%v credits）…", "This month's quota is used up (%v credits)…", "今月の枠を使い切りました（%v クレジット）…"), ledger["month"]))
 		} else {
-			a.balloon("error", "用量账本", fmt.Sprintf("本月用量已到 %.0f%%（%v credits），悠着点…", percent, ledger["month"]))
+			a.balloon("error", a.t("用量账本", "Usage ledger", "使用量帳簿"), fmt.Sprintf(a.t("本月用量已到 %.0f%%（%v credits），悠着点…", "This month's usage reached %.0f%% (%v credits). Take it easy…", "今月の使用量が %.0f%% に達しました（%v クレジット）。ほどほどに…"), percent, ledger["month"]))
 		}
 		return
 	}
@@ -340,10 +564,20 @@ func (a *App) checkQuotaWarning(ledger map[string]interface{}) {
 
 // ---------------- HTTP / API 账单 ----------------
 
+// apiHostBase 只给测试用：把平台域名映射到 httptest 的地址；生产环境为空。
+var apiHostBase = map[string]string{}
+
+func apiURL(host, path string) string {
+	if base := apiHostBase[host]; base != "" {
+		return strings.TrimRight(base, "/") + path
+	}
+	return "https://" + host + path
+}
+
 func httpGetJSON(host, path string, headers map[string]string) (map[string]interface{}, error) {
-	req, err := http.NewRequest(http.MethodGet, "https://"+host+path, nil)
+	req, err := http.NewRequest(http.MethodGet, apiURL(host, path), nil)
 	if err != nil {
-		return nil, err
+		return nil, &apiError{Code: "BAD_REQUEST", Message: "请求构造失败", Hint: "请反馈 issue"}
 	}
 	req.Header.Set("Accept", "application/json")
 	for k, v := range headers {
@@ -352,16 +586,27 @@ func httpGetJSON(host, path string, headers map[string]string) (map[string]inter
 	client := &http.Client{Timeout: 9 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		var ne net.Error
+		if errors.As(err, &ne) && ne.Timeout() {
+			return nil, &apiError{Code: "TIMEOUT", Message: "请求超时（9 秒）", Hint: "检查网络或代理后重试"}
+		}
+		return nil, &apiError{Code: "NETWORK", Message: "网络请求失败", Hint: "检查网络或代理后重试"}
 	}
 	defer res.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if err != nil {
-		return nil, err
+		return nil, &apiError{Code: "NETWORK", Message: "读取响应失败", Hint: "检查网络后重试", HTTPStatus: res.StatusCode}
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, httpFailure(res.StatusCode, body)
 	}
 	var out map[string]interface{}
 	if json.Unmarshal(body, &out) != nil {
-		return nil, fmt.Errorf("HTTP %d", res.StatusCode)
+		return nil, &apiError{
+			Code: "BAD_RESPONSE", HTTPStatus: res.StatusCode,
+			Message: fmt.Sprintf("平台返回了无法解析的数据（HTTP %d）", res.StatusCode),
+			Hint:    "可能是接口变更，或网络被代理页面拦截",
+		}
 	}
 	return out, nil
 }
@@ -409,7 +654,7 @@ func deepSumAmount(v interface{}) float64 {
 func fetchDeepseek(key string) map[string]interface{} {
 	j, err := httpGetJSON("api.deepseek.com", "/user/balance", map[string]string{"Authorization": "Bearer " + key})
 	if err != nil {
-		return map[string]interface{}{"error": "DeepSeek 请求失败"}
+		return failureResult("DeepSeek", err)
 	}
 	infos, _ := j["balance_infos"].([]interface{})
 	var b map[string]interface{}
@@ -438,10 +683,10 @@ func fetchDeepseek(key string) map[string]interface{} {
 func fetchMoonshot(key string) map[string]interface{} {
 	j, err := httpGetJSON("api.moonshot.cn", "/v1/users/me/balance", map[string]string{"Authorization": "Bearer " + key})
 	if err != nil {
-		return map[string]interface{}{"error": "Kimi 请求失败"}
+		return failureResult("Kimi", err)
 	}
 	if e, ok := j["error"].(map[string]interface{}); ok {
-		return map[string]interface{}{"error": "Kimi：" + strv(e["message"], "请求被拒绝")}
+		return apiFailure("PROVIDER_ERROR", "Kimi："+strv(e["message"], "请求被拒绝"), "检查 Key 是否有效、账户状态是否正常")
 	}
 	d, _ := j["data"].(map[string]interface{})
 	return map[string]interface{}{
@@ -457,10 +702,10 @@ func fetchMoonshot(key string) map[string]interface{} {
 func fetchSiliconflow(key string) map[string]interface{} {
 	j, err := httpGetJSON("api.siliconflow.cn", "/v1/user/info", map[string]string{"Authorization": "Bearer " + key})
 	if err != nil {
-		return map[string]interface{}{"error": "SiliconFlow 请求失败"}
+		return failureResult("SiliconFlow", err)
 	}
 	if code, ok := j["code"].(float64); ok && code != 20000 && code != 0 {
-		return map[string]interface{}{"error": "SiliconFlow：" + strv(j["message"], "请求被拒绝")}
+		return apiFailure("PROVIDER_ERROR", "SiliconFlow："+strv(j["message"], "请求被拒绝"), "检查 Key 是否有效、账户状态是否正常")
 	}
 	d, _ := j["data"].(map[string]interface{})
 	return map[string]interface{}{
@@ -478,12 +723,12 @@ func fetchDoubao(key string) map[string]interface{} {
 		return r == ':' || r == '：' || r == ',' || r == '，' || r == ' ' || r == '\t'
 	})
 	if len(parts) < 2 {
-		return map[string]interface{}{"error": "豆包需要填写「AK:SK」（火山引擎访问密钥对）"}
+		return apiFailure("INVALID_KEY_FORMAT", "豆包需要填写「AK:SK」（火山引擎访问密钥对）", keyHints["doubao"])
 	}
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(parts[0]+":"+parts[1]))
 	j, err := httpGetJSON("open.volcengineapi.com", "/?Action=QueryBalanceAcct&Version=2022-01-01", map[string]string{"Authorization": auth})
 	if err != nil {
-		return map[string]interface{}{"error": "豆包（火山引擎）请求失败"}
+		return failureResult("豆包（火山引擎）", err)
 	}
 	res, _ := j["Result"].(map[string]interface{})
 	if res == nil {
@@ -493,7 +738,7 @@ func fetchDoubao(key string) map[string]interface{} {
 				msg = strv(e["Message"], msg)
 			}
 		}
-		return map[string]interface{}{"error": "豆包：" + msg}
+		return apiFailure("PROVIDER_ERROR", "豆包："+msg, "检查 AK/SK 是否正确、账号是否有查询余额权限")
 	}
 	return map[string]interface{}{
 		"available": true,
@@ -513,10 +758,10 @@ func fetchOpenai(key string) map[string]interface{} {
 	path := fmt.Sprintf("/v1/organization/costs?start_time=%d&end_time=%d&interval=1d&limit=180", monthStart, now.Unix())
 	j, err := httpGetJSON("api.openai.com", path, map[string]string{"Authorization": "Bearer " + key})
 	if err != nil {
-		return map[string]interface{}{"error": "OpenAI 请求失败（需要可访问 api.openai.com 的网络）"}
+		return failureResult("OpenAI", err)
 	}
 	if e, ok := j["error"].(map[string]interface{}); ok {
-		return map[string]interface{}{"error": "OpenAI：" + strv(e["message"], "请求被拒绝（需要 Admin Key）")}
+		return apiFailure("PROVIDER_ERROR", "OpenAI："+strv(e["message"], "请求被拒绝（需要 Admin Key）"), keyHints["openai"])
 	}
 	var month, week, today float64
 	currency := "usd"
@@ -562,10 +807,10 @@ func fetchClaude(key string) map[string]interface{} {
 		"x-api-key": key, "anthropic-version": "2023-06-01",
 	})
 	if err != nil {
-		return map[string]interface{}{"error": "Claude 请求失败"}
+		return failureResult("Claude", err)
 	}
 	if e, ok := j["error"].(map[string]interface{}); ok {
-		return map[string]interface{}{"error": "Claude：" + strv(e["message"], "请求被拒绝（需要 Admin Key）")}
+		return apiFailure("PROVIDER_ERROR", "Claude："+strv(e["message"], "请求被拒绝（需要 Admin Key）"), keyHints["claude"])
 	}
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	weekStart := now.Add(-7 * 24 * time.Hour)

@@ -101,6 +101,7 @@
         #wails-modal-root .wails-status { min-height: 16px; margin-top: 8px; font-size: 11.5px; line-height: 1.5; color: #5b688f; }
         #wails-modal-root .wails-status.err { color: #b33939; }
         #wails-modal-root .wails-status.ok { color: #2f7d4f; }
+        #wails-modal-root .wails-status.warn { color: #9a6700; }
         #wails-key-card.hide, #wails-words-card.hide { display: none; }
       </style>
       <div class="wails-mask"></div>
@@ -137,12 +138,33 @@
       const key = el('wails-key-input').value.trim();
       if (!key) { keyStatus('请先输入 API Key', 'err'); return; }
       btn.disabled = true;
-      keyStatus('正在保存…');
+      keyStatus('正在验证 Key…（最多 9 秒）');
       try {
+        // 先验证再落盘：Key 无效 / 无权限时不让用户以为「保存成功但读不到账本」
+        let check = null;
+        try {
+          check = await invoke('KeyCheck', keyCtx.provider, key);
+        } catch (e) {
+          check = { ok: false, error: e.message, errorCode: 'CHECK_FAILED' };
+        }
+        const blocking = check && !check.ok &&
+          ['UNAUTHORIZED', 'FORBIDDEN', 'INVALID_KEY_FORMAT', 'UNKNOWN_PROVIDER'].includes(check.errorCode);
+        if (blocking) {
+          const hint = check.errorHint ? `；${check.errorHint}` : '';
+          keyStatus(`验证未通过：${check.error || 'Key 不可用'}${hint}`, 'err');
+          btn.disabled = false;
+          return;
+        }
+        keyStatus('正在保存…');
         const r = await invoke('KeySave', keyCtx.provider, key);
         if (!r || !r.ok) { keyStatus((r && r.error) || '保存失败', 'err'); return; }
-        keyStatus('已保存 ✓', 'ok');
-        setTimeout(closeOverlays, 500);
+        if (check && check.ok) {
+          keyStatus(`已验证并保存 ✓${check.latencyMs ? `（${check.latencyMs} ms）` : ''}`, 'ok');
+        } else {
+          const why = (check && check.error) || '网络或平台暂时不可达';
+          keyStatus(`已保存 ✓，但这次没能验证：${why}`, 'warn');
+        }
+        setTimeout(closeOverlays, check && check.ok ? 500 : 1800);
       } catch (e) {
         keyStatus('保存失败：' + e.message, 'err');
       } finally {
@@ -246,6 +268,10 @@
       // force：气泡长高/首次出现时不能等 80ms 节流，否则 Region 会晚一拍，上半截被裁
       return invoke('ReportPos', Number(pos.x) || 0, Number(pos.y) || 0, Number(pos.s) || 1, JSON.stringify(boxes), !!pos.force).catch(() => {});
     },
+    logFrontend: (level, msg) => {
+      if (!runtimeReady) return Promise.resolve();
+      return invoke('LogFrontend', String(level || 'error'), String(msg || '')).catch(() => {});
+    },
     setPanel: (open) => { if (!runtimeReady) return Promise.resolve(); return queueUiStrict('SetPanel', !!open); },
     powerAck: (seq) => { if (runtimeReady) invoke('PowerAck', Number(seq) || 0).catch(() => {}); },
     setDragging: (on) => { if (runtimeReady) queueUi('SetDragging', !!on); },
@@ -261,7 +287,12 @@
     keyOpen: (provider) => openKey(provider),
     keyInfo: (provider) => invoke('KeyInfo', provider),
     keySave: (provider, key) => invoke('KeySave', provider, key),
+    keyCheck: (provider, key) => invoke('KeyCheck', provider, key),
     keyClear: (provider) => invoke('KeyClear', provider),
+    refreshUsage: () => invoke('RefreshUsage'),
+    fullscreenDiagnostics: () => invoke('FullscreenDiagnostics'),
+    exportDiagnostics: () => invoke('ExportDiagnostics'),
+    pomoStats: () => invoke('PomoStats'),
     editWords: () => openWords(),
     wordsInfo: () => invoke('WordsInfo'),
     wordsSave: (lines) => invoke('WordsSave', JSON.stringify(lines || [])),
@@ -273,3 +304,4 @@
     on,
   };
 })();
+

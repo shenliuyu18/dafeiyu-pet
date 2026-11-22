@@ -24,12 +24,12 @@ func (a *App) fontsDir() string {
 	return filepath.Join(a.userConfigDir(), "fonts")
 }
 
-func pickFontFile(ctx context.Context) (string, error) {
+func pickFontFile(ctx context.Context, title, fontLabel, allLabel string) (string, error) {
 	return runtime.OpenFileDialog(ctx, runtime.OpenDialogOptions{
-		Title: "选择字体文件",
+		Title: title,
 		Filters: []runtime.FileFilter{
-			{DisplayName: "字体文件", Pattern: "*.ttf;*.otf;*.woff;*.woff2"},
-			{DisplayName: "所有文件", Pattern: "*.*"},
+			{DisplayName: fontLabel, Pattern: "*.ttf;*.otf;*.woff;*.woff2"},
+			{DisplayName: allLabel, Pattern: "*.*"},
 		},
 	})
 }
@@ -89,7 +89,10 @@ func (a *App) validFontFamily(v string) bool {
 // ImportFont 弹出文件选择框，校验并复制字体到用户配置目录，返回保存后的文件名。
 // 用户取消时返回空字符串。
 func (a *App) ImportFont() (string, error) {
-	src, err := pickFontFile(a.ctx)
+	src, err := pickFontFile(a.ctx,
+		a.t("选择字体文件", "Choose a font file", "フォントファイルを選択"),
+		a.t("字体文件", "Font files", "フォントファイル"),
+		a.t("所有文件", "All files", "すべてのファイル"))
 	if err != nil {
 		return "", err
 	}

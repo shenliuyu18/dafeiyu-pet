@@ -114,6 +114,9 @@ func (a *App) AutostartStatus() map[string]interface{} {
 
 // applyLoginItem 同步应用自启动设置；设置页切换时调用，确保任务先落盘再返回。
 func (a *App) applyLoginItem() {
+	if isolatedMode {
+		return // 隔离调试实例不能写本机的登录计划任务
+	}
 	a.cleanLegacyRunEntries()
 	if err := a.setAutostartTask(a.getBool("autoStart", false)); err != nil {
 		crashLog("autostart", err.Error())
@@ -122,6 +125,9 @@ func (a *App) applyLoginItem() {
 
 // applyLoginItemAsync 启动时调用：Run 键清理很快，计划任务交给后台，不拖慢首帧。
 func (a *App) applyLoginItemAsync() {
+	if isolatedMode {
+		return
+	}
 	a.cleanLegacyRunEntries()
 	on := a.getBool("autoStart", false)
 	// 计划任务刚把本进程拉起时，任务本身就是最新配置，不再额外启动 PowerShell。

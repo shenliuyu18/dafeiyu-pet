@@ -97,7 +97,11 @@ try {
   if (prep.status !== 0) fail('[wails] 前端准备失败');
 
   const buildArgs = ['build', '-nsis', '-installscope', 'user', '-webview2', 'download', '-clean'];
-  if (lite) buildArgs.push('-ldflags', '-X main.Variant=lite');
+  const ldParts = [];
+  if (lite) ldParts.push('-X main.Variant=lite');
+  const updatePubKey = (process.env.UPDATE_SIGNING_PUBKEY || '').trim();
+  if (updatePubKey) ldParts.push(`-X main.updateSigningPubKey=${updatePubKey}`);
+  if (ldParts.length) buildArgs.push('-ldflags', ldParts.join(' '));
   let build = spawnSync(cli, buildArgs, { stdio: 'inherit', cwd: wailsDir, env });
   if (build.status !== 0) {
     console.warn('[wails] 清理构建目录失败（文件被占用），改用不清理构建重试…');

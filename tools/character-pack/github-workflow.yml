@@ -1,0 +1,34 @@
+# 形象包创作者可选的 GitHub Actions 模板：
+# 把本文件复制到你的形象包仓库 .github/workflows/character-pack.yml，
+# 推送 tag（如 v1.0.0）时自动校验、打包并发布 zip。
+name: Character Pack
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 校验清单与素材
+        run: python tools/character-pack/validate.py .
+
+      - name: 打包 zip
+        run: python tools/character-pack/make_pack.py . "dist/character-pack-${{ github.ref_name }}.zip"
+
+      - name: 发布
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/character-pack-*.zip
+          generate_release_notes: true

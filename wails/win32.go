@@ -163,6 +163,7 @@ func (a *App) SetupWindow() {
 	a.dpi = float64(dpi) / 96.0
 	if suppress {
 		a.fsHidden = true
+		a.fsDecider.suppress()
 	}
 	a.mu.Unlock()
 
@@ -423,12 +424,14 @@ func (a *App) hideWindow() {
 	a.mu.Lock()
 	a.hidden = true
 	a.fsHidden = false
-	a.fsClearSince = time.Time{}
+	a.fsDecider.release()
 	h := a.hwnd
 	a.mu.Unlock()
 	if h != 0 {
 		procShowWindow.Call(h, swHide)
 	}
+	// 藏起来前把攒下的状态落盘，之后可能长时间不再有交互
+	a.flushStateIfDirty()
 	// 藏起来时把内存还给系统（此时不会有渲染压力，回收代价最低）
 	go a.releaseMemory()
 }
@@ -445,13 +448,13 @@ func (a *App) showInactive() {
 	if a.fullscreenEnabled() && immersiveFullscreenActive() {
 		a.mu.Lock()
 		a.fsHidden = true
-		a.fsClearSince = time.Time{}
+		a.fsDecider.suppress()
 		a.mu.Unlock()
 		return
 	}
 	a.mu.Lock()
 	a.fsHidden = false
-	a.fsClearSince = time.Time{}
+	a.fsDecider.release()
 	a.mu.Unlock()
 	ensureTopmost(h)
 	procShowWindow.Call(h, swShowNoActivate)
@@ -483,12 +486,12 @@ func quitApp(ctx context.Context) {
 	runtime.Quit(ctx)
 }
 
-func openFileDialog(ctx context.Context) (string, error) {
+func openFileDialog(ctx context.Context, title, appLabel, allLabel string) (string, error) {
 	return runtime.OpenFileDialog(ctx, runtime.OpenDialogOptions{
-		Title: "选择要和桌宠一起启动的应用",
+		Title: title,
 		Filters: []runtime.FileFilter{
-			{DisplayName: "应用 / 快捷方式", Pattern: "*.exe;*.lnk;*.bat;*.cmd"},
-			{DisplayName: "所有文件", Pattern: "*.*"},
+			{DisplayName: appLabel, Pattern: "*.exe;*.lnk;*.bat;*.cmd"},
+			{DisplayName: allLabel, Pattern: "*.*"},
 		},
 	})
 }

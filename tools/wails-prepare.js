@@ -24,6 +24,14 @@ fs.mkdirSync(out, { recursive: true });
 for (const f of ['index.html', 'style.css', 'archive-memes.js', 'dsh-memes.js', 'pet.js']) {
   fs.copyFileSync(path.join(srcRenderer, f), path.join(out, f));
 }
+fs.mkdirSync(path.join(out, 'lib'), { recursive: true });
+for (const f of ['format.js', 'i18n.js', 'lines-i18n.js', 'memes-i18n.js', 'meme-gallery-i18n.js', 'ui-i18n.js', 'action-i18n.js', 'geometry-config.js', 'dialogue-data.js', 'motion.js', 'meme-queue.js', 'bubble-layout.js', 'meme-pool.js', 'anim-actions.js', 'frame-schedule.js', 'time-format.js', 'pet-rect.js', 'anim.js']) {
+  fs.copyFileSync(path.join(srcRenderer, 'lib', f), path.join(out, 'lib', f));
+}
+fs.mkdirSync(path.join(out, 'features'), { recursive: true });
+for (const f of fs.readdirSync(path.join(srcRenderer, 'features'))) {
+  if (f.endsWith('.js')) fs.copyFileSync(path.join(srcRenderer, 'features', f), path.join(out, 'features', f));
+}
 fs.copyFileSync(path.join(root, 'wails', 'frontend', 'api.js'), path.join(out, 'api.js'));
 
 
@@ -134,6 +142,50 @@ html = html.replace('<script src="assets/anims/index.js"></script>', `<script>wi
 <script src="assets/anims/index.js?v=${pkg.version}"></script>`);
 html = html.replace('<script src="archive-memes.js"></script>', `<script src="archive-memes.js?v=${pkg.version}"></script>`);
 html = html.replace('<script src="dsh-memes.js"></script>', `<script src="dsh-memes.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/lines-i18n.js"></script>', `<script src="lib/lines-i18n.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/geometry-config.js"></script>', `<script src="lib/geometry-config.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/dialogue-data.js"></script>', `<script src="lib/dialogue-data.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/memes-i18n.js"></script>', `<script src="lib/memes-i18n.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/meme-gallery-i18n.js"></script>', `<script src="lib/meme-gallery-i18n.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/ui-i18n.js"></script>', `<script src="lib/ui-i18n.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/action-i18n.js"></script>', `<script src="lib/action-i18n.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/i18n.js"></script>', `<script src="lib/i18n.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/format.js"></script>', `<script src="lib/format.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/motion.js"></script>', `<script src="lib/motion.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/meme-queue.js"></script>', `<script src="lib/meme-queue.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/bubble-layout.js"></script>', `<script src="lib/bubble-layout.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/meme-pool.js"></script>', `<script src="lib/meme-pool.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/anim-actions.js"></script>', `<script src="lib/anim-actions.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/frame-schedule.js"></script>', `<script src="lib/frame-schedule.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/time-format.js"></script>', `<script src="lib/time-format.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/pet-rect.js"></script>', `<script src="lib/pet-rect.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/anim.js"></script>', `<script src="lib/anim.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/animation-data.js"></script>', `<script src="features/animation-data.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/character-settings.js"></script>', `<script src="features/character-settings.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/fs-diag.js"></script>', `<script src="features/fs-diag.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/settings-toggles.js"></script>', `<script src="features/settings-toggles.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/usage.js"></script>', `<script src="features/usage.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/picker-pins.js"></script>', `<script src="features/picker-pins.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/settings-content.js"></script>', `<script src="features/settings-content.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/update.js"></script>', `<script src="features/update.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/pomodoro.js"></script>', `<script src="features/pomodoro.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/bubble.js"></script>', `<script src="features/bubble.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/interaction.js"></script>', `<script src="features/interaction.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/hit.js"></script>', `<script src="features/hit.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/dialogue.js"></script>', `<script src="features/dialogue.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/sprite.js"></script>', `<script src="features/sprite.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/animation-playback.js"></script>', `<script src="features/animation-playback.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/actions.js"></script>', `<script src="features/actions.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/lifecycle.js"></script>', `<script src="features/lifecycle.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/loop.js"></script>', `<script src="features/loop.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/runtime.js"></script>', `<script src="features/runtime.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/status.js"></script>', `<script src="features/status.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/picker.js"></script>', `<script src="features/picker.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/menu.js"></script>', `<script src="features/menu.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/ledger-format.js"></script>', `<script src="features/ledger-format.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/animation.js"></script>', `<script src="features/animation.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/settings.js"></script>', `<script src="features/settings.js?v=${pkg.version}"></script>`);
+html = html.replace('<script src="features/pointer-events.js"></script>', `<script src="features/pointer-events.js?v=${pkg.version}"></script>`);
 html = html.replace('<script src="pet.js"></script>', `<script src="api.js?v=${pkg.version}"></script>
 <script src="pet.js?v=${pkg.version}"></script>`);
 fs.writeFileSync(path.join(out, 'index.html'), html);
@@ -156,3 +208,24 @@ const count = (dir) => {
 };
 const c = count(out);
 console.log(`[wails-prepare] ${c.n} files, ${(c.bytes / 1048576).toFixed(1)}MB -> ${out}`);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

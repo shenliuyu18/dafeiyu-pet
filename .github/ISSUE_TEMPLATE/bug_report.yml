@@ -1,0 +1,68 @@
+name: Bug 反馈
+description: 桌宠异常、闪退、显示或功能问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请尽量填写完整。桌宠是本机运行的程序，没有云端日志；下面这些信息基本决定了能否定位问题。
+  - type: input
+    id: version
+    attributes:
+      label: 桌宠版本
+      description: 设置 → 关于 里的版本号，例如 1.5.2
+      placeholder: 1.5.2
+    validations:
+      required: true
+  - type: dropdown
+    id: variant
+    attributes:
+      label: 版本类型
+      options:
+        - 完整版
+        - Lite 版
+        - 不清楚
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Windows 版本与显示缩放
+      description: 例如 Windows 11 23H2，150%；多显示器请说明每块屏幕的分辨率与缩放
+      placeholder: Windows 11 23H2，150%，2560×1440
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 问题现象
+      description: 发生了什么，和预期有什么不同
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 越具体越好；如果和全屏、最大化、切换窗口、特定程序有关，请写明
+      placeholder: |
+        1. 打开…
+        2. 切换到…
+        3. 观察到…
+  - type: input
+    id: foreground
+    attributes:
+      label: 当时的前台程序
+      description: 出现问题时正在用的程序；全屏/最大化类问题请务必填写
+  - type: checkboxes
+    id: diagnostics
+    attributes:
+      label: 诊断信息
+      options:
+        - label: 我已通过「设置 → 关于 → 导出诊断包」导出并检查了内容（不含 API Key 与自定义文字）
+        - label: 我已附上截图或录屏
+  - type: textarea
+    id: extra
+    attributes:
+      label: 其他信息
+      description: 最近是否改过设置、安装过形象包、更新过版本；相关报错可以粘贴在这里

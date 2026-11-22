@@ -1,0 +1,46 @@
+name: Perf
+
+# 需要交互桌面才能创建透明 WebView2 窗口；GitHub 托管 runner 的桌面环境可能不完整，
+# 因此做成手动触发，不作为 PR 的阻断项。本地可用 npm run perf:check。
+on:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: 真机性能预算
+    runs-on: windows-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: wails/go.mod
+          cache-dependency-path: wails/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 生成前端资源
+        run: node tools/wails-prepare.js
+
+      - name: 隔离构建
+        shell: pwsh
+        run: |
+          Push-Location wails
+          go build -tags desktop,production -ldflags "-H windowsgui" -o "$env:TEMP/dafeiyu-perf.exe" .
+          Pop-Location
+
+      - name: 运行性能预算
+        shell: pwsh
+        run: pwsh -File tools/perf-check.ps1 -Exe "$env:TEMP/dafeiyu-perf.exe"
+
+      - name: 上传报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-report
+          path: perf-report.json
+          if-no-files-found: ignore

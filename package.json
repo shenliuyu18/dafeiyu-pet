@@ -1,6 +1,6 @@
 {
   "name": "dafeiyu-desktop-pet",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "description": "大肥鱼桌宠 —— 会吃白饭、会摸鱼、会记账的桌面伙伴",
   "private": true,
   "scripts": {
@@ -9,7 +9,26 @@
     "dist-install": "node tools/wails-build.js --install",
     "dist-install:lite": "node tools/wails-build.js --lite --install",
     "packs:lite": "python tools/build-character-pack-lite.py",
-    "lanzou:upload": "node tools/lanzou-upload/upload.js"
+    "lanzou:upload": "node tools/lanzou-upload/upload.js",
+    "perf:check": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/perf-check.ps1",
+    "test:frontend": "node --test tests/motion.test.js tests/meme-queue.test.js tests/format.test.js tests/i18n.test.js tests/anim.test.js tests/bubble-layout.test.js tests/i18n-lines.test.js tests/frame-schedule.test.js tests/anim-actions.test.js tests/meme-pool.test.js tests/animation-data.test.js tests/ledger-format.test.js tests/pet-rect.test.js tests/time-format.test.js",
+    "typecheck": "tsc -p jsconfig.json"
   },
-  "author": "shenliuyu"
+  "author": "shenliuyu",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

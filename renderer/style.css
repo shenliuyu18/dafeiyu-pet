@@ -489,6 +489,50 @@ body.pet-ready #pet {
   font-size: 0.8em;
   color: #97a2c4;
   text-align: center;
+  white-space: pre-line;
+}
+
+.u-note.err {
+  color: #b4453a;
+}
+
+.u-retry {
+  justify-self: center;
+  margin-top: 1px;
+  padding: 3px 10px;
+  border: 1px solid #dde4ff;
+  border-radius: 7px;
+  background: #f4f7ff;
+  color: #33406e;
+  font: inherit;
+  font-size: 0.76em;
+  cursor: pointer;
+}
+
+.u-retry.hide {
+  display: none;
+}
+
+.u-retry:hover {
+  filter: brightness(0.97);
+}
+
+.diag-log {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid #e2e8ff;
+  border-radius: 9px;
+  background: #f7f9ff;
+  color: #46527a;
+  font: 11px/1.55 Consolas, "Cascadia Mono", monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.diag-log.hide {
+  display: none;
 }
 
 /* ---------------------------------------------------------------- 番茄钟 */
@@ -1130,3 +1174,50 @@ body.pet-ready #pet {
   pointer-events: none;
 }
 #petSnap.hide { display: none; }
+
+.pomo-chart {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  height: 92px;
+  margin-top: 8px;
+}
+
+.pomo-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  font-size: 10px;
+  color: #97a2c4;
+}
+
+.pomo-bar {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.pomo-bar i {
+  display: block;
+  width: 100%;
+  max-width: 22px;
+  margin: 0 auto;
+  min-height: 2px;
+  border-radius: 4px 4px 2px 2px;
+  background: #c9d6ff;
+  transition: height .3s ease;
+}
+
+.pomo-col.today .pomo-bar i {
+  background: linear-gradient(180deg, #6f8bff, #4d6bfe);
+}
+
+.pomo-col b {
+  font-size: 10px;
+  color: #46527a;
+  font-weight: 600;
+}

@@ -1,3 +1,5 @@
+[**中文**](README.md) | [English](README.en.md) | [日本語](README.ja.md)
+
 <div align="center">
   <img src="assets/logo.png" width="120" alt="大肥鱼桌宠">
   <h1>大肥鱼桌宠</h1>
@@ -20,22 +22,25 @@
 - **形象商店**：8 个可下载形象 + 大肥鱼 plus 扩充包，支持在线下载、本地 zip 导入与随时卸载；下载自动选择最快镜像。
 - **大肥鱼 plus**：167 个新动作，装上后动作池扩充到 268 个，不额外占用形象位。
 - **白饭账本 / 番茄钟 / 自定义互动文字 / 全屏避让 / 开机自启**，所有数据与 API Key 都留在本机。
+- **中 / 英 / 日三语**：界面导航、右键菜单、435 条角色台词与梗图配文均可切换，跟随设置即时生效
 - **完整版与 Lite 版**：功能一致，素材规格不同，可同时安装、同时运行。
 
 技术栈为 **Wails v2 + 系统 WebView2**：不打包 Chromium，安装体积小、内存占用低，素材与数据都留在本机。程序代码以 MIT 开源。
 
 ## 下载安装
 
+安装程序提供中文 / English / 日本語，并按系统语言自动选择；应用首次启动也跟随系统语言（中文、日语之外的系统默认英语）。
+
 到 [Releases](https://github.com/shenliuyu18/dafeiyu-pet/releases) 下载安装包（Windows 10/11 x64，双击安装，可自选目录，自动创建桌面 / 开始菜单快捷方式）：
 
 | 版本 | 文件 | 体积 | 说明 |
 | --- | --- | --- | --- |
-| 完整版 | `dafeiyu-pet-1.5.2-setup.exe` | 115.9 MiB | 高画质内置素材；可下载形象包使用 640×360 CRF 32 |
-| Lite 版 | `dafeiyu-pet-lite-1.5.2-setup.exe` | 42.4 MiB | 内置素材压缩；可下载形象包自动选择 480×270 |
+| 完整版 | `dafeiyu-pet-1.5.3-setup.exe` | 116.0 MiB | 高画质内置素材；可下载形象包使用 640×360 CRF 32 |
+| Lite 版 | `dafeiyu-pet-lite-1.5.3-setup.exe` | 42.5 MiB | 内置素材压缩；可下载形象包自动选择 480×270 |
 
 备用下载：[蓝奏云网盘](https://wwaql.lanzouu.com/b01i5xmkri)（密码 **5meo**，由作者手动同步）。
 
-> **当前正式版：1.5.2**（2026-11-20）。新增可选字体与自定义字体导入；开机自启改用登录计划任务；修复启动闪烁、气泡发虚与自启动状态不一致。
+> **当前正式版：1.5.3**（2026-11-22）。账单诊断与重新检测、更新包 SHA256/可选签名校验、全屏防抖与诊断、诊断包导出、专注统计、状态 schema v2，以及性能与稳定性优化。
 
 ### 完整版还是 Lite？
 
@@ -107,7 +112,7 @@
 | 白饭账本 | 开关；来源：Qoder credits / DeepSeek / Kimi / SiliconFlow / 豆包 / ChatGPT / Claude；API Key 配置 |
 | 启动与更新 | 开机自启：关闭 / 开启（Windows 登录计划任务，无延迟）；休眠唤醒安全自检；一起启动的应用；自动更新开关；检查 GitHub 更新 |
 | 自定义互动文字 | 独立小窗编辑，最多 20 行 × 40 字；保存时用离线敏感词库检查；启用后替代默认台词 |
-| 关于 | 版本号、操作说明、GitHub 仓库 / 更新日志 / 问题反馈链接、素材许可与署名 |
+| 关于 | 语言：中文 / English / 日本語（界面、台词、全部动作名与托盘同步切换）；版本号、操作说明、GitHub 仓库 / 更新日志 / 问题反馈链接、导出诊断包、素材许可与署名 |
 
 「选个动作」里的 ☆ 置顶会按形象分别保存。点击表情的「伪随机队列」会先把组合打乱后依次播放，播完重新洗牌，并避免新一轮首张与上一轮末张重复；「真随机」每次独立抽取。
 
@@ -161,11 +166,15 @@ npm run build:lite         # Lite 版（自动生成压缩素材）→ dist/dafe
 npm run packs:lite         # 为素材仓库生成 Lite 形象包 → characters-build/lite/
 npm run dist-install       # 构建完整版、静默安装到本机并启动
 npm run dist-install:lite  # 构建 Lite 版、静默安装到本机并启动
+npm run perf:check         # 隔离启动并采样启动/内存/CPU/落盘预算 → perf-report.json
+npm run test:frontend     # 前端纯逻辑单元测试（node:test，无额外依赖）
 ```
 
 日常调试也可以直接进入 `wails/` 运行 `wails dev`。启动后她会出现在屏幕右下角，托盘图标可以随时叫出或藏起。
 
-带 `--dev-debug` 启动会额外开一个只监听本机 `127.0.0.1:9336` 的调试桥：`/state` 看窗口/Region 状态、`/mem` 看堆与素材统计、`/fullscreen` 看避让判定、`/js` 直接往页面里注入 JS，排查交互问题很方便。
+做真机性能验证时可以用 `--isolated`：它会使用独立的状态目录（`dafeiyu-desktop-pet-isolated`）、单实例与窗口类名，并能和本机已安装版本同时运行，不会改动正式设置、开机自启或更新。
+
+带 `--dev-debug` 启动会额外开一个只监听本机 `127.0.0.1:9336` 的调试桥：`/state` 看窗口/Region 状态、`/mem` 看堆与素材统计、`/fullscreen` 看避让判定与最近 40 次判定记录、`/ledger` 看账单诊断（加 `?refresh=1` 立即重查）、`/js` 直接往页面里注入 JS，排查交互问题很方便。
 
 仓库自带 GitHub Actions：push / PR 会跑版本号一致性检查、脚本语法、gofmt、`go vet`、`go test` 与编译校验；打 `v*` tag 会自动构建完整版与 Lite 版、生成 `SHA256SUMS.txt` 并创建 Release（发布前先把 `package.json` 的版本改好，tag 与它不一致会直接失败）。手动触发 Release 时需要填写完整 tag；带 `-` 的 tag 会自动标记为预发布。
 
@@ -175,7 +184,9 @@ npm run dist-install:lite  # 构建 Lite 版、静默安装到本机并启动
 - `tools/wails-build.js` 负责同步版本号、调用 Wails 构建 NSIS 安装包、拷贝到 `dist/`，并支持 `--lite` / `--install`。
 - 安装包使用 `-webview2 download`：检测到缺少 WebView2 时会下载并安装。安装向导为简体中文（NSIS `SimpChinese`）。
 - 发布资产命名为 `dafeiyu-pet-<正式版本>-setup.exe` / `dafeiyu-pet-lite-<正式版本>-setup.exe`，更新检查会按 `setup.exe` 后缀和 lite 标识选择对应版本。
-- **版本号约定**：版本号在 `package.json` 中维护，发布时同步 CHANGELOG / README / 安装包名。Wails 的 Windows 文件版本使用数字段（如 `1.5.2.0`），应用内关于页与更新检查使用完整版本号。
+- **版本号约定**：版本号在 `package.json` 中维护，发布时同步 CHANGELOG / README / 安装包名。Wails 的 Windows 文件版本使用数字段（如 `1.5.3.0`），应用内关于页与更新检查使用完整版本号。
+- **更新包校验**：客户端下载安装包后强制校验 `SHA256SUMS.txt`，哈希不符会删除文件并拒绝执行；清单缺失时自动更新停用，只能手动下载。下载与安装都走同一套校验。
+- **可选签名**：配置仓库 Secrets `UPDATE_SIGNING_KEY`（Ed25519 私钥 PEM 的 base64）与 `UPDATE_SIGNING_PUBKEY`（公钥原始 32 字节的 base64）后，CI 会生成 `SHA256SUMS.txt.sig` 并在构建时注入公钥；客户端验签失败会拒绝更新。密钥对用 `node tools/update-keys.js` 生成，私钥只放 Secrets。
 
 ## 目录结构
 
@@ -240,6 +251,7 @@ docs/                     动作生成提示词库、形象包制作标准、通
 - **动画状态机**：`applyBase()` 按「拖拽 > 睡觉 > 番茄钟 > 饿了 > 移动 / 待机」优先级选择循环动画；点击、喂食、账本等一次性动作走 `playOnce()`，播完自动回到基础态并带超时兜底。
 - **形象包**：目录保存在素材仓库；下载前先探测镜像，zip 内 `manifest.json` 经 schema、id、路径与槽位校验后原子解压到用户目录。内置形象与插件包共用同一套资源覆盖层。
 - **尺寸缩放**：角色包在 `#scale` 里整体 CSS `scale`，命中框、移动边界、Wails 穿透判定按比例换算，0.6×–1.6× 任意档位拖拽/点击都精确。
+- **性能基线**（隔离实例真机实测，见 `docs/后续开发方案.md`）：冷启动约 0.83 s；安静待机约 9.6% 单核、漫游约 23% 单核（45fps）；状态每分钟合并落盘一次；主进程私有内存约 85 MB，WebView2 子进程合计约 200 MB（随窗口尺寸与 DPI 变化），Go 存活堆约 27 MB。窗口隐藏、全屏避让或最小化时暂停视频解码。
 
 ## 加自己的动作
 
@@ -288,6 +300,7 @@ docs/                     动作生成提示词库、形象包制作标准、通
 - v1.4.7：GPT娘v2（测试）与 dsh-meme 去重图库。
 - v1.4.8：修复 Win10 背景发虚、桌宠闪现与账本读取；素材零拷贝读取，常驻内存约 1GB → 约 60MB；新增 GitHub Actions。
 - v1.5.0：形象商店与 9 个可选形象、大肥鱼 plus、AI 娘人设台词、Lite 形象包、自制形象包标准、多镜像下载；集中修复气泡、表情队列、睡眠与画质问题。
+- v1.5.3：账单诊断、更新验签、全屏防抖/诊断、诊断包导出、专注统计、state schema v2、前端逻辑拆分与性能优化。
 - v1.5.2：字体可选与自定义导入、登录计划任务自启动与状态回显；修复首帧左上角闪烁、气泡缩小发虚。
 - v1.5.1：修复形象包开场白错配（Grok 等形象说成「蓝色大肥鱼」）与 WebView2 页面缩放（Ctrl+滚轮 / Ctrl+加减 / 捏合把桌宠和设置面板整体放大）。
 
@@ -316,3 +329,6 @@ DSniang1 表情与「鲸鱼音效」来自 [louke6572/dsh-whale-widget-plus](htt
 ## 关于旧版
 
 1.4.0 起不再提供 Electron 版本：仓库中没有 Electron 主进程、预加载脚本、旧编辑窗口或 electron / electron-builder 依赖，也没有回退构建。若本机还装有 1.3.0 或更早的 Electron 版，请先在「Windows 设置 → 应用」中卸载，再安装新版。
+
+
+

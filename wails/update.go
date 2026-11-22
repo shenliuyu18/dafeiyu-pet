@@ -119,10 +119,13 @@ func (a *App) CheckUpdate() map[string]interface{} {
 	url := strv(j["html_url"], "https://github.com/shenliuyu18/dafeiyu-pet/releases")
 	assets, _ := j["assets"].([]interface{})
 	assetName, assetURL := pickUpdateAsset(assets, isLite())
+	_, sumsURL := pickReleaseAsset(assets, "SHA256SUMS.txt")
+	_, sigURL := pickReleaseAsset(assets, "SHA256SUMS.txt.sig")
 	has := cmpVersion(tag, cur) > 0
 	out := map[string]interface{}{
 		"current": cur, "latest": tag, "hasUpdate": has,
 		"assetName": assetName, "url": assetURL, "urlPage": url,
+		"sumsUrl": sumsURL, "sigUrl": sigURL,
 		"proxyUrl": "", "error": "", "variant": Variant,
 	}
 	if assetURL != "" {
@@ -130,6 +133,11 @@ func (a *App) CheckUpdate() map[string]interface{} {
 	}
 	if has && assetURL == "" {
 		out["error"] = "最新版本没有找到安装包"
+	}
+	// 没有校验清单就停用自动更新：宁可让用户手动下载，也不执行未校验的安装包
+	if has && sumsURL == "" {
+		out["hasUpdate"] = false
+		out["error"] = "最新版本缺少 SHA256SUMS.txt，已停用自动更新（可在 Releases 手动下载）"
 	}
 	if strv(out["error"], "") == "" {
 		a.mu.Lock()
@@ -252,6 +260,9 @@ func (a *App) updateInfo() map[string]interface{} {
 }
 
 func (a *App) DownloadUpdate(mode string) map[string]interface{} {
+	if isolatedMode {
+		return map[string]interface{}{"started": false, "error": "隔离调试实例不允许下载更新"}
+	}
 	a.mu.Lock()
 	busy := a.updateBusy
 	a.mu.Unlock()
@@ -287,10 +298,14 @@ func (a *App) DownloadUpdate(mode string) map[string]interface{} {
 			}
 			a.emit("update-progress", map[string]interface{}{"received": rec, "total": total, "percent": pct})
 		})
+		if err == nil {
+			err = verifyUpdateFile(dest, info)
+		}
 		a.mu.Lock()
 		a.updateBusy = false
 		a.mu.Unlock()
 		if err != nil {
+			_ = os.Remove(dest)
 			a.emit("update-done", map[string]interface{}{"ok": false, "error": err.Error()})
 			return
 		}
@@ -306,6 +321,9 @@ func (a *App) DownloadUpdate(mode string) map[string]interface{} {
 }
 
 func (a *App) InstallUpdate() map[string]interface{} {
+	if isolatedMode {
+		return map[string]interface{}{"started": false, "error": "隔离调试实例不允许安装更新"}
+	}
 	a.mu.Lock()
 	busy := a.updateBusy || a.autoUpdating
 	a.mu.Unlock()
@@ -323,7 +341,7 @@ func (a *App) InstallUpdate() map[string]interface{} {
 	a.updateBusy = true
 	a.autoUpdating = true
 	a.mu.Unlock()
-	a.balloon("done", appName(), fmt.Sprintf("发现新版本 %s，正在后台下载并自动安装…", strv(info["latest"], "")))
+	a.balloon("done", a.displayName(), fmt.Sprintf(a.t("发现新版本 %s，正在后台下载并自动安装…", "New version %s found. Downloading and installing in the background…", "新バージョン %s を見つけました。バックグラウンドでダウンロードして自動インストールします…"), strv(info["latest"], "")))
 	go func() {
 		dir := filepath.Join(os.TempDir(), "dafeiyu-update")
 		_ = os.MkdirAll(dir, 0755)
@@ -339,12 +357,16 @@ func (a *App) InstallUpdate() map[string]interface{} {
 			}
 			a.emit("update-progress", map[string]interface{}{"received": rec, "total": total, "percent": pct})
 		})
+		if err == nil {
+			err = verifyUpdateFile(dest, info)
+		}
 		a.mu.Lock()
 		a.updateBusy = false
 		a.autoUpdating = false
 		a.mu.Unlock()
 		if err != nil {
-			a.balloon("error", appName(), "自动更新下载失败："+err.Error()+"，可在设置里手动重试")
+			_ = os.Remove(dest)
+			a.balloon("error", a.displayName(), a.t("自动更新校验/下载失败：", "Auto-update verification/download failed: ", "自動更新の検証／ダウンロードに失敗：")+err.Error()+a.t("，可在设置里手动重试", ". You can retry manually in Settings.", "。設定から手動で再試行できます。"))
 			a.emit("update-done", map[string]interface{}{"ok": false, "error": err.Error()})
 			return
 		}
@@ -409,7 +431,7 @@ func (a *App) silentUpdateCheck() {
 		return
 	}
 	if !a.getBool("autoUpdate", true) {
-		a.balloon("done", appName(), fmt.Sprintf("发现新版本 %s，可在设置 → 启动与更新里下载或安装", strv(info["latest"], "")))
+		a.balloon("done", a.displayName(), fmt.Sprintf(a.t("发现新版本 %s，可在设置 → 启动与更新里下载或安装", "New version %s is available. Download or install it in Settings → Startup & Updates.", "新バージョン %s があります。設定 → 起動と更新 からダウンロードまたはインストールできます。"), strv(info["latest"], "")))
 		return
 	}
 	a.InstallUpdate()

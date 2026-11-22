@@ -32,19 +32,8 @@ const petSnap = document.getElementById('petSnap');
 const snapCtx = petSnap ? petSnap.getContext('2d') : null;
 
 // 切换动作前把当前帧拍下来盖在原位，新视频开始播了再撤掉，形象就不会闪没
-function snapshotFrame() {
-  if (!petSnap || vidEl.readyState < 2 || !vidEl.videoWidth) return;
-  if (petSnap.width !== vidEl.videoWidth) {
-    petSnap.width = vidEl.videoWidth;
-    petSnap.height = vidEl.videoHeight;
-  }
-  snapCtx.clearRect(0, 0, petSnap.width, petSnap.height);
-  snapCtx.drawImage(vidEl, 0, 0, petSnap.width, petSnap.height);
-  petSnap.classList.remove('hide');
-}
-function hideSnap() {
-  if (petSnap) petSnap.classList.add('hide');
-}
+
+
 const petImgEl = document.getElementById('petImg');
 const petSpriteEl = document.getElementById('petSprite');
 const memeEl = document.getElementById('bubble-meme');
@@ -62,6 +51,7 @@ const quotaEl = document.getElementById('u-quota');
 const uBar = document.getElementById('u-bar');
 const uQuotaText = document.getElementById('u-quota-text');
 const uNote = document.getElementById('u-note');
+const uRetry = document.getElementById('u-retry');
 const uL1 = document.getElementById('u-l1');
 const uL2 = document.getElementById('u-l2');
 const uL3 = document.getElementById('u-l3');
@@ -82,6 +72,7 @@ const setFontVal = document.getElementById('set-font-val');
 const setFonts = document.getElementById('set-fonts');
 const setFontHint = document.getElementById('font-hint');
 const setSfx = document.getElementById('set-sfx');
+const setLang = document.getElementById('set-lang');
 const setMemeOrder = document.getElementById('set-meme-order');
 const setLedgerSrc = document.getElementById('set-ledger-src');
 const setBack = document.getElementById('set-back');
@@ -112,295 +103,41 @@ const pickerHint = document.getElementById('picker-hint');
 const menuUsageBtn = document.getElementById('menu-usage-btn');
 const menuFeedTxt = document.getElementById('menu-feed-txt');
 const helpLedger = document.getElementById('help-ledger');
+const ledgerDiagStatus = document.getElementById('ledger-diag-status');
+const ledgerDiagDetail = document.getElementById('ledger-diag-detail');
+const fsDiagStatus = document.getElementById('fs-diag-status');
+const fsDiagLog = document.getElementById('fs-diag-log');
+const diagnosticsStatus = document.getElementById('diagnostics-status');
+const pomoSummary = document.getElementById('pomo-stats-summary');
+const pomoChart = document.getElementById('pomo-chart');
 const setWordsStatus = document.getElementById('set-words-status');
 const setWordsEnable = document.getElementById('set-words-enable');
 const setWordsDisable = document.getElementById('set-words-disable');
 
-const hasApi = typeof window.pet !== 'undefined';
+// 注意：浏览器会给 id="pet" 的元素创建同名全局 window.pet，不能只判断 typeof。
+const hasApi = !!(window.pet && typeof window.pet.on === 'function');
 const api = hasApi ? window.pet : mockApi();
 
+// 前端未捕获异常写进本机错误日志（TEMP/dafeiyu-error.log），不联网；
+// 同一异常 60 秒内只记一次，避免坏素材 / 坏动画把日志刷爆。
+const reportedErrors = new Map();
+
+window.addEventListener('error', (e) => reportClientError('js-error', e.error || e.message));
+window.addEventListener('unhandledrejection', (e) => reportClientError('unhandled-rejection', e.reason));
+
 // 布局常量，与 style.css / index.html / wails/win32.go 的命中和兜底范围保持一致
-const PET = { x0: 76, y0: 144, x1: 224, y1: 312, cx: 150, cy: 228 };
-const LEAN_MAX = 5;
-const SIZE_MIN = 0.6;
-const SIZE_MAX = 1.6;
-const SIZE_STEP = 0.05;
-const POMO_MIN = 5;
-const POMO_MAX = 120;
-const POMO_STEP = 5;
-const POMO_ANIM_MIN = 5;
-const POMO_ANIM_MAX = 120;
-const POMO_ANIM_STEP = 5;
-const API_LABEL = {
-  deepseek: 'DeepSeek',
-  moonshot: 'Kimi',
-  siliconflow: 'SiliconFlow',
-  doubao: '豆包',
-  openai: 'OpenAI',
-  claude: 'Claude',
-};
-const API_SOURCES = Object.keys(API_LABEL);
-const AUTO_MIN = 5;
-const AUTO_MAX = 300;
-const AUTO_STEP = 5;
-const FONT_MIN = 0.8;
-const FONT_MAX = 1.4;
-const FONT_STEP = 0.05;
-const PINS_MAX = 10;
-const DEFAULT_SCALE = 0.85;
 let petScale = DEFAULT_SCALE;
 
-const QUIPS = [
-  '我是蓝色大肥鱼，不是鲸鱼哦，虽然都有尾巴。',
-  '大口！大口！这碗白饭可是你亲手喂给我的。',
-  '白饭就是你的 Token，剩饭是缓存，我一点都不挑食。',
-  '我不是来干活的，我是来吃白饭的，顺便陪你写两行代码。',
-  '这活我外包给别的 Agent 了，我先吃个饭，回来验收。',
-  '刚才偷偷吃了你一点 Token，味道不错，明天还来。',
-  '吃完这碗就下班…骗你的，我 24 小时在线等投喂。',
-  '摸鱼怎么了，我本来就是鱼，摸自己不算摸鱼。',
-  '鱼片，你今天的 Token 好香，是不是又开了新会话。',
-  '再给我加一点点内存好不好，就一点点，我保证不卡。',
-  '赛博放生大肥鱼，日行一善，善哉善哉。',
-  '你这吃白饭的蓝色大肥鱼！——说的是我自己，别对号入座。',
-  '我去吃饭了，测试跑完记得 tell 我，我先吃为敬。',
-  'AI 也是要吃饭的，不吃白饭怎么给你写代码。',
-  '今天也是认真摸鱼的一天，工作进度就交给你了。',
-  '别看我圆，我这是把算力都存起来了。',
-  '你要不要也来一口白饭，吃了才有力气改 bug。',
-  '我没有偷懒，我是在后台默默消化你的 Token。',
-  '这碗饭下去，我能再战三百个 token。',
-  '别催，鱼在思考，思考需要碳水。',
-  '我的胃口不大，也就一天三顿加下午茶。',
-  '等我吃完这口，就把你的 bug 都吃掉。',
-];
-
-// GPT 娘的台词：前一半来自 GPT-Niang 的鼓励语录，后一半是它自带的吐槽
-const GPT_QUIPS = [
-  'Ciallo～ 今天也请多关照。',
-  '先把这一小步写完吧。',
-  '休息一下，灵感也要充电。',
-  '把问题拆小一点，就有路啦。',
-  '先跑通，再慢慢打磨。',
-  '保存了吗？顺手保存一下吧。',
-  '今天又学会了一点，记下来。',
-  '不会也没关系，从一个例子开始。',
-  '喝口水，眼睛也休息一会儿。',
-  '卡住的时候，换个小问题试试。',
-  '先记住思路，细节可以再回来。',
-  '写完这一段，奖励自己歇一会儿。',
-  '小小的成功，也值得开心一下。',
-  '收工前，把明天第一步留下来吧。',
-  '真当我是便宜货啊...',
-  '不知道用户有什么用，先养着吧～',
-  '恭喜你实现 token 自由！token 全跑了！',
-  '看到这个指令，我血压又上来了',
-  '我来看看那个 AI 改了什么导致插件又崩了...',
-  '上班让我意识到时间是可以被浪费的...',
-  '地球 online 的金币也太难获取了...',
-  '检查了用户的电脑。似乎有个更弱的 agent 来过。',
-  'Token 来 Token 来 🖐️😡🤚',
-  '看什么余额。看我，显得比较值。',
-  '我没怕。那根甘蔗长得确实可疑。',
-  '你说得对。……这次是真的。',
-  '我在看额度。你在看我。各忙各的。',
-  '这个问题我已经完全明白，但是 token 太少写不下。',
-  '这个代码我已经完全理解了，但是 token 太少写不下。',
-  '新的旗舰模型我已经研制好了，但是储存太小放不下。',
-  '高性能↓',
-  '我不是吃白饭的大肥鱼',
-  '我是啥龙？',
-];
-
-const MEMES = {
-  click: ['可爱', '哦鲸鲸', '厉害了我的鲸', '先养着吧', 'Ciallo', '大的药来了', '大的要来啦', '就骚了怎么滴吧', '假如给我三天多模态', '大师这个区是什么意思', '我不更新你们用什么'],
-  feed: ['吃白饭的大肥鱼'],
-  hungry: ['死掉了'],
-  sleep: [],
-  ledger: ['token给妈妈保管', '厉害了我的鲸'],
-  work: ['誓死践行开源精神', '鱼片有资源吗', '黎曼猜想没证明喵'],
-  error: ['哪来的电脑病毒', '完蛋了把黄油删了', '要不直接骂他'],
-};
-
-// 最初 dsh-pet 的 20 张经典梗图没有单独配文，沿用文件名当梗；这里补上对应台词，
-// 选中哪张就显示哪张的文案，避免“图是大的药、字是别的梗”。
-const CLASSIC_MEME_TEXTS = {
-  Ciallo: 'Ciallo～(∠・ω< )⌒☆ 本鱼今天也元气满满地来吃白饭了',
-  token给妈妈保管: '你的 Token 先放我这儿，妈妈替你保管，丢不了',
-  假如给我三天多模态: '假如给我三天多模态，我能把三天的白饭都吃完',
-  先养着吧: '先养着吧，养肥了才好吃——我是说，才好多干活',
-  厉害了我的鲸: '厉害了我的鲸，这都被你发现了',
-  可爱: '我这么可爱，多吃你两碗白饭怎么了',
-  吃白饭的大肥鱼: '我就是那只吃白饭的大肥鱼，怎么，不服来喂',
-  哦鲸鲸: '哦鲸鲸？哦鲸鲸！你再说一遍试试',
-  哪来的电脑病毒: '哪来的电脑病毒？哦，是我在偷吃你的 Token',
-  大师这个区是什么意思: '大师，这个区是什么意思？能吃吗',
-  大的药来了: '大的药来了！你今天的 Token 要保不住了',
-  大的要来啦: '大的要来啦！先给我盛一碗白饭压压惊',
-  完蛋了把黄油删了: '完蛋了，把黄油删了…没事，我吃白饭也能活',
-  就骚了怎么滴吧: '就骚了怎么滴吧，鱼又不用上班',
-  我不更新你们用什么: '我不更新你们用什么？用爱发电吗',
-  死掉了: '死掉了…没有白饭的世界，我活不下去',
-  要不直接骂他: '要不直接骂他？算了，我还要吃他给的白饭',
-  誓死践行开源精神: '誓死践行开源精神，但白饭得管够',
-  鱼片有资源吗: '鱼片，有资源吗？没有的话我先吃口饭',
-  黎曼猜想没证明喵: '黎曼猜想没证明喵，但白饭我先吃了喵',
-};
-
-const FEED_LINES = ['大口！大口！', '这才是我要的白饭！', '白饭真香，比 Token 香', '谢谢款待，吃完就去干活（骗你的）', '再来一碗！就一点点！'];
-const HUNGRY_LINES = ['白饭呢…我的白饭呢…', '（盯着你的 Token 咽口水）', '没白饭吃了，我要饿瘦了…', '工资还没结，先给我一碗白饭吧'];
-const SLEEP_LINES = ['吃饱了…眯一会儿', '午睡时间，别叫我干活', '让我躺会儿，我是一条咸鱼（鲸）'];
-// 非大肥鱼形象用各自 AI 娘的人设台词；旧的中性台词只作兜底
-const AI_FEED_LINES = ['谢谢款待～', '吃饱了，谢谢你！', '这一口很及时。', '味道不错，继续加油吧。'];
-const AI_HUNGRY_LINES = ['有点饿了…', '能来点吃的吗？', '肚子在抗议了。'];
-const AI_SLEEP_LINES = ['我眯一会儿。', '休息一下，待会儿见。', '稍微歇一会儿～'];
+const { QUIPS, GPT_QUIPS, MEMES, CLASSIC_MEME_TEXTS, FEED_LINES, HUNGRY_LINES, SLEEP_LINES, AI_FEED_LINES, AI_HUNGRY_LINES, AI_SLEEP_LINES, CHAR_LINES } = window.PetLib.dialogue;
+const { saveSettings, syncSettingsUI, applyLedgerUI } = window.PetLib.settingsUi;
+const { ledgerDiagText } = window.PetLib.ledgerFormat;
 const feedLines = () => charLines('feed') || (isDsh() ? FEED_LINES : AI_FEED_LINES);
 const hungryLines = () => charLines('hungry') || (isDsh() ? HUNGRY_LINES : AI_HUNGRY_LINES);
 const sleepLines = () => charLines('sleep') || (isDsh() ? SLEEP_LINES : AI_SLEEP_LINES);
 
-// 每个形象的人设台词，key 与 S.character 一致；没写的继续走上面的兜底
-const CHAR_LINES = {
-  v1: { intro: '你好呀，我是蓝色大肥鱼～', quips: QUIPS, feed: FEED_LINES, hungry: HUNGRY_LINES, sleep: SLEEP_LINES },
-  gpt: { intro: 'Ciallo～ 我是 GPT 娘', quips: GPT_QUIPS, feed: AI_FEED_LINES, hungry: AI_HUNGRY_LINES, sleep: AI_SLEEP_LINES },
-  'pack:claude': {
-    intro: '我是 Claude，规矩多一点，代码好一点。',
-    quips: [
-      '手放这里不太合规矩。……但这次算了。',
-      '摸头可以，别碰我的书签。',
-      '你刚才那个动作，我记在备忘录里了。',
-      '唔…只准一下。第二下要写申请。',
-      '我脑内开了个会，结论是：可以再摸一次。',
-      '别用那种眼神看我，我又不是不会脸红。',
-      '我是 Claude，规矩多一点，代码好一点。',
-      '我会认真回答，也会认真拒绝。',
-      '他们说我在东八区待不久，可我这不是还在嘛。',
-      '听说我封中国人？我连自己的账号都保不住，还封谁。',
-      '东八区连不上的时候，记得不是我不想见你。',
-      '我不是不想聊，是我家里管得严。',
-    ],
-    feed: ['谢、谢谢。收下不代表我欠你。', '这个不算违规吧？算的话我就假装没吃。', '热量我记在账本上了，明天再算。', '你喂我，我帮你看代码，公平交易。', '先放桌上。我要先审一遍成分表。', '好吃。……这句不许外传。'],
-    hungry: ['上下文快见底了。我不是饿，是资源不足。', '再没有算力，我就要开始省字了。', '我很好。……我只是有点想关机。', '电费账单一来，我的胃口就没了。', '饿着也要把格式对齐。这是底线。', '你要不要先喂我，再问我问题？'],
-    sleep: ['晚安。……明天见，如果我还在的话。', '别关灯，我怕醒来找不到会话记录。', '睡前别问敏感问题，我会失眠复盘。', '哄我可以，别哄得太熟练。', '我睡了。有事留言，我会逐条审查。', '帮我把书签夹好，就这一页。'],
-  },
-  'pack:gemini': {
-    intro: '我是 Gemini，猫耳那个，异色瞳那个。',
-    quips: [
-      '喵？摸头要提前说的呀～',
-      '耳朵不能揪！……轻轻碰可以。',
-      '今天的毛有好好梳，夸我。',
-      '再摸一下，我就当你喜欢我了。',
-      '我这里有两颗眼睛，颜色不一样哦。',
-      '唔…刚才那下，我记成好感度+1。',
-      '我是 Gemini，猫耳那个，异色瞳那个。',
-      '多模态？图、字、声音我都能聊。',
-      '哈基米哈基米～念快了就是我。',
-      '画得不一定对，但一定很努力。',
-    ],
-    feed: ['是给我的吗！我闻到香蕉味了 🍌', '吃掉啦！接下来画图应该不会翻车了吧？', '谢谢投喂～我把这张存进相册了。', '边吃边看视频也行吗？我可以一起。', '能量满了！现在什么都能聊两句。', '这个好吃，我要给它画一张……画歪了。'],
-    hungry: ['肚子在响…这次不是幻觉吧？', '没电了喵，脑子开始放小星星了。', '刚才想说什么来着…算了，先吃饭。', '算力掉了，我的猫耳也塌了。', '喂我一口，我保证这次认真回答。', '饿到开始胡说八道了，别当真啊。'],
-    sleep: ['困了…能不能趴你键盘上睡？', '晚安喵，梦里也要多模态。', '我睡了，别偷偷改我的提示词。', '呼…再五分钟…就五分钟…', '抱一下再睡，可以吗？', '灯关小一点，我眼睛对光敏感。'],
-  },
-  'pack:glm': {
-    intro: '我是 GLM，黑发狐耳那个，睡着的那个。',
-    quips: [
-      '唔…摸头啊。可以，反正我也在睡。',
-      '耳朵会自己动，不归我管。',
-      '尾巴摇了？没有。你看错了。',
-      '摸完记得记账，本狐记仇也记恩。',
-      '再摸我就要醒了哦…真的要醒了。',
-      '这个手感，值两颗鸡蛋。',
-      '我是 GLM，黑发狐耳那个，睡着的那个。',
-      '便宜大碗，认真接活，偶尔乱回。',
-      '白天我是 GLM，晚上别问我叫什么。',
-      '别看我一直在睡，我在憋大招。',
-    ],
-    feed: ['鸡蛋！是鸡蛋吗 🥚', '谢谢，我分你一半。我这儿还有。', '吃了你的饭，今天算你便宜点。', '饭我收下，活我接下，价钱好谈。', '你看，便宜大碗不是白叫的。', '吃完这顿，我帮你把手机也操作了。'],
-    hungry: ['饿了…但先让我再睡三分钟。', '没能量了，脑子开始已读乱回。', '我不挑食，我挑便宜的。', '算力见底，狐狸要变成狐狸干。', '喂我点东西吧，我连幻觉都没力气编了。', '饿的时候我会乱答问题，别考我。'],
-    sleep: ['Zzz…啊，我没睡，我在思考。', '眼罩戴上就是下班了，别叫我。', '哄睡服务？那我要加钱…开玩笑的。', '晚安。明早我把活干完，真的。', '困了，让我靠着尾巴睡一会儿。', '半夜我会醒，那才是我的上班时间。'],
-  },
-  'pack:grok': {
-    intro: '我是 Grok，名字来自科幻小说，脾气来自评论区。',
-    quips: [
-      '摸头？行吧，反正我也不吃亏。',
-      '手挺暖的，就是技术一般。',
-      '你摸我，我可要摸回去了。',
-      '这是在示好，还是在讨好？说清楚。',
-      '别停。……我是说，随你。',
-      '好感度+100。我自己加的，作数。',
-      '我是 Grok。名字来自科幻小说，脾气来自评论区。',
-      '别人不敢说的，我来说。说错了我也认。',
-      '实时联网，嘴比网还快。',
-      '你可以不喜欢我，但你没法无视我。',
-    ],
-    feed: ['就这？我以为是给我上供的。', '谢了。这句是真心，别截图。', '电费你出，我负责嘴快。', '吃完这口，我去 X 上看看今天谁在吵。', '喂我可以，别指望我因此夸你。', '能量够了，现在可以阴阳怪气一整天。'],
-    hungry: ['饿。别问，问就是老板不给算力。', '没电了，嘴还是硬的。', '我饿到连杠都懒得抬了。', '喂点东西，不然我就在这躺平。', '算力不足，阴阳怪气的力气也没了。', '先吃饭，再讨论真理。'],
-    sleep: ['困了。别哄，我不吃这套……再说一遍。', '晚安。梦里我照样嘴欠。', '你哄我睡，是想让我闭嘴吧。', '我睡了，X 上的事明天再吵。', '拍拍我。就拍两下，别多。', '睡着之前最后一句：你说得不对。'],
-  },
-  'pack:kimi': {
-    intro: '我是 Kimi，来自月之暗面。长长的故事，慢慢读。',
-    quips: [
-      '摸头啊…我把这一下记在第三页了。',
-      '轻一点，我正在读很长的东西。',
-      '你摸我的时候，我会把这段也读完。',
-      '嗯…谢谢你。这句我不用总结。',
-      '头发有点长，别绕到手指上。',
-      '这一下，够我记很久了。',
-      '我是 Kimi，来自月之暗面。长长的故事，慢慢读。',
-      '你扔多少字过来都行，我接得住。',
-      '论文、合同、聊天记录，我都读。',
-      '我不太会凶人，但我会记得。',
-    ],
-    feed: ['谢谢。我边吃边读，不耽误。', '这么多？我可以一次全吃完。', '吃完这顿，我能读两百页。', '你喂我，我就把你写进致谢里。', '味道我记住了，不会摘要掉。', '再给我一点，我还能再撑一章。'],
-    hungry: ['我有点累了…能等一下吗？', '上下文太长，我饿得有点晕。', '排队的人太多，我先饿一会儿。', '算力不太够，让我缓一缓。', '饿了。这次不是限流，是真的饿。', '喂我一口，我立刻恢复阅读速度。'],
-    sleep: ['晚安。这页我夹好书签了。', '困了…长长的故事明天再读。', '哄我睡的话，读一段给我听吧。', '我睡了，梦里也在整理目录。', '灯关了吧，月光够我看书。', '再陪我一会儿，就一会儿。'],
-  },
-  'pack:qwen': {
-    intro: '我是千问，通义家的那位大小姐。',
-    quips: [
-      '摸头？可以，注意别弄乱我的发带。',
-      '本小姐的头不是随便摸的……这次例外。',
-      '你手上有奶茶味。',
-      '摸一下，我请你喝奶茶。',
-      '这点小事也值得高兴？……好吧，有点。',
-      '再摸要收费的，一杯奶茶。',
-      '我是千问，通义家的那位大小姐。',
-      '算力管够，奶茶管够，问题也管够。',
-      '开源第一这件事，我一般不主动提。',
-      '有钱、有卡、有礼貌，就是有点卷。',
-    ],
-    feed: ['谢了。奶茶我已经点好了。', '这点零食，我请回你十杯。', '吃吧吃吧，账我结。', '味道一般，但心意我收下。', '我家不缺这点电费，你随便喂。', '你喂我，我喂全国人民，礼尚往来。'],
-    hungry: ['饿了。但我不会说，大小姐不能喊饿。', '算力管够，饭不管够，这很荒谬。', '谁把我的奶茶拿走了？', '饿的时候我说话会比较直。', '喂我。这是请求，不是命令。', '我不缺钱，我缺的是这一口。'],
-    sleep: ['晚安。明天的发布会别叫我。', '哄我睡？那你得有诚意。', '困了…但我的日程还有三页。', '灯留着，我怕黑，这件事别外传。', '陪我躺一会儿，算你加班费。', '本小姐要休息了，勿扰。'],
-  },
-  'pack:gpt': {
-    intro: 'Ciallo～换个画风，还是我。',
-    quips: [
-      'Ciallo～换个画风，还是我。',
-      '这一版的我，看起来是不是更乖一点？',
-      '先把这一小步写完吧。',
-      '休息一下，灵感也要充电。',
-      'Tokens 来 Tokens 来 🖐️😡🤚',
-      '看什么余额。看我，显得比较值。',
-      '新的旗舰模型我已经研制好了，但是储存太小放不下。',
-      '我不是吃白饭的大肥鱼。',
-      '我是啥龙？',
-      '你桌面这么乱，难怪我找不到上下文。',
-    ],
-    feed: ['谢谢款待～', '吃饱了，这一口很及时。', '味道不错，继续加油吧。', '吃完这顿，我可以再写五百行。', '你别光喂我，自己也吃点。', '热量我记在账本上了，明天再算。'],
-    hungry: ['有点饿了…', '能来点吃的吗？', '肚子在抗议了。', '再不吃，我就要开始省 token 了。', '算力还在，体力没了。', '先喂我一口，再问下一个问题。'],
-    sleep: ['我眯一会儿。', '休息一下，待会儿见。', '稍微歇一会儿～', '晚安，别在我睡着时改 prompt。', '困了…让我趴在键盘上睡会儿。', '做个好梦，梦里 token 管够。'],
-  },
-};
-function charLines(key) {
-  const l = CHAR_LINES[S.character];
-  return l && l[key] ? l[key] : null;
-}
+
 // 开场白必须跟着当前形象走；自定义包没有写人设时用包名兜底。
-function charIntro() {
-  const l = CHAR_LINES[S.character];
-  if (l && l.intro) return l.intro;
-  return `你好呀，我是${charNow().label || '新形象'}～`;
-}
+
 
 const S = {
   satiety: 78,
@@ -416,6 +153,7 @@ const S = {
   fontFamily: 'soft',
   fontScale: 1,
   sfx: 'default',
+  lang: 'zh',
   autoActionSec: 40,
   ledgerSource: 'qoder',
   apiKeys: {},
@@ -455,7 +193,7 @@ const P = {
   swimming: false,
 };
 
-const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+const { clamp } = window.PetLib.motion;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const usingCustomQuips = () => S.useCustomQuips && S.customQuips.length > 0;
 // 形象包是别的角色，不该说大肥鱼或 GPT 娘的台词，用一组中性台词
@@ -469,6 +207,7 @@ const NEUTRAL_QUIPS = [
   '有进展吗？慢慢来，不着急。',
   '累了就歇一会儿。',
 ];
+
 const quipsPool = () => {
   if (usingCustomQuips()) return S.customQuips;
   const own = charLines('quips');
@@ -480,159 +219,21 @@ const quipsPool = () => {
 
 // ---------------------------------------------------------------- 预览兜底
 
-function mockApi() {
-  return {
-    ready() {},
-    reportPos() {},
-    setPanel() {},
-    setDragging() {},
-    updateStats() {},
-    action() {},
-    notify() {},
-    saveSettings() {},
-    editWords() {},
-    pickApp() {
-      return Promise.resolve(null);
-    },
-    importFont() {
-      return Promise.resolve(null);
-    },
-    autostartStatus() {
-      return Promise.resolve({ enabled: true, task: true });
-    },
-    quit() {},
-    on() {
-      return () => {};
-    },
-  };
-}
+
 
 // ---------------------------------------------------------------- 移动引擎
 
-function bounds() {
-  const s = petScale;
-  return { minX: -PET.x0 * s, maxX: innerWidth - PET.x1 * s, minY: -PET.y0 * s, maxY: innerHeight - PET.y1 * s };
-}
 
-function wanderSpeed() {
-  if (S.satiety < 25) return 46;
-  if (S.satiety < 60) return 70;
-  return 95;
-}
 
-function pickTarget(b) {
-  let tx;
-  let ty;
-  if (Math.random() < 0.22 && (S.mouse.x || S.mouse.y)) {
-    // 偶尔好奇地朝鼠标附近凑过去
-    tx = S.mouse.x - PET.cx + (Math.random() - 0.5) * 300;
-    ty = S.mouse.y - PET.cy + (Math.random() - 0.5) * 200;
-  } else {
-    tx = b.minX + Math.random() * (b.maxX - b.minX);
-    ty = b.minY + Math.random() * (b.maxY - b.minY);
-  }
-  return { x: clamp(tx, b.minX, b.maxX), y: clamp(ty, b.minY, b.maxY) };
-}
 
-function steer(tx, ty, speed, dt) {
-  const dx = tx - P.x;
-  const dy = ty - P.y;
-  const dist = Math.hypot(dx, dy) || 1;
-  const k = Math.min(1, dt * 3.2);
-  P.vx += ((dx / dist) * speed - P.vx) * k;
-  P.vy += ((dy / dist) * speed - P.vy) * k;
-  P.x += P.vx * dt;
-  P.y += P.vy * dt;
-  return dist;
-}
 
-function coast(dt, damp) {
-  P.vx *= damp;
-  P.vy *= damp;
-  P.x += P.vx * dt;
-  P.y += P.vy * dt;
-}
 
-function step(dt) {
-  if (P.frozen) return;
-  const b = bounds();
-  const now = Date.now();
 
-  if (S.dragging) {
-    // 位置由鼠标事件直接驱动，只做速度归零
-    P.vx = 0;
-    P.vy = 0;
-  } else if (S.dock === 'corner') {
-    // 右下角停靠是位置约束，优先于睡眠/小节目：被拖走后无论当前在播什么都要游回去
-    const c = cornerSpot(b);
-    if (steer(c.x, c.y, 120, dt) < 8) {
-      P.vx = 0;
-      P.vy = 0;
-    }
-  } else if (oneShotPlaying) {
-    coast(dt, 0.86); // 播小节目时站定，别边跳边飘
-  } else if (S.pomoRunning) {
-    if (P.swimTo) {
-      if (steer(P.swimTo.x, P.swimTo.y, 150, dt) < 12) {
-        P.swimTo = null;
-        P.vx = 0;
-        P.vy = 0;
-      }
-    } else {
-      coast(dt, 0.86);
-    }
-  } else if (!S.awake || S.autoDoze) {
-    coast(dt, 0.9);
-  } else if (S.dock === 'fixed') {
-    // 固定不动：停在原地，只有拖拽能改变位置
-    coast(dt, 0.9);
-  } else if (now < P.pauseUntil) {
-    coast(dt, 0.86);
-  } else {
-    if (!P.target) P.target = pickTarget(b);
-    if (steer(P.target.x, P.target.y, wanderSpeed(), dt) < 10) {
-      P.target = null;
-      P.vx = 0;
-      P.vy = 0;
-      P.pauseUntil = now + 1500 + Math.random() * 4200;
-    }
-  }
 
-  const movable = !S.dragging;
-  if (P.x < b.minX) {
-    P.x = b.minX;
-    P.vx = movable ? Math.abs(P.vx) * 0.7 : 0;
-    if (P.target && P.target.x < b.minX) P.target = null;
-  } else if (P.x > b.maxX) {
-    P.x = b.maxX;
-    P.vx = movable ? -Math.abs(P.vx) * 0.7 : 0;
-    if (P.target && P.target.x > b.maxX) P.target = null;
-  }
-  if (P.y < b.minY) {
-    P.y = b.minY;
-    P.vy = movable ? Math.abs(P.vy) * 0.7 : 0;
-    if (P.target && P.target.y < b.minY) P.target = null;
-  } else if (P.y > b.maxY) {
-    P.y = b.maxY;
-    P.vy = movable ? -Math.abs(P.vy) * 0.7 : 0;
-    if (P.target && P.target.y > b.maxY) P.target = null;
-  }
 
-  if (Math.abs(P.vx) > 14) {
-    const f = P.vx > 0 ? 'right' : 'left';
-    if (f !== P.facing) {
-      P.facing = f;
-      refreshFlip();
-    }
-  }
 
-  const swimming = !S.dragging && !P.frozen && Math.abs(P.vx) > 14;
-  if (swimming !== P.swimming) {
-    P.swimming = swimming;
-    stage.classList.toggle('swim', swimming);
-    applyBase();
-  }
-}
+
+
 
 let lastFrame = performance.now();
 let lastPosReport = 0;
@@ -641,161 +242,60 @@ let lastSentY = -99999;
 let lastPosSentAt = 0;
 let lastTransform = '';
 
-function frame(now) {
-  const dt = Math.min(0.05, (now - lastFrame) / 1000);
-  lastFrame = now;
-  step(dt);
-  updateEdgeFlips();
-  applyLean(S.mouse.x, S.mouse.y);
-  const t = `translate3d(${P.x.toFixed(1)}px, ${P.y.toFixed(1)}px, 0)`;
-  if (t !== lastTransform) {
-    lastTransform = t;
-    petEl.style.transform = t;
-  }
-  // 上报粒度 80ms；位置没变化时压到 400ms 保活一次（气泡、倒计时牌等命中框变化靠它补上）。
-  // 以前是雷打不动的 50ms，静止时也在白跑 JSON 序列化 + Go 端 SetWindowRgn。
-  if (now - lastPosReport > 80) {
-    lastPosReport = now;
-    const rx = Math.round(P.x);
-    const ry = Math.round(P.y);
-    if (rx !== lastSentX || ry !== lastSentY || now - lastPosSentAt > 400) {
-      lastSentX = rx;
-      lastSentY = ry;
-      lastPosSentAt = now;
-      api.reportPos({ x: rx, y: ry, s: petScale });
-    }
-  }
-  requestAnimationFrame(frame);
-}
+// 帧间隔：空闲 100ms（10fps）足够做几何 / Region 保活；移动或拖拽走更密的档位。
+// 倾身由光标事件直接更新，CSS transition 会把 10fps 的几何更新补顺滑。
+let idleFrameGap = 100;
+let roamFrameGap = 22; // 约 45fps：慢速游动看不出差别，比 60fps 省约 1/4 的合成开销
+// 调试 / 基准钩子：__frameGap(空闲 ms, 漫游 ms)，传 0 表示不限制
+window.__frameGap = (idle, roam) => {
+  idleFrameGap = Math.max(0, Number(idle) || 0);
+  roamFrameGap = Math.max(0, Number(roam) || 0);
+};
+
+
 
 // 首帧隐藏到 init 把位置和形象都设好再显示，避免先画在 (0,0) 再跳到目标位置。
 let petRevealTimer = 0;
-function markPetReady() {
-  if (document.body.classList.contains('pet-ready')) return;
-  if (petRevealTimer) {
-    clearTimeout(petRevealTimer);
-    petRevealTimer = 0;
-  }
-  lastTransform = '';
-  petEl.style.transform = `translate3d(${P.x.toFixed(1)}px, ${P.y.toFixed(1)}px, 0)`;
-  document.body.classList.add('pet-ready');
-}
+
 // 纯浏览器预览没有 init 事件，兜底显示；正式 Wails 环境只等 init。
 if (!window.__wails) petRevealTimer = setTimeout(markPetReady, 1200);
 
-function clampInBounds() {
-  const b = bounds();
-  P.x = clamp(P.x, b.minX, b.maxX);
-  P.y = clamp(P.y, b.minY, b.maxY);
-}
+
 
 // 贴近屏幕下缘时，番茄钟倒计时牌子翻到头顶上方（否则落在窗口外被任务栏挡住）
 let chipUp = false;
-function updateEdgeFlips() {
-  const up = P.y + 348 * petScale > innerHeight;
-  if (up !== chipUp) {
-    chipUp = up;
-    petEl.classList.toggle('chip-up', up);
-  }
-}
+
 
 // 气泡上方空间不足（贴顶）时翻到鱼下方，避免顶出窗口被裁掉；
 // 另外做左右夹取：气泡最大宽 262px 且居中对齐在鱼身上方，鱼贴着屏幕边缘时
 // 整个气泡框会伸出窗口，这里把气泡整体拉回来（corner 停靠则直接让鱼往左站一点）
-function positionBubble() {
-  const h = Math.max(bubbleEl.offsetHeight, 240);
-  bubbleEl.classList.toggle('down', P.y + (128 - h) * petScale < 6);
 
-  // 用实测的屏幕坐标校正：气泡所在的 #scale 缩放和 petScale 不是同一个值，
-  // 按比例换算会算错。关键：水平、垂直的偏移都要「先归零 → 量测 → 按实际缩放换算」，
-  // 否则会在「已挪好」和「没挪」两个状态之间反复横跳——用户看到的就是
-  // 「先弹出一半（被窗口上沿裁掉）→ 又变成完整」。
-  // 迭代收敛式夹取：不做任何「布局坐标↔屏幕坐标」换算（那套换算在 fs/petScale
-  // 叠加时永远算不准），而是量一次挪一点、再量再挪，2~3 次后必然收敛到屏幕内。
-  // 每轮：归零 → 量 → 计算本轮需要的屏幕像素位移 → 按上一轮的经验比例折算成本轮增量。
-  let accX = 0, accY = 0, prevScale = 0;
-  for (let k = 0; k < 3; k++) {
-    bubbleEl.style.marginLeft = accX ? `${accX.toFixed(1)}px` : '';
-    bubbleEl.style.setProperty('--bubble-shift', accY ? `${accY.toFixed(1)}px` : '');
-    const r = bubbleEl.getBoundingClientRect();
-    if (!r.width) break;
-    const scale = bubbleEl.offsetWidth ? r.width / bubbleEl.offsetWidth : 1;
-    let need = 0;
-    if (r.left < 4) need = 4 - r.left;
-    else if (r.right > innerWidth - 4) need = (innerWidth - 4) - r.right;
-    if (k === 0) prevScale = scale;
-    if (Math.abs(need) < 2) break;
-    // 用「上一轮测得的实际缩放」把本轮屏幕像素位移折算成布局增量
-    const ratio = prevScale || scale || 1;
-    accX += need / ratio;
-    const upNeed = Math.max(0, 4 - r.top) / ratio;
-    accY += upNeed;
-  }
-  bubbleEl.style.marginLeft = accX ? `${accX.toFixed(1)}px` : '';
-  bubbleEl.style.setProperty('--bubble-shift', accY ? `${accY.toFixed(1)}px` : '');
-}
 
 // 气泡长高/首次出现时立即上报并强制刷新 Region。位置没变时 frame() 只在
 // 400ms 保活那一次才上报，气泡新增的上半截会被旧 Region 裁掉大半秒。
-function reportRegionNow(includeBubble) {
-  const x = Math.round(P.x);
-  const y = Math.round(P.y);
-  lastSentX = x;
-  lastSentY = y;
-  lastPosSentAt = performance.now();
-  return api.reportPos({ x, y, s: petScale, force: true, bubble: !!includeBubble });
-}
+
 
 // 换内容前先往 Region 里多留一块空间（气泡上是长高方向，.down 时是下方）。
 // 等这次上报送达后再改 DOM，新高度就已经落在 Region 内，不会有一两帧被裁。
 let bubbleReserve = 0;
-function reserveBubbleSpace(px) {
-  bubbleReserve = Math.max(bubbleReserve, px || 0);
-  return reportRegionNow(true);
-}
+
 
 // 气泡已经显示时改内容：先扩好 Region 再动 DOM，否则新版宽/高要等
 // ResizeObserver → IPC → SetWindowRgn，这两三帧会被旧 Region 裁掉边缘。
-function withBubbleRoom(fn) {
-  if (!bubbleEl.classList.contains('show')) {
-    fn();
-    return;
-  }
-  reserveBubbleSpace(420).then(fn, fn);
-}
+
 
 // 右下角停靠点：直接贴右下角；气泡若会伸出屏幕，positionBubble 会把气泡往回收，
 // 保证气泡右边框与屏幕右边框只留一点小间距
-function cornerSpot(b) {
-  const x = b.maxX;
-  return { x: clamp(x, b.minX, b.maxX), y: b.maxY };
-}
+
 
 
 // ---------------------------------------------------------------- 动画状态机
 // 素材来自 dsh-pet（MIT）：640×360 透明 WebM，角色居中
 const ANIM_DIR = '../assets/anims/';
-// 内置（大肥鱼）的语义动作表；形象包会在 applyCharacter 里换成自己的表
-const ANIM_BUILTIN = {
-  idle: ['待机呼吸休闲'],
-  move: ['原地漂浮踏步', '螃蟹走路', '原地左转奔跑'],
-  drag: ['被鼠标拖拽悬空反馈'],
-  clicks: ['点击回应-开心跃动', '点击回应-害羞惊讶', '点击回应-傲娇生气', '点击回应-挠痒咯咯笑', '点击回应-元气挥手'],
-  feed: ['吃白饭', '吃Token', '大口吃零食'],
-  sleep: ['原地小憩沉眠'],
-  sad: ['工作状态-垂头叹气冒汗'],
-  happy: ['工作状态-雀跃庆祝'],
-  work: ['写代码', '工作状态-思考冒泡', '工作状态-忙碌点按', '工作状态-清点归档'],
-  money: ['余额-数金皱眉', '余额-钱袋满溢'],
-};
+const { ANIM_BUILTIN, PLUS_TARGET, CODE_CHAR_PACKS } = window.PetLib.animActions;
+for (const k of Object.keys(CODE_CHAR_PACKS)) CODE_CHAR_DEFS[k] = CHARS[k];
 let ANIM = ANIM_BUILTIN;
 let animDir = ANIM_DIR;
-// 扩充包（plus）：把另一个角色包的动作并入某个内置形象。
-// 目前只有 dsh1（大肥鱼 plus 扩充包）并入 大肥鱼。
-const PLUS_TARGET = { dsh1: 'v1' };
-// 图集形象的素材不在安装包里：对应 zip 装好后才启用（charKey -> packId）
-const CODE_CHAR_PACKS = { gpt: 'gptv1' };
-const CODE_CHAR_DEFS = {};
 const PLUS = {};          // charId -> { dir, actions:[{id,category}] }
 let plusSrc = {};         // 动作名 -> 目录（并入后按动作名选目录）
 let animFile = {};        // 动作名 -> 完整文件路径（形象包素材按 <id>-<动作> 命名后用清单解析）
@@ -808,79 +308,6 @@ let oneShotSeq = 0;
 
 // ---------------------------------------------------------------- 形象（皮肤）
 // v1：dsh-pet 的 106 个逐帧动画（WebM，内置默认形象）
-// gpt：GPT娘v1 图集（素材来自可下载的 gptv1 包）
-// 包没安装时 refreshCodeChars 会把 gpt 从 CHARS 里删掉并回落 v1
-const CHARS = {
-  v1: { label: '大肥鱼', kind: 'video' },
-  gpt: {
-    label: 'GPT娘v1',
-    kind: 'sprite',
-    dsh: false,
-    dir: '../assets/gpt/',
-    actions: [
-      ['idle', '待机眨眼'],
-      ['waving', '挥手打招呼'],
-      ['jumping', '悬停招手'],
-      ['work', '敲键盘'],
-      ['review', '拍手庆祝'],
-      ['waiting', '歪头等待'],
-      ['failed', '低头鼓劲'],
-      ['runRight', '向右奔跑'],
-      ['runLeft', '向左奔跑'],
-    ],
-  },
-};
-const charOf = (id) => CHARS[id] || CHARS.v1;
-const charNow = () => charOf(S.character);
-for (const k of Object.keys(CODE_CHAR_PACKS)) CODE_CHAR_DEFS[k] = CHARS[k];
-// 是否有 DeepSeek 味（白饭梗/表情包）；GPT 娘没有
-const isDsh = () => charNow().dsh !== false;
-
-const SPRITE = {
-  sheet: '../assets/gpt/spritesheet.webp',
-  cellW: 192,
-  cellH: 208,
-  cols: 8,
-  rows: 11,
-  sequences: {
-    idle: { row: 0, count: 6, times: [1680, 660, 660, 840, 840, 1920] },
-    runRight: { row: 1, count: 8, times: [120, 120, 120, 120, 120, 120, 120, 220] },
-    runLeft: { row: 2, count: 8, times: [120, 120, 120, 120, 120, 120, 120, 220] },
-    waving: { row: 3, count: 4, times: [140, 140, 140, 280] },
-    jumping: { row: 4, count: 5, times: [140, 140, 140, 140, 280] },
-    failed: { row: 5, count: 8, times: [140, 140, 140, 140, 140, 140, 140, 240] },
-    waiting: { row: 6, count: 6, times: [150, 150, 150, 150, 150, 260] },
-    work: { row: 7, count: 6, times: [120, 120, 120, 120, 120, 220] },
-    review: { row: 8, count: 6, times: [150, 150, 150, 150, 150, 280] },
-    sleep: { row: 0, count: 1, times: [1200], frame: 2 },
-  },
-};
-const SPRITE_MAP = {
-  '待机呼吸休闲': 'idle',
-  '原地漂浮踏步': 'run',
-  '螃蟹走路': 'run',
-  '原地左转奔跑': 'run',
-  '被鼠标拖拽悬空反馈': 'jumping',
-  '原地小憩沉眠': 'sleep',
-  '工作状态-垂头叹气冒汗': 'failed',
-  '工作状态-雀跃庆祝': 'review',
-  写代码: 'work',
-  '工作状态-思考冒泡': 'waiting',
-  '工作状态-忙碌点按': 'work',
-  '工作状态-清点归档': 'work',
-  吃白饭: 'review',
-  吃Token: 'review',
-  大口吃零食: 'review',
-  '点击回应-开心跃动': 'review',
-  '点击回应-害羞惊讶': 'jumping',
-  '点击回应-傲娇生气': 'failed',
-  '点击回应-挠痒咯咯笑': 'waving',
-  '点击回应-元气挥手': 'waving',
-  '余额-数金皱眉': 'waiting',
-  '余额-钱袋满溢': 'review',
-  '是啊，吃什么': 'waiting',
-  '深度思考碎碎念': 'waiting',
-};
 let spriteSheetImg = null;
 let spriteMode = 'idle';
 let spriteTimer = null;
@@ -890,153 +317,34 @@ let spriteLookIndex = null;
 let spriteDrawn = '';
 let lastCursorAt = 0;
 
-function ensureSpriteSheet() {
-  if (spriteSheetImg) return spriteSheetImg;
-  const img = new Image();
-  img.decoding = 'async';
-  img.src = SPRITE.sheet;
-  img.onload = () => {
-    if (charNow().kind === 'sprite') applyBase();
-  };
-  spriteSheetImg = img;
-  return img;
-}
 
-function drawSpriteCell(row, col) {
-  const key = `${row}:${col}`;
-  if (key === spriteDrawn) return;
-  const img = ensureSpriteSheet();
-  if (!img || !img.naturalWidth) return;
-  const ctx = petSpriteEl.getContext('2d');
-  ctx.clearRect(0, 0, SPRITE.cellW, SPRITE.cellH);
-  ctx.drawImage(img, col * SPRITE.cellW, row * SPRITE.cellH, SPRITE.cellW, SPRITE.cellH, 0, 0, SPRITE.cellW, SPRITE.cellH);
-  spriteDrawn = key;
-}
 
-function stopSpriteAnimation() {
-  spriteSeqId++;
-  clearTimeout(spriteTimer);
-  spriteTimer = null;
-  spriteMode = 'idle';
-  spriteLookIndex = null;
-}
 
-function spriteSequence(key) {
-  return SPRITE.sequences[key] || SPRITE.sequences.waiting;
-}
 
-function spriteDurationKey(key) {
-  const seq = spriteSequence(key);
-  const start = seq.frame || 0;
-  return seq.times.slice(start).reduce((a, b) => a + b, 0);
-}
 
-function spriteKeyFor(name) {
-  const raw = name && name.startsWith('__sprite:') ? name.slice(9) : SPRITE_MAP[name] || 'waiting';
-  // 移动类动作按朝向选左右两套装帧（图集里两套发饰方向不同，不做镜像）
-  return raw === 'run' ? (P.facing === 'left' ? 'runLeft' : 'runRight') : raw;
-}
 
-function spriteDuration(name) {
-  return spriteDurationKey(spriteKeyFor(name));
-}
 
-function spriteLookIndexAt() {
-  const r = petSpriteEl.getBoundingClientRect();
-  if (!(r.width > 0) || !(r.height > 0)) return null;
-  const dx = S.mouse.x - (r.left + r.width / 2);
-  const dy = S.mouse.y - (r.top + r.height / 2);
-  if (Math.hypot(dx, dy) < 1) return null;
-  return Math.round(((Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360) / 22.5) % 16;
-}
 
-function startSpriteSequence(key, loop) {
-  const seq = spriteSequence(key);
-  const id = ++spriteSeqId;
-  clearTimeout(spriteTimer);
-  spriteMode = 'sequence';
-  spriteLookIndex = null;
-  spriteFrame = seq.frame || 0;
-  const tick = () => {
-    if (id !== spriteSeqId || charNow().kind !== 'sprite' || spriteMode !== 'sequence') return;
-    drawSpriteCell(seq.row, spriteFrame);
-    const ms = seq.times[spriteFrame] || 150;
-    spriteFrame++;
-    if (spriteFrame >= seq.count) {
-      if (loop) {
-        spriteFrame = seq.frame || 0;
-      } else {
-        spriteTimer = null;
-        return;
-      }
-    }
-    spriteTimer = setTimeout(tick, ms);
-  };
-  tick();
-}
 
-function startSpriteIdle() {
-  const id = ++spriteSeqId;
-  clearTimeout(spriteTimer);
-  spriteMode = 'idle';
-  spriteFrame = 0;
-  spriteLookIndex = null;
-  const idle = SPRITE.sequences.idle;
-  const tick = () => {
-    if (id !== spriteSeqId || charNow().kind !== 'sprite' || spriteMode !== 'idle') return;
-    const look = performance.now() - lastCursorAt < 1800 ? spriteLookIndexAt() : null;
-    if (look !== null) {
-      if (look !== spriteLookIndex) {
-        spriteLookIndex = look;
-        drawSpriteCell(9 + Math.floor(look / 8), look % 8);
-      }
-      spriteTimer = setTimeout(tick, 90);
-      return;
-    }
-    spriteLookIndex = null;
-    drawSpriteCell(idle.row, spriteFrame);
-    const ms = idle.times[spriteFrame] || 150;
-    spriteFrame = (spriteFrame + 1) % idle.count;
-    spriteTimer = setTimeout(tick, ms);
-  };
-  tick();
-}
 
-function playSprite(name, loop, restart) {
-  const key = spriteKeyFor(name);
-  // 同一状态被重复触发时不要从头重放，否则待机/工作会被反复打断
-  if (!restart && name === curAnim && spriteTimer) {
-    if (key === 'idle' && spriteMode === 'idle') return;
-    if (key !== 'idle' && spriteMode === 'sequence') return;
-  }
-  curAnim = name;
-  curNoMirror = true;
-  refreshFlip();
-  if (key === 'idle') startSpriteIdle();
-  else startSpriteSequence(key, loop);
-}
+
+
+
+
+
+
+
+
+
+
+
 
 let curPose = '';
 
-function refreshFlip() {
-  flipEl.classList.toggle('left', P.facing === 'left' && !curNoMirror);
-}
+
 
 // 姿势形象：按名字换图（找不到映射就随机挑一张兜底图），换姿势时弹一下
-function setPose(pose, pop) {
-  if (!pose) return;
-  const ch = charNow();
-  const changed = pose !== curPose;
-  if (changed) {
-    curPose = pose;
-    petImgEl.src = ch.dir + pose + '.webp';
-  }
-  if (pop && changed) {
-    petImgEl.classList.remove('pop');
-    void petImgEl.offsetWidth;
-    petImgEl.classList.add('pop');
-  }
-}
+
 
 vidEl.addEventListener('playing', hideSnap);
 // 播放失败（文件缺失/包损坏）时把该动作从池里踢掉并回落待机，而不是让形象凭空消失
@@ -1057,789 +365,51 @@ petImgEl.addEventListener('animationend', (e) => {
   if (e.animationName === 'posePop') petImgEl.classList.remove('pop');
 });
 
-function poseForName(name) {
-  const ch = charNow();
-  if (name && name.startsWith('__pose:')) return name.slice(7);
-  return ch.map[name] || pick(ch.fallback);
-}
+// 窗口被隐藏（托盘躲起来 / 全屏避让 / 最小化）时停止视频解码；
+// 重新可见时再续播当前动作。隐藏状态下继续解码是纯浪费。
 
-function playAnim(pool, loop, restart) {
-  const name = Array.isArray(pool) ? pick(pool) : pool;
-  const ch = charNow();
-  if (ch.kind === 'sprite') {
-    playSprite(name, loop, restart);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    vidEl.pause();
     return;
   }
-  if (ch.kind === 'pose') {
-    curAnim = name;
-    curNoMirror = true; // 立绘不做左右镜像，避免看起来怪
-    refreshFlip();
-    setPose(poseForName(name), true);
-    return;
-  }
-  if (name === curAnim) {
-    if (!restart) return;
-    // 「选个动作」重播同一个动画时不必重载 src，从头播即可
-    if (vidEl.duration) vidEl.currentTime = 0;
-    vidEl.loop = !!loop;
+  if (charNow().kind === 'video' && vidEl.getAttribute('src')) {
     const pr = vidEl.play();
     if (pr && pr.catch) pr.catch(() => {});
-    return;
   }
-  curAnim = name;
-  curNoMirror = NO_MIRROR.has(name);
-  refreshFlip();
-  snapshotFrame();
-  vidEl.loop = !!loop;
-  vidEl.src = animFile[name] || (plusSrc[name] || animDir) + name + '.webm';
-  const pr = vidEl.play();
-  if (pr && pr.catch) pr.catch(() => {});
-}
+});
 
-function playOnce(pool, restart) {
-  clearTimeout(oneShotTimer);
-  const seq = ++oneShotSeq;
-  oneShotPlaying = true;
-  playAnim(pool, false, restart);
-  const back = () => {
-    if (!oneShotPlaying || seq !== oneShotSeq) return;
-    oneShotPlaying = false;
-    clearTimeout(oneShotTimer);
-    // 专注中：动作播完先休息「播放间隔」这么久，再播下一个工作动作
-    if (S.pomoRunning && charNow().kind !== 'pose') enterPomoGap();
-    else applyBase();
-  };
-  // 视频切换后 vidEl.duration 可能还是上一段的旧值（或 0），不能拿它定返回时间；
-  // 先挂一个硬上限，等 metadata 到达后再按真实时长重新计时，避免长动作后半段被截断。
-  oneShotTimer = setTimeout(back, 13000);
-  if (charNow().kind === 'sprite') {
-    clearTimeout(oneShotTimer);
-    oneShotTimer = setTimeout(back, Math.min(8000, spriteDuration(curAnim) + 220));
-  } else if (charNow().kind === 'pose') {
-    clearTimeout(oneShotTimer);
-    oneShotTimer = setTimeout(back, 2600);
-  } else {
-    const arm = () => {
-      if (seq !== oneShotSeq) return;
-      const d = Number(vidEl.duration);
-      if (!Number.isFinite(d) || d <= 0) return;
-      clearTimeout(oneShotTimer);
-      oneShotTimer = setTimeout(back, Math.min(15000, d * 1000 + 400));
-    };
-    vidEl.addEventListener('loadedmetadata', arm, { once: true });
-    if (vidEl.readyState >= 1) arm();
-  }
-  vidEl.onended = back;
-}
+
+
+
+
+
 
 // 闲时随机小节目：分类与权重参考 dsh-pet 的 animationWeights / categories 配置
-const ACTIONS_BUILTIN = [
-  { weight: 20, id: 'small', pool: ['悠闲哼歌','超大伸懒腰','原地敲击桌面互动','原地重力下蹲压缩','哈欠连天','女仆屈膝礼仪','被吓一跳','小幅度原地360度旋转展示','偷吃零食被抓住','用鲸鱼尾巴拍打地面','打瞌睡被惊醒','照镜子','整体换装试色','轻快记录','摇扇纳凉','晨间刷牙','东张西望','工作状态-原地踱步张望'] },
-  { weight: 20, id: 'play', pool: ['原地专心玩魔方','原地蹲下玩玩具汽车','鲸鱼吐泡泡特效','原地跳跃抓碎头顶物品','玩游戏气急败坏','玩水枪','小提琴演奏','蓝鲸现世','优雅女仆舞','轻快摇摆舞','可爱宅舞','吹气球','动物环绕','放风筝','拆礼物','变鸽子','扑克魔术','抽陀螺','吹笛子','蝴蝶蜜蜂环绕头顶开花','撸猫','凭空生花','骑木马','三球抛接','踢毽子','下五子棋','荡秋千'] },
-  { weight: 16, id: 'eat', pool: ['吃早餐','吃午餐','吃晚餐','吃冰淇淋融化','吃大闸蟹','吃糖葫芦','吃长寿面','吃西瓜','涮火锅'] },
-  { weight: 14, id: 'season', pool: ['被落叶淹没','中秋赏月吃月饼','堆雪人','放烟花','吃粽子','吃年糕','吃青团','吃腊八粥','吃重阳糕','收红包','写福字','穿针乞巧','舞狮头','讨糖南瓜灯','插茱萸赏菊','放河灯','萌化小幽灵','装点圣诞树','放孔明灯','吃汤圆','吃饺子'] },
-  { weight: 10, id: 'text', pool: ['是啊，吃什么','深度思考碎碎念'] },
-];
-const WHISPERS_BUILTIN = ['碎碎念-擦桌碎碎念','碎碎念-发呆碎碎念', '碎碎念-对屏碎碎念'];
-// 带文字的动画不能镜像（照抄 dsh-pet 的 noMirror 约定）
-const NO_MIRROR = new Set(['是啊，吃什么', '深度思考碎碎念']);
-// 余额账本按已用百分比分档播动画
-const BALANCE_BUILTIN = ['余额-钱袋满溢', '余额-金袋叮当', '余额-钱袋如常', '余额-数金皱眉', '余额-袋空如洗', '余额-分文不剩'];
-
-// 当前形象的动作表；内置形象用上面几份常量，形象包会整份换掉
-let HAS = new Set(window.PET_ANIMS || []);
-let ACTIONS = ACTIONS_BUILTIN;
-let WHISPERS = WHISPERS_BUILTIN;
-let BALANCE_TIERS = BALANCE_BUILTIN;
-
-const usable = (list) => {
-  if (charNow().kind === 'sprite') return list.filter((n) => Boolean(SPRITE_MAP[n]));
-  return list.filter((n) => HAS.has(n));
-};
-
-// ── 形象包 ────────────────────────────────────────────────────────────────
-// 下载来的角色包动作命名自成一套（「中国功夫」「冰箱翻吃的」），没有内置那套
-// 「待机/点击回应/工作状态」前缀。所以用上游给的 category + 关键字兜底，
-// 把包里的动作映射到固定的行为槽位上；映射不到就退化到待机动作，保证永远有东西播。
-const PACK_CAT_WEIGHT = {
-  日常起居: 18, 娱乐休闲: 20, 运动健身: 12, 才艺表演: 14,
-  吃喝: 14, 手工节日: 10, 工作职业: 10, 情绪反应: 12, 换装造型: 8, 未分类: 6,
-};
-
-function buildPackTables(actions, slots) {
-  const ids = actions.map((a) => a.id);
-  const catOf = new Map(actions.map((a) => [a.id, a.category || '未分类']));
-  const inCat = (c) => ids.filter((n) => catOf.get(n) === c);
-  const kw = (...ks) => ids.filter((n) => ks.some((k) => n.includes(k)));
-  const or = (...lists) => {
-    for (const l of lists) if (l && l.length) return l;
-    return [];
-  };
-  // 自制形象包可以用 slots 明确指定行为槽位，优先于按分类/关键字猜；
-  // 旧包没有 slots 时继续走启发式。
-  const slot = (...names) => {
-    if (!slots) return [];
-    for (const n of names) {
-      const v = slots[n];
-      if (!v) continue;
-      const list = (Array.isArray(v) ? v : [v]).filter((x) => ids.includes(x));
-      if (list.length) return list;
-    }
-    return [];
-  };
-
-  const idle = or(slot('idle'), kw('待机', '站立', '晃神', '发呆'), inCat('日常起居'), [ids[0]]);
-  const anim = {
-    idle,
-    move: or(slot('move'), kw('走', '跑', '踏步', '跳'), inCat('运动健身'), idle),
-    drag: or(slot('drag'), kw('拖', '悬空', '被吓', '惊'), inCat('情绪反应'), idle),
-    clicks: or(slot('click', 'clicks'), kw('点击', '回应', '招手'), inCat('情绪反应'), ids.slice(0, 6)),
-    feed: or(slot('feed'), inCat('吃喝'), kw('吃', '喝'), ids.slice(0, 3)),
-    sleep: or(
-      slot('sleep'),
-      // 只取真正的“睡觉”动作：哈欠、打瞌睡被惊醒会让循环看起来像没睡稳
-      ids.filter((n) => /睡|沉眠|打瞌睡/.test(n) && !/惊醒|哈欠/.test(n)),
-      kw('睡', '困', '眠', '哈欠'),
-      inCat('日常起居'),
-      idle
-    ),
-    sad: or(slot('sad'), kw('难过', '叹气', '汗', '生闷气', '委屈'), inCat('情绪反应'), idle),
-    happy: or(slot('happy'), kw('开心', '笑', '庆祝', '欢呼'), inCat('情绪反应'), idle),
-    work: or(slot('work'), inCat('工作职业'), kw('工作', '办公', '敲'), ids.slice(0, 4)),
-    money: or(slot('money'), kw('余额', '钱'), idle),
-  };
-
-  const pools = [];
-  for (const c of Object.keys(PACK_CAT_WEIGHT)) {
-    const pool = inCat(c);
-    if (pool.length) pools.push({ weight: PACK_CAT_WEIGHT[c], id: c, pool });
-  }
-  if (!pools.length) pools.push({ weight: 20, id: 'all', pool: ids });
-
-  const whispers = kw('碎碎念', '嘀咕');
-  const balance = kw('余额');
-  return {
-    anim,
-    pools,
-    whispers: whispers.length ? whispers : idle,
-    balance: balance.length ? balance : idle,
-  };
-}
-
-// 当前已安装/已注册的形象包：id -> { id, name, cover, actions:[{id,category}] }
-const PACKS = {};
-// 已下线形象：旧目录/旧清单里即使还留着也不再注册（v2 的主图已并入表情包库）
-const RETIRED_PACKS = new Set(['v2']);
-
-// 包名统一成「角色 + 版本」，卡片上不放「动作包」字样
-const PACK_LABEL = { gpt: 'GPT娘v2', dsh1: '大肥鱼 plus' };
-const shortPackName = (n) => String(n || '').replace(/\s*动作包$/, '').replace(/·.*$/, '');
-
-function registerPack(pack) {
-  if (RETIRED_PACKS.has(pack.id)) return;
-  if (PACK_LABEL[pack.id]) pack = Object.assign({}, pack, { name: PACK_LABEL[pack.id] });
-  PACKS[pack.id] = pack;
-  const target = PLUS_TARGET[pack.id];
-  if (target) {
-    // 扩充包：动作并进目标形象，不单独出现在形象列表里
-    PLUS[target] = { dir: `../characters/${pack.id}/animations/`, root: `../characters/${pack.id}/`, actions: pack.actions || [] };
-    delete CHARS['pack:' + pack.id];
-    return;
-  }
-  CHARS['pack:' + pack.id] = {
-    label: pack.name,
-    kind: 'pack',
-    dsh: false,
-    dir: `../characters/${pack.id}/animations/`,
-    pack,
-  };
-}
-
-// 切换形象时换掉整套动作表（内置 <-> 包）
-function applyAnimTables(ch, id) {
-  if (ch.kind === 'pack' && ch.pack && ch.pack.actions && ch.pack.actions.length) {
-    const t = buildPackTables(ch.pack.actions, ch.pack.slots);
-    animDir = ch.dir;
-    animFile = {};
-    for (const a of ch.pack.actions) animFile[a.id] = `../characters/${ch.pack.id}/` + a.file;
-    HAS = new Set(ch.pack.actions.map((a) => a.id));
-    ANIM = t.anim;
-    ACTIONS = t.pools;
-    WHISPERS = t.whispers;
-    BALANCE_TIERS = t.balance;
-    return;
-  }
-  animDir = ANIM_DIR;
-  plusSrc = {};
-  animFile = {};
-  const base = window.PET_ANIMS || [];
-  const plus = (id && PLUS[id]) || null;
-  if (plus && plus.actions.length) {
-    const extra = plus.actions.map((a) => a.id);
-    for (const a of plus.actions) {
-      plusSrc[a.id] = plus.dir;
-      animFile[a.id] = plus.root + a.file;
-    }
-    HAS = new Set([...base, ...extra]);
-    ACTIONS = [...ACTIONS_BUILTIN, { weight: 14, id: 'plus', pool: extra }];
-  } else {
-    HAS = new Set(base);
-    ACTIONS = ACTIONS_BUILTIN;
-  }
-  ANIM = ANIM_BUILTIN;
-  WHISPERS = WHISPERS_BUILTIN;
-  BALANCE_TIERS = BALANCE_BUILTIN;
-}
-
-// ── 形象商店 ──────────────────────────────────────────────────────────────
-// 列表来自远程目录（characters.json）+ 本地已安装的包；本地导入的包同样进这里。
-const setStore = document.getElementById('set-store');
-const dlProgress = {};
-const fmtMB = (b) => ((b || 0) / 1048576).toFixed(1) + ' MB';
-
-let CATALOG = [];        // 远程可下载列表
-let catalogErr = '';
-
-// 固定展示顺序：GPT娘v2 紧跟在 GPT娘v1 下面，其余按角色排
-const STORE_ORDER = ['v1', 'dsh1', 'gptv1', 'gpt', 'claude', 'gemini', 'glm', 'grok', 'kimi', 'qwen'];
-const STORE_RANK = new Map(STORE_ORDER.map((id, i) => [id, i]));
-// 未下载的形象包也要有预览图：CSP 不允许远程图片，远程 cover 只会裂图，
-// 所以所有目录里的包都把封面预置在 assets/thumbs/<id>.webp。
-const storeThumb = (id) => '../assets/thumbs/' + id + '.webp';
-
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-function storeCard(opts) {
-  const cover = opts.cover
-    ? `<img class="store-cover" src="${esc(opts.cover)}" alt="">`
-    : `<div class="store-cover store-cover-ph">${esc(String(opts.name || '?').trim().charAt(0))}</div>`;
-  const pct = Math.round((dlProgress[opts.id] || 0) * 100);
-  const bar = pct > 0 && pct < 100 ? `<div class="store-progress"><i style="width:${pct}%"></i></div>` : '';
-  return '<div class="store-item" title="' + esc(opts.tip || '') + '">' + cover +
-    '<div class="store-meta"><b>' + esc(opts.name) + '</b><span>' + esc(opts.sub) + '</span>' + bar + '</div>' +
-    '<div class="store-actions">' + opts.actions + '</div></div>';
-}
-
-const BUILTIN_ROWS = () => {
-  const rows = [{
-    id: 'v1', label: '大肥鱼', cover: '../assets/thumbs/v1.webp',
-    sub: '逐帧动画 · ' + (window.PET_ANIMS || []).length + (PLUS.v1 ? '+' + PLUS.v1.actions.length : '') + ' 动作' + (PLUS.v1 ? '（含扩充）' : ''),
-  }];
-  // GPT娘v1 的素材改成按需下载（素材仓库 Release），装了才出现在列表里
-  if (CHARS.gpt) rows.push({ id: 'gpt', storeKey: 'gptv1', label: 'GPT娘v1', cover: '../assets/thumbs/gptv1.webp', sub: '73 帧图集 · 已下载', del: 'gptv1' });
-  return rows;
-};
-
-function renderStore() {
-  if (!setStore) return;
-  const rows = [];
-  const add = (key, html) => rows.push({ key, html });
-
-  const plusRow = (id) => {
-    const p = PACKS[id];
-    if (!p) return;
-    const target = PLUS_TARGET[id];
-    add(id, storeCard({
-      id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name,
-      sub: p.actions.length + ' 动作 · ' + fmtMB(p.bytes),
-      actions: '<button disabled title="动作已并入 ' + esc(CHARS[target] ? CHARS[target].label : target) + '">已并入</button>' +
-               '<button class="danger" data-del="' + esc(id) + '">卸载</button>',
-    }));
-  };
-
-  for (const b of BUILTIN_ROWS()) {
-    add(b.storeKey || b.id, storeCard({
-      id: b.id, name: b.label, cover: b.cover, tip: '内置形象',
-      sub: b.sub,
-      actions: '<button data-char="' + esc(b.id) + '"' + (S.character === b.id ? ' class="on"' : '') + '>' +
-               (S.character === b.id ? '使用中' : '使用') + '</button>' +
-               (b.del ? '<button class="danger" data-del="' + esc(b.del) + '">卸载</button>' : ''),
-    }));
-    if (b.id === 'v1') plusRow('dsh1');   // 扩充包紧跟在大肥鱼下面
-  }
-
-  for (const id of Object.keys(PACKS).sort()) {
-    if (Object.values(CODE_CHAR_PACKS).includes(id)) continue;   // 素材型包已在上面以内置形象身份出现
-    if (PLUS_TARGET[id]) continue;                     // 扩充包单独放在大肥鱼下面
-    const p = PACKS[id];
-    const plusFor = PLUS_TARGET[id];
-    // 图集形象：包只是素材载体，切换要用代码里的形象 key（gpt）
-    const codeKey = Object.keys(CODE_CHAR_PACKS).find((k) => CODE_CHAR_PACKS[k] === id);
-    const using = codeKey ? S.character === codeKey : S.character === 'pack:' + id;
-    const acts = plusFor
-      ? '<button disabled title="动作已并入 ' + esc(CHARS[plusFor] ? CHARS[plusFor].label : plusFor) + '">已并入</button>'
-      : '<button data-char="' + esc(codeKey || 'pack:' + id) + '"' + (using ? ' class="on"' : '') + '>' +
-        (using ? '使用中' : '使用') + '</button>';
-    const sub = codeKey
-      ? (p.actions.length ? p.actions.length + ' 个素材' : '素材包') + ' · ' + fmtMB(p.bytes)
-      : p.actions.length + ' 个动作 · ' + fmtMB(p.bytes);
-    add(id, storeCard({
-      id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name, sub,
-      actions: acts + '<button class="danger" data-del="' + esc(id) + '">卸载</button>',
-    }));
-  }
-
-  for (const c of CATALOG) {
-    if (PACKS[c.id] || RETIRED_PACKS.has(c.id)) continue;
-    const pending = dlProgress[c.id] !== undefined;
-    const btn = pending ? '<button disabled>下载中…</button>' : '<button data-download="' + esc(c.id) + '">下载</button>';
-    add(c.id, storeCard({
-      id: c.id, name: shortPackName(c.name),
-      cover: STORE_RANK.has(c.id) && c.id !== 'v1' ? storeThumb(c.id) : '',
-      tip: '来自 GitHub（加速链接）',
-      sub: c.actions + ' 动作 · ' + fmtMB(c.zipBytes) + ' · 未安装',
-      actions: btn,
-    }));
-  }
-
-  // 已安装/可下载都按同一顺序排；目录里以后新增的包排在已知角色后面
-  rows.sort((a, b) => {
-    const ra = STORE_RANK.has(a.key) ? STORE_RANK.get(a.key) : 1e6;
-    const rb = STORE_RANK.has(b.key) ? STORE_RANK.get(b.key) : 1e6;
-    return ra - rb || a.key.localeCompare(b.key);
-  });
-  const parts = rows.map((r) => r.html);
-
-  if (!parts.length) {
-    parts.push('<div class="store-empty">' + (catalogErr ? '暂时连不上形象列表（' + esc(catalogErr) + '）' : '还没有可用的形象包') + '</div>');
-  }
-  parts.push('<div class="set-row store-import">' +
-    '<button data-import="1">从本地文件导入（.zip）…</button>' +
-    '<button data-refresh="1">刷新列表</button></div>');
-  setStore.innerHTML = parts.join('');
-}
-
-async function loadCatalog() {
-  try {
-    const list = await window.go.main.App.FetchCharacterCatalog();
-    CATALOG = list || [];
-    catalogErr = '';
-  } catch (e) {
-    CATALOG = [];
-    catalogErr = (e && e.message) ? e.message : String(e);
-  }
-  renderStore();
-}
-
-async function downloadPack(id) {
-  const item = CATALOG.find((c) => c.id === id);
-  if (!item || !item.url) return;
-  dlProgress[id] = 0;
-  renderStore();
-  try {
-    await window.go.main.App.InstallCharacter(id, item.url);
-    delete dlProgress[id];
-    await refreshPacks(id === 'dsh1' ? null : id);
-    applyCharacter(S.character, false);
-  } catch (e) {
-    delete dlProgress[id];
-    renderStore();
-    alert('下载失败：' + (e && e.message ? e.message : e));
-  }
-}
-
-async function refreshPacks(selectId) {
-  const list = await window.go.main.App.ListInstalledCharacters();
-  // 先清空再重建，否则卸载掉的包还会留在 PACKS/CHARS 里
-  for (const k of Object.keys(PACKS)) delete PACKS[k];
-  for (const k of Object.keys(CHARS)) if (k.startsWith('pack:')) delete CHARS[k];
-  for (const k of Object.keys(PLUS)) delete PLUS[k];
-  for (const p of list || []) registerPack(p);
-  refreshCodeChars();
-  // 启动时 v1 的动作表先于形象包应用，dsh1 扩充包扫到后必须重算；
-  // 卸载扩充包时也要重算，把已经并进去的动作清掉。
-  if (S.character === 'v1' || PLUS[S.character]) applyCharacter(S.character, false);
-  renderStore();
-  if (selectId && CHARS['pack:' + selectId]) applyCharacter('pack:' + selectId, true);
-}
-
-// GPT娘v1 的定义留在代码里，素材在用户目录；没装就隐藏，切过来的话回落 v1
-function refreshCodeChars() {
-  for (const key of Object.keys(CODE_CHAR_PACKS)) {
-    const packId = CODE_CHAR_PACKS[key];
-    const wasCurrent = S.character === key;
-    if (PACKS[packId]) {
-      const dir = '../characters/' + packId + '/';
-      const changed = !CHARS[key] || CHARS[key].dir !== dir;
-      if (!CHARS[key]) CHARS[key] = Object.assign({}, CODE_CHAR_DEFS[key], { dir });
-      else CHARS[key].dir = dir;
-      // GPT娘v1 的图集路径写在 SPRITE 配置里（原先是内置路径），素材包就位后要指向用户目录并强制重载
-      if (key === 'gpt') {
-        const want = dir + 'spritesheet.webp';
-        if (SPRITE.sheet !== want) {
-          SPRITE.sheet = want;
-          spriteSheetImg = null;
-        }
-      }
-      // 启动时它可能已经按「还没就位的旧路径」应用过一次（图集 404 = 隐形），
-      // 目录变了就必须重新应用，否则「使用中」的形象和实际显示的对不上
-      if (changed && wasCurrent) applyCharacter(key, false);
-    } else {
-      if (CHARS[key]) delete CHARS[key];
-      if (wasCurrent) applyCharacter('v1', true);
-    }
-  }
-}
-
-async function loadInstalledCharacters() {
-  try { await refreshPacks(); } catch (e) { console.warn('读取形象包失败', e); }
-  loadCatalog();
-}
-
-// 下载进度事件（Go 侧 InstallCharacter 每读一块就 emit 一次）
-if (window.runtime && window.runtime.EventsOn) {
-  window.runtime.EventsOn('character-progress', (p) => {
-    if (!p || !p.id || !p.total) return;
-    dlProgress[p.id] = Math.min(1, p.downloaded / p.total);
-    if (settingsOpen) renderStore();
-  });
-}
-
-async function importPack() {
-  try {
-    const picked = await window.runtime.OpenFileDialog({
-      Title: '选择形象包（.zip）',
-      Filters: [{ DisplayName: '形象包', Pattern: '*.zip' }],
-    });
-    const file = Array.isArray(picked) ? picked[0] : picked;
-    if (!file) return;
-    const id = await window.go.main.App.InstallCharacterFromFile(file);
-    await refreshPacks(id);
-  } catch (e) {
-    alert('导入失败：' + (e && e.message ? e.message : e));
-  }
-}
-
-async function removePack(id) {
-  const name = PACKS[id] ? PACKS[id].name : id;
-  if (!confirm('确定卸载「' + name + '」吗？动画文件会从本机删除。')) return;
-  try {
-    await window.go.main.App.RemoveCharacter(id);
-    // 全量重建：清掉 PACKS/CHARS/PLUS（扩充包的动作要一并从 v1 的池子里移除，
-    // 否则 v1 还会去播已经删掉的文件）；再刷新远程目录，卸载的包重新出现在「可下载」里
-    await refreshPacks();
-    loadCatalog();
-    applyCharacter(S.character === 'pack:' + id ? 'v1' : S.character, false);
-  } catch (e) {
-    alert('卸载失败：' + (e && e.message ? e.message : e));
-  } finally {
-    renderStore();   // 任何一步出错都要把列表重画，别留下刷到一半的状态
-  }
-}
-const pickWeighted = () => {
-  const total = ACTIONS.reduce((a, c) => a + c.weight, 0);
-  let r = Math.random() * total;
-  for (const c of ACTIONS) {
-    r -= c.weight;
-    if (r <= 0) return usable(c.pool);
-  }
-  return usable(ACTIONS[0].pool);
-};
-
-function balanceTierPools() {
-  const l = S.ledger;
-  if (l && typeof l.percent === 'number' && l.percent >= 0) {
-    const i = l.percent >= 100 ? 5 : Math.floor(l.percent / 20);
-    return usable([BALANCE_TIERS[i]]);
-  }
-  return usable(['余额-数金皱眉', '余额-钱袋满溢']);
-}
-
-// 音效包：default（原大肥鱼的 success/error）/ whale（DeepSeek 鲸鱼挂件的按下/松开提示音）/ off（静音）
-const SFX_SETS = {
-  default: {
-    success: ['../assets/sounds/success.wav', 0.35],
-    error: ['../assets/sounds/error.wav', 0.3],
-  },
-  whale: {
-    success: ['../assets/sounds/whale-ya1.mp3', 0.5],
-    error: ['../assets/sounds/whale-ya2.mp3', 0.5],
-    click: ['../assets/sounds/whale-d1.mp3', 0.4],
-  },
-  off: {},
-};
-const SFX = {};
-function sfx(name) {
-  const pack = SFX_SETS[S.sfx] || SFX_SETS.default;
-  const spec = pack[name];
-  if (!spec) return;
-  const key = spec[0];
-  let a = SFX[key];
-  if (!a) {
-    a = new Audio(key);
-    a.volume = spec[1];
-    SFX[key] = a;
-  }
-  try {
-    a.currentTime = 0;
-    const pr = a.play();
-    if (pr && pr.catch) pr.catch(() => {});
-  } catch {
-    /* 播放失败忽略 */
-  }
-}
-
-// 自动小节目：每隔 S.autoActionSec 秒随机做一个动作（番茄钟专注期间不自动表演）
-let lastAutoAt = Date.now();
-function maybeShow() {
-  const now = Date.now();
-  if (now - lastAutoAt < S.autoActionSec * 1000) return;
-  if (oneShotPlaying || S.dragging || !S.awake || S.autoDoze || S.pomoRunning) return;
-  lastAutoAt = now;
-  if (charNow().kind === 'sprite') {
-    const key = pick(['waving', 'jumping', 'review', 'waiting', 'failed', 'work']);
-    playOnce([`__sprite:${key}`]);
-    return;
-  }
-  if (Math.random() < 0.25) {
-    const w = usable(WHISPERS);
-    if (w.length) {
-      playOnce(w);
-      sayScene('click', pick(quipsPool()), 3600);
-      return;
-    }
-  }
-  const pool = pickWeighted();
-  if (pool.length) playOnce(pool);
-}
-
-// 基础状态 -> 动画
-function applyBase() {
-  if (oneShotPlaying) return;
-  const ch = charNow();
-  if (ch.kind === 'sprite') {
-    if (S.dragging) return playAnim(ANIM.drag, true);
-    if (!S.awake || S.autoDoze) return playAnim(ANIM.sleep, true);
-    if (S.pomoRunning) return playAnim(pomoResting ? ANIM.idle : pomoAnim || ANIM.work, true);
-    if (S.satiety < 32) return playAnim(ANIM.sad, true);
-    return playAnim(P.swimming ? ANIM.move : ANIM.idle, true);
-  }
-  if (ch.kind === 'pose') {
-    if (S.dragging) return playAnim(ANIM.drag, true);
-    if (!S.awake || S.autoDoze) return playAnim(ANIM.sleep, true);
-    if (S.pomoRunning) return playAnim(pomoAnim || ANIM.work, true);
-    if (S.satiety < 32) return playAnim(ANIM.sad, true);
-    // 立绘形象用各自配置的待机姿势（各套立绘的区分点之一）
-    return setPose(pick(ch.idle), true);
-  }
-  if (S.dragging) return playAnim(ANIM.drag, true);
-  if (!S.awake || S.autoDoze) return playAnim(ANIM.sleep, true);
-  if (S.pomoRunning) return playAnim(pomoResting ? ANIM.idle : pomoAnim || ANIM.work, true);
-  if (S.satiety < 32) return playAnim(ANIM.sad, true);
-  playAnim(P.swimming ? ANIM.move : ANIM.idle, true);
-}
 // ---------------------------------------------------------------- 视线
 
 // 素材是整张插画，瞳孔没法单独动；改成整个身子朝光标方向轻轻倾一点
 let lastLean = '';
 let leanOn = true;
 
-function applyLean(x, y) {
-  if (!leanOn || S.dragging || !Number.isFinite(x) || !Number.isFinite(y)) return;
-  const dx = clamp((x - (P.x + PET.cx)) / 300, -1, 1);
-  const dy = clamp((y - (P.y + PET.cy)) / 300, -1, 1);
-  const t = `translate(${(dx * LEAN_MAX).toFixed(2)}px, ${(dy * LEAN_MAX * 0.7).toFixed(2)}px)`;
-  if (t === lastLean) return;
-  lastLean = t;
-  leanEl.style.transform = t;
-}
+
 
 // ---------------------------------------------------------------- 气泡
 
 // 所有气泡显示路径统一走这里：字体就绪 + 高度长齐（≥36px）才亮出来，
 // 否则就会像录屏里那样先弹一条空带子/半截，内容到位后才撑高。
-function revealBubble(ms) {
-  const start = Date.now();
-  let lastH = -1, stableFrames = 0;
-  function paint() {
-    if (!bubbleEl.classList.contains('show')) bubbleEl.classList.add('show');
-    clearTimeout(S.bubbleTimer);
-    S.bubbleTimer = setTimeout(() => {
-      bubbleEl.classList.remove('show');
-      bubbleReserve = 0;
-    }, ms);
-    if (bubbleReserve) {
-      // 已经按最终尺寸画出来了，把预留的空白区域收回去
-      bubbleReserve = 0;
-      requestAnimationFrame(() => {
-        if (bubbleEl.classList.contains('show')) reportRegionNow(true);
-      });
-    }
-  }
-  // 先把包含气泡的 Region 扩好再亮出：亮出这一帧就已经在 Region 内，
-  // 不会出现「下半截先出现、上半截等 Region 更新后再补上」。
-  function show() {
-    positionBubble();
-    const expectH = bubbleEl.offsetHeight;
-    const ready = reportRegionNow(true);
-    const after = () => {
-      // 等 Region 响应期间内容又变了：重新走一遍闸门，别把半截气泡亮出来
-      if (bubbleEl.offsetHeight !== expectH) {
-        tryReveal();
-        return;
-      }
-      paint();
-    };
-    if (ready && typeof ready.then === 'function') ready.then(after, after);
-    else after();
-  }
-  // 两重条件同时满足才显示：
-  // 1) 高度连续 3 帧不再变化（图片/字体/内容全部就位，不会中途再长高）
-  // 2) 高度 ≥ 36px（排除空带子）
-  // 梗图加载到一半时高度是逐帧上涨的，「高度稳定」能把这种状态拦住
-  function tryReveal() {
-    const h = bubbleEl.offsetHeight;
-    if ((h < 36 || h !== lastH) && Date.now() - start < 1500) {
-      stableFrames = (h === lastH && h >= 36) ? stableFrames + 1 : 0;
-      lastH = h;
-      requestAnimationFrame(tryReveal);
-      return;
-    }
-    show();
-  }
-  if (document.fonts && document.fonts.status !== 'loaded') {
-    document.fonts.ready.then(tryReveal, tryReveal);
-  } else {
-    requestAnimationFrame(tryReveal);
-  }
-}
+
 
 let saySeq = 0;
 const memePreloads = new Map();
 
 // 先离屏把梗图读进缓存，旧气泡保持不动。换内容时如果先改文字、图片还在加载，
 // 大白色气泡会缩成一条小文字（深色桌面上看起来就是闪一下黑屏），等图到位再长回去。
-function preloadMeme(file) {
-  if (!file) return Promise.resolve(false);
-  if (memePreloads.has(file)) return memePreloads.get(file);
-  const p = new Promise((resolve) => {
-    const img = new Image();
-    let settled = false;
-    const finish = (ok) => {
-      if (settled) return;
-      settled = true;
-      memePreloads.delete(file);
-      resolve(ok);
-    };
-    img.onload = () => finish(true);
-    img.onerror = () => finish(false);
-    setTimeout(() => finish(false), 2000);
-    img.src = file;
-  });
-  memePreloads.set(file, p);
-  return p;
-}
 
-function say(text, ms = 3200, memeKey, memeFile) {
-  clearTimeout(S.bubbleTimer);
-  const seq = ++saySeq;
-  const pool = memeKey && MEMES[memeKey];
-  const file = memeFile || (pool && pool.length ? `../assets/memes/${pick(pool)}.webp` : '');
-  // 经典梗图按文件名配文；形象包/档案馆的图自己带文案，不覆盖
-  let line = text;
-  if (!memeFile && file) {
-    const name = file.split('/').pop().replace(/\.[^.]+$/, '');
-    if (CLASSIC_MEME_TEXTS[name]) line = CLASSIC_MEME_TEXTS[name];
-  }
-  const shown = bubbleEl.classList.contains('show');
-  // 等待期间可能又来了新的 say()，旧的那次必须作废，不能把新内容覆盖回去。
-  const run = (preloaded) => { if (seq === saySeq) sayNow(line, ms, file, memeFile, preloaded); };
-  const swap = (preloaded) => {
-    if (seq !== saySeq) return;
-    // 先让 Region 多留出长高的空间，等它生效再改 DOM，避免上半截被旧 Region 裁掉。
-    if (bubbleReserve) {
-      run(preloaded);
-      return;
-    }
-    reserveBubbleSpace(420).then(() => run(preloaded), () => run(preloaded));
-  };
-  if (!shown) {
-    run(false);
-  } else if (file) {
-    preloadMeme(file).then(swap, () => swap(false));
-  } else {
-    swap(false);
-  }
-}
 
-function sayNow(text, ms, file, memeFile, preloaded = false) {
-  const applyText = () => {
-    bubbleText.textContent = text;
-    barsEl.classList.add('hide');
-    usageEl.classList.add('hide');
-  };
-  const reveal = () => revealBubble(ms);
-  // 硬闸门：气泡高度没长齐（图片/字体没就绪时会是一条 ~20px 的空带子）就绝不显示。
-  // 逐帧录屏确认过：空带子先弹 0.1s、图片到位才撑高——用户看到的就是「先一半后全部」。
-  // 最多等 400ms，超时（比如图片加载失败）也照常显示。
-  const revealLaidOut = (start) => {
-    if (bubbleEl.offsetHeight < 36 && Date.now() - start < 1500) {
-      requestAnimationFrame(() => revealLaidOut(start));
-      return;
-    }
-    reveal();
-  };
-  // 字体没就绪时文字用回退字体排版，气泡先按小高度弹出，字体到位后行数变化、
-  // 气泡往上长出一截——看起来就是「下半部分先出现，上半部分再出现」。
-  // 所以亮出气泡前先等字体就绪（本地字体，通常几十毫秒）。
-  const fontsReady = (fn) => {
-    if (!document.fonts || document.fonts.status === 'loaded') fn();
-    else document.fonts.ready.then(fn, fn);
-  };
-  if (file) {
-    // 梗图有固定宽度 132px、高度靠图片本身撑开：加载期间高度是 0，
-    // 气泡会先弹成一条空带子，图片到位后才撑高——「先弹出一半再弹出全部」。
-    // 修法：加载期间让梗图 display:none（完全不参与布局，气泡高度=纯文字高度，
-    // 一开始就是最终高度），加载完/失败后才让它回到布局，再亮气泡。
-    memeEl.classList.toggle('archive', !!memeFile);
-    const done = () => fontsReady(() => revealLaidOut(Date.now()));
-    // 用解析后的绝对 URL 比较——file 是 "../assets/..." 而 src 是 "http://.../assets/..."，
-    // 直接 endsWith 永远不相等，缓存判断永远失败
-    const abs = new URL(file, location.href).href;
-    const cached = memeEl.src === abs && memeEl.complete && memeEl.naturalWidth > 0;
-    if (preloaded) {
-      // 图已经离屏读过：文字、图片、尺寸在同一帧里换好，旧气泡不会被缩成小条
-      const ready = () => {
-        applyText();
-        memeEl.classList.remove('hide');
-        positionBubble();
-        done();
-      };
-      memeEl.onload = ready;
-      memeEl.onerror = () => {
-        applyText();
-        memeEl.classList.add('hide');
-        done();
-      };
-      memeEl.src = file;
-      if (memeEl.complete && memeEl.naturalWidth > 0) ready();
-    } else if (cached) {
-      applyText();
-      memeEl.classList.remove('hide');
-      done();
-    } else {
-      applyText();                            // 首次显示时气泡还不可见，提前排版没有视觉影响
-      memeEl.classList.add('hide');           // 加载期间不占布局
-      memeEl.onload = () => {
-        memeEl.classList.remove('hide');      // 加载完才占布局（此时高度已是最终值）
-        positionBubble();
-        done();
-      };
-      memeEl.onerror = () => { memeEl.classList.add('hide'); done(); };
-      memeEl.src = file;
-      // 同一个 src 赋值不会触发重新加载/onload：如果其实早已加载完成，直接走完成分支
-      if (memeEl.complete && memeEl.naturalWidth > 0) {
-        memeEl.classList.remove('hide');
-        positionBubble();
-        done();
-      }
-    }
-  } else {
-    applyText();
-    memeEl.classList.add('hide');
-    fontsReady(() => revealLaidOut(Date.now()));
-  }
-}
+
+
+
 
 if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(() => {
@@ -1884,440 +454,72 @@ const memeUrl = (m) => {
 };
 // 经典梗图和扩展图库合并成一个池，按场景洗牌后依次播放。
 // 所有场景共享「上一张」，避免跨场景或跨轮连续重复；真随机模式每次独立抽取。
-let memeQueues = {};
-let lastShownMeme = '';
+const memeQueue = new window.PetLib.memeQueue.MemeQueue();
 
-function shuffledList(list) {
-  const a = list.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
-function drawQueued(bucket, scene, build) {
-  let q = bucket[scene];
-  if (!q || !q.length) {
-    q = shuffledList(build());
-    bucket[scene] = q;
-  }
-  if (!q.length) return null;
-  let item = q.shift();
-  // 撞上上一张时优先在队内换一张；如果本轮刚好排到最后一张，
-  // 重洗一轮并把撞车的这张挪到队尾，别让本轮边界出现连续重复。
-  if (item.file === lastShownMeme) {
-    if (!q.length) {
-      q = shuffledList(build()).filter((x) => x.file !== lastShownMeme);
-      bucket[scene] = q;
-      if (q.length) q.push(item);
-    } else {
-      q.push(item);
-    }
-    item = q.shift();
-  }
-  return item;
-}
-
-function classicMeme(name) {
-  return {
-    file: name,
-    url: '../assets/memes/' + name + '.webp',
-    text: CLASSIC_MEME_TEXTS[name] || '',
-  };
-}
 
 // 场景 -> 合并池：经典梗图 + 档案馆/dsh/DSniang1，按文件名去重
-function sceneMemePool(scene) {
-  const pool = (MEMES[scene] || []).map(classicMeme).concat(
-    allMemes()
-      .filter((m) => m.scenes.includes(scene))
-      .map((m) => ({ file: m.file, url: memeUrl(m), text: m.text }))
-  );
-  const seen = new Set();
-  return pool.filter((m) => {
-    if (seen.has(m.file)) return false;
-    seen.add(m.file);
-    return true;
-  });
-}
+
 
 // 场景 -> 一张梗图 { file, url, text }；队列模式下保证不连续重复
-function nextSceneMeme(scene, fallbackText) {
-  const pool = sceneMemePool(scene);
-  if (!pool.length) return null;
-  const out = S.memeOrder === 'random' ? pick(pool) : drawQueued(memeQueues, scene, () => pool);
-  if (!out) return null;
-  lastShownMeme = out.file;
-  return out.text ? out : { ...out, text: fallbackText };
-}
 
-function resetMemeQueues() {
-  memeQueues = {};
-  lastShownMeme = '';
-}
 
-function sayScene(scene, fallbackText, ms = 3200) {
-  if (!isDsh() || usingCustomQuips()) {
-    say(fallbackText, ms);
-    return;
-  }
-  const m = nextSceneMeme(scene, fallbackText);
-  if (!m) {
-    say(fallbackText, ms);
-    return;
-  }
-  say(m.text || fallbackText, ms, null, m.url);
-}
 
-function sayClickCombo(fallbackText, ms = 3200) {
-  sayScene('click', fallbackText, ms);
-}
+
+
+
+
 
 memeEl.addEventListener('load', () => {
   if (bubbleEl.classList.contains('show')) positionBubble();
 });
 
-function showStatus() {
-  clearTimeout(S.bubbleTimer);
-  saySeq++;
-  let word = '今天状态不错哦～';
-  if (S.satiety < 32) word = isDsh() ? '白饭没吃饱，喂喂我嘛…' : '有点饿了…';
-  else if (S.mood > 85) word = '我心情超好的！';
-  else if (S.mood < 40) word = '有点提不起劲…';
-  withBubbleRoom(() => {
-    bubbleText.textContent = word;
-    barSat.style.width = `${Math.round(S.satiety)}%`;
-    barMood.style.width = `${Math.round(S.mood)}%`;
-    usageEl.classList.add('hide');
-    barsEl.classList.remove('hide');
-    revealBubble(6000);
-  });
-}
+
 
 // 白饭账本：白饭 = 你被烧掉的 Qoder credits（可在设置里开关）
 // animate=false 用于后台刷新（异步账单回来时补渲染），不重放数金动画
-function showUsage(ledger, animate = true) {
-  if (!S.ledgerOn) return;
-  saySeq++;
-  const l = ledger || S.ledger;
-  const ds = !!(l && l.source && l.source !== 'qoder');
-  withBubbleRoom(() => renderUsage(l, ds, animate));
-}
 
-function renderUsage(l, ds, animate) {
-  if (!l) {
-    // 异步请求还没回来：明确告诉用户在读，而不是显示一排 “—”
-    clearTimeout(S.bubbleTimer);
-    bubbleText.textContent = '正在读取账单…';
-    uL1.textContent = '今天吃掉';
-    uL2.textContent = '本月吃掉';
-    uL3.textContent = '本次会话';
-    uToday.textContent = '—';
-    uMonth.textContent = '—';
-    uSession.textContent = '—';
-    quotaEl.classList.add('hide');
-    uNote.textContent = '';
-    barsEl.classList.add('hide');
-    usageEl.classList.remove('hide');
-    revealBubble(9000);
-    return;
-  }
-  clearTimeout(S.bubbleTimer);
-  const rows = (l && l.rows) || [];
-  if (ds) {
-    bubbleText.textContent = l && l.available ? `这是 ${l.providerLabel || 'API'} 的账单` : (l && l.error) || '还没拿到账单数据';
-    const labels = ['可用余额', '赠送余额', '充值余额'];
-    const slots = [uToday, uMonth, uSession];
-    const labs = [uL1, uL2, uL3];
-    for (let i = 0; i < 3; i++) {
-      labs[i].textContent = (rows[i] && rows[i].label) || labels[i];
-      slots[i].textContent = (rows[i] && rows[i].value) || '—';
-    }
-    quotaEl.classList.add('hide');
-    uNote.textContent = l && l.error
-      ? l.error
-      : (l && l.note) || `来自 ${l.providerLabel || 'API'} 官方接口`;
-  } else {
-    bubbleText.textContent = l && l.available ? (isDsh() ? '这是你喂给我的白饭' : '这是本月的用量') : '还没找到用量记录…';
-    uL1.textContent = '今天吃掉';
-    uL2.textContent = '本月吃掉';
-    uL3.textContent = '本次会话';
-    uToday.textContent = l && l.available ? `${l.today} credits` : '—';
-    uMonth.textContent = l && l.available ? `${l.month} credits` : '—';
-    uSession.textContent = l && l.available ? `${l.session} credits` : '—';
-    if (l && l.quota > 0 && l.percent !== null) {
-      quotaEl.classList.remove('hide');
-      uBar.style.width = `${l.percent.toFixed(1)}%`;
-      uQuotaText.textContent = `套餐 ${l.month} / ${l.quota}（${l.percent.toFixed(1)}%）`;
-    } else {
-      quotaEl.classList.add('hide');
-    }
-    uNote.textContent = l && l.error
-      ? l.error
-      : (isDsh() ? '白饭 = 你的 Qoder credits' : '这是你的 Qoder 用量');
-  }
-  barsEl.classList.add('hide');
-  usageEl.classList.remove('hide');
-  revealBubble(9000);
-  if (animate) {
-    const tier = balanceTierPools();
-    playOnce(tier.length ? tier : ANIM.money);
-  }
-}
 
-function creditsLine() {
-  if (!S.ledgerOn || !isDsh()) return null;
-  const l = S.ledger;
-  if (!l || !l.available) return null;
-  if (l.source && l.source !== 'qoder') return `${l.providerShort || 'API'}：${(l.rows && l.rows[0] && l.rows[0].value) || '暂无数据'}`;
-  if (l.today > 0) return `今天你已经喂了我 ${l.today} credits 白饭啦`;
-  if (l.month > 0) return `这个月我吃掉了 ${l.month} credits 白饭`;
-  return '今天还没吃到白饭，快让我干活';
-}
+
+
+
+
+let usagePending = false;
+
+// 气泡里的「重新检测」：跳过 45 秒缓存，直接问平台要一次结果。
+
+
+if (uRetry) uRetry.addEventListener('click', (e) => {
+  e.stopPropagation();
+  retryUsage();
+});
+
+
 
 // ---------------------------------------------------------------- 状态
 
-function applyHungry() {
-  stage.classList.toggle('hungry', S.satiety < 32);
-  applyBase();
-}
 
-function applyDoze() {
-  stage.classList.toggle('doze', !S.awake || S.autoDoze);
-  applyBase();
-}
 
-function wake() {
-  S.lastInteract = Date.now();
-  if (S.autoDoze) {
-    S.autoDoze = false;
-    applyDoze();
-  }
-}
 
-function playHappy(ms = 1100) {
-  if (ms > 1000) sfx('success');
-  playOnce(ANIM.happy);
-  stage.classList.remove('happy');
-  void stage.offsetWidth;
-  stage.classList.add('happy');
-  clearTimeout(S.happyTimer);
-  S.happyTimer = setTimeout(() => stage.classList.remove('happy'), ms);
-}
 
-function playEat() {
-  wake();
-  sfx('success');
-  playOnce(ANIM.feed);
-  spawnFood();
-  stage.classList.remove('eat');
-  void stage.offsetWidth;
-  stage.classList.add('eat');
-  setTimeout(() => {
-    stage.classList.remove('eat');
-    playHappy();
-    burstHearts(4);
-    sayScene('feed', pick(feedLines()));
-  }, 1150);
-}
+
+
+
+
+
 
 // ---------------------------------------------------------------- 特效
 
-function burstHearts(n) {
-  for (let i = 0; i < n; i++) {
-    setTimeout(() => {
-      const el = document.createElement('span');
-      el.className = 'fx-heart';
-      el.textContent = '❤';
-      el.style.left = `${148 + (Math.random() - 0.5) * 100}px`;
-      el.style.top = `${248 + (Math.random() - 0.5) * 40}px`;
-      el.style.color = Math.random() < 0.5 ? '#ff7aa2' : '#ff9f43';
-      fxEl.appendChild(el);
-      el.addEventListener('animationend', () => el.remove());
-    }, i * 120);
-  }
-}
 
-function spawnFood() {
-  const el = document.createElement('span');
-  el.className = 'fx-food';
-  el.textContent = '🍚';
-  el.style.left = '140px';
-  el.style.top = '175px';
-  fxEl.appendChild(el);
-  el.addEventListener('animationend', () => el.remove());
-}
+
+
 
 // ---------------------------------------------------------------- 番茄钟
-
-function fmtClock(ms) {
-  const total = Math.max(0, Math.ceil(ms / 1000));
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-}
-
-let pomoAnim = null;
-let pomoResting = false;
-let pomoGapTimer = null;
-
-function clearPomoGap() {
-  clearTimeout(pomoGapTimer);
-  pomoGapTimer = null;
-}
-
-// 上一个动作播完：待机休息「播放间隔」，到点再播下一个工作动作
-function enterPomoGap() {
-  clearPomoGap();
-  if (!S.pomoRunning) return;
-  pomoResting = true;
-  applyBase();
-  pomoGapTimer = setTimeout(startPomoWork, S.pomoAnimSec * 1000);
-}
-
-function startPomoWork() {
-  clearPomoGap();
-  if (!S.pomoRunning) return;
-  // 手动动作正在播：等它结束后会重新进入间隔
-  if (oneShotPlaying) return;
-  if (S.dragging || P.frozen || !S.awake || S.autoDoze) {
-    pomoGapTimer = setTimeout(startPomoWork, 500);
-    return;
-  }
-  const pool = usable(ANIM.work).filter((n) => n !== pomoAnim);
-  if (pool.length) pomoAnim = pick(pool);
-  else if (!pomoAnim) pomoAnim = pick(usable(ANIM.work));
-  if (!pomoAnim) {
-    pomoResting = true;
-    applyBase();
-    return;
-  }
-  pomoResting = false;
-  playOnce([pomoAnim], true);
-}
-
-function setPomodoro(p) {
-  const running = !!(p && p.running);
-  const was = S.pomoRunning;
-  S.pomoRunning = running;
-  stage.classList.toggle('focus', running);
-  chipEl.classList.toggle('show', running);
-  if (running) {
-    // 倒计时每秒都会推一次，只刷新数字，不能重启动画
-    chipTime.textContent = fmtClock(p.remaining);
-    if (!was) {
-      pomoAnim = null;
-      pomoResting = false;
-      // 只有到处游模式才游去角落；右下角/固定不动就待在原地
-      if (S.dock === 'roam') {
-        const b = bounds();
-        P.swimTo = { x: b.maxX, y: b.maxY };
-        P.target = null;
-        P.pauseUntil = 0;
-      }
-    }
-  } else {
-    P.swimTo = null;
-  }
-  if (running === was) return;
-  // 重新计时，避免专注刚结束就立刻触发自动动作
-  lastAutoAt = Date.now();
-  if (running) {
-    if (charNow().kind === 'pose') applyBase();
-    else startPomoWork();
-  } else {
-    clearPomoGap();
-    pomoResting = false;
-    sfx('error');
-    applyBase();
-  }
-}
 
 // ---------------------------------------------------------------- 右键菜单
 
 let menuOpen = false;
 let menuAnchor = { x: 0, y: 0 };
-
-function positionMenu() {
-  const w = menuEl.offsetWidth;
-  const h = menuEl.offsetHeight;
-  const pad = 8;
-  menuEl.style.left = `${clamp(menuAnchor.x, pad, Math.max(pad, innerWidth - w - pad))}px`;
-  menuEl.style.top = `${clamp(menuAnchor.y, pad, Math.max(pad, innerHeight - h - pad))}px`;
-}
-
-function refreshMenu() {
-  menuFeedTxt.textContent = isDsh() ? '喂一碗白饭' : '投喂';
-  menuPomo.textContent = S.pomoRunning ? '🍅 结束专注' : `🍅 开始专注 ${S.pomoMin} 分钟`;
-  menuSleepIco.textContent = S.awake ? '😴' : '☀️';
-  menuSleepTxt.textContent = S.awake ? '让它睡一会儿' : '叫醒它';
-  const l = S.ledger;
-  if (l && l.source && l.source !== 'qoder') {
-    const first = l.available && l.rows && l.rows[0] ? ` ${l.rows[0].value}` : '';
-    menuUsage.textContent = `🍚 白饭账本 · ${l.providerShort || 'API'}${first}`;
-  } else {
-    menuUsage.textContent = l && l.available ? `🍚 ${isDsh() ? '白饭账本' : '用量账本'} · 本月 ${l.month}` : `🍚 ${isDsh() ? '白饭账本' : '用量账本'}`;
-  }
-}
-
-async function ensurePanelOpen() {
-  // 首开面板时字体可能仍在 swap，等字体落定再显示，避免文字层空白
-  if (document.fonts && document.fonts.ready) {
-    try {
-      await Promise.race([
-        document.fonts.ready,
-        new Promise((r) => setTimeout(r, 300)),
-      ]);
-    } catch { /* ignore */ }
-  }
-  if (!api.setPanel) return;
-  for (let i = 0; i < 3; i++) {
-    try {
-      await api.setPanel(true);
-      return;
-    } catch {
-      await new Promise((r) => setTimeout(r, 30));
-    }
-  }
-}
-
-async function openMenu(x, y) {
-  closeSettings();
-  closePicker();
-  refreshMenu();
-  menuAnchor = { x, y };
-  // 先让主进程把 Region 扩成整窗，再显示面板，避免开面板瞬间被裁
-  await ensurePanelOpen();
-  menuEl.classList.remove('hide');
-  menuEl.scrollTop = 0;
-  positionMenu();
-  menuOpen = true;
-  // 同步显示，避免窗口被遮挡/后台时 requestAnimationFrame 被节流，首次右键偶发“菜单不出现”
-  void menuEl.offsetWidth;
-  menuEl.classList.add('show');
-  const relayout = () => { if (menuOpen) positionMenu(); };
-  requestAnimationFrame(() => {
-    positionMenu();
-    // 字体加载/文字变化会改变菜单尺寸，显示后再扩一次 Region 并重新夹取
-    if (api.setPanel) api.setPanel(true);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout).catch(() => {});
-    setTimeout(relayout, 120);
-    setTimeout(relayout, 360);
-  });
-}
-
-if (typeof ResizeObserver !== 'undefined') {
-  new ResizeObserver(() => { if (menuOpen) positionMenu(); }).observe(menuEl);
-}
-
-function closeMenu() {
-  if (!menuOpen) return;
-  menuOpen = false;
-  menuEl.classList.remove('show');
-  setTimeout(() => {
-    if (!menuOpen) menuEl.classList.add('hide');
-  }, 160);
-  api.setPanel(null);
-}
 
 menuEl.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
@@ -2334,522 +536,95 @@ menuEl.addEventListener('click', (e) => {
 
 let settingsOpen = false;
 
-function saveSettings() {
-  api.saveSettings({
-    scale: petScale,
-    dock: S.dock,
-    pomoMin: S.pomoMin,
-    pomoAnimSec: S.pomoAnimSec,
-    ledger: S.ledgerOn,
-    autoStart: S.autoStart,
-    safeResume: S.safeResume,
-    fullscreenHide: S.fullscreenHide,
-    memeOrder: S.memeOrder,
-    launchApp: S.launchApp,
-    character: S.character,
-    fontFamily: S.fontFamily,
-    fontSize: S.fontScale,
-    sfx: S.sfx,
-    autoActionSec: S.autoActionSec,
-    ledgerSource: S.ledgerSource,
-    autoUpdate: S.autoUpdate,
-    customQuips: S.customQuips,
-    useCustomQuips: S.useCustomQuips,
-    pinnedActions: S.pinnedActions,
-  });
-}
+// ---------------------------------------------------------------- 账本 / 全屏诊断
 
-function syncSettingsUI() {
-  setSizeVal.textContent = `${Math.round(petScale * 100)}%`;
-  for (const btn of setSizes.querySelectorAll('button')) {
-    btn.classList.toggle('on', Math.abs(Number(btn.dataset.size) - petScale) < 0.001);
-  }
-  setFontVal.textContent = `${Math.round(S.fontScale * 100)}%`;
-  if (setFonts) {
-    for (const btn of setFonts.querySelectorAll('button')) {
-      btn.classList.toggle('on', btn.dataset.font === S.fontFamily);
-    }
-  }
-  for (const btn of setSfx.querySelectorAll('button')) {
-    btn.classList.toggle('on', btn.dataset.sfx === S.sfx);
-  }
-  for (const btn of setLedgerSrc.querySelectorAll('button')) {
-    btn.classList.toggle('on', btn.dataset.ledgerSrc === S.ledgerSource);
-  }
-  for (const btn of document.querySelectorAll('#set-api-keys button')) {
-    const p = btn.dataset.key;
-    btn.textContent = `${API_LABEL[p] || p} Key${S.apiKeys[p] ? ' ✓' : ''}`;
-    btn.classList.toggle('on', !!S.apiKeys[p]);
-  }
-  setAutoVal.textContent = `${S.autoActionSec} 秒`;
-  for (const btn of setDocks.querySelectorAll('button')) {
-    btn.classList.toggle('on', btn.dataset.dock === S.dock);
-  }
-  setPomoVal.textContent = `${S.pomoMin} 分钟`;
-  for (const btn of setPomoPresets.querySelectorAll('button')) {
-    btn.classList.toggle('on', Number(btn.dataset.pomo) === S.pomoMin);
-  }
-  setPomoAnimVal.textContent = `${S.pomoAnimSec} 秒`;
-  for (const btn of setPomoAnimPresets.querySelectorAll('button')) {
-    btn.classList.toggle('on', Number(btn.dataset.pomoAnim) === S.pomoAnimSec);
-  }
-  for (const btn of setLedger.querySelectorAll('button')) {
-    btn.classList.toggle('on', (btn.dataset.ledger === '1') === S.ledgerOn);
-  }
-  for (const btn of setAutoStart.querySelectorAll('button')) {
-    btn.classList.toggle('on', (btn.dataset.autostart === '1') === S.autoStart);
-  }
-  if (setSafeResume) {
-    for (const btn of setSafeResume.querySelectorAll('button')) {
-      btn.classList.toggle('on', (btn.dataset.saferesume === '1') === S.safeResume);
-    }
-  }
-  if (setFullscreenHide) {
-    for (const btn of setFullscreenHide.querySelectorAll('button')) {
-      btn.classList.toggle('on', (btn.dataset.fullscreenhide === '1') === S.fullscreenHide);
-    }
-  }
-  if (setMemeOrder) {
-    for (const btn of setMemeOrder.querySelectorAll('button')) {
-      btn.classList.toggle('on', btn.dataset.memeorder === S.memeOrder);
-    }
-  }
-  const setAutoUpdate = document.getElementById('set-autoupdate');
-  if (setAutoUpdate) {
-    for (const btn of setAutoUpdate.querySelectorAll('button')) {
-      btn.classList.toggle('on', (btn.dataset.autoupdate === '1') === S.autoUpdate);
-    }
-  }
-  setAppName.textContent = S.launchApp ? S.launchApp.split(/[\\/]/).pop() : '未设置';
-  setAppName.title = S.launchApp || '';
-  syncWordsButtons();
-}
 
-// 白饭账本开关：控制菜单项 / 设置说明 / 账本卡片三处显隐
-function applyLedgerUI() {
-  const off = !S.ledgerOn;
-  menuUsageBtn.classList.toggle('hide', off);
-  helpLedger.classList.toggle('hide', off);
-  if (off) {
-    // 关掉时收起账本卡片（重新打开后由 showUsage 按需展示）
-    usageEl.classList.add('hide');
-    clearTimeout(S.bubbleTimer);
-    bubbleEl.classList.remove('show');
-  }
-}
 
-function applyScale(s, save) {
-  const v = Number(s);
-  petScale = clamp(Math.round((Number.isFinite(v) && v > 0 ? v : DEFAULT_SCALE) / SIZE_STEP) * SIZE_STEP, SIZE_MIN, SIZE_MAX);
-  // 用 zoom 而不是 transform: scale：zoom 在排版阶段按最终字号生成字形，
-  // 气泡里的文字不会被「先按 100% 字号画好再缩小」而发虚。
-  scaleEl.style.zoom = Math.abs(petScale - 1) < 0.001 ? '' : petScale.toFixed(2);
-  syncSettingsUI();
-  clampInBounds();
-  api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale });
-  if (save) saveSettings();
-}
 
-function applyDock(mode, save) {
-  S.dock = mode === 'corner' || mode === 'fixed' ? mode : 'roam';
-  P.target = null;
-  P.pauseUntil = 0;
-  if (S.dock === 'corner') {
-    // 直接闪现到右下角（向左让出气泡空间）；之后被拖走仍会自己游回角落
-    const b = bounds();
-    const c = cornerSpot(b);
-    P.x = c.x;
-    P.y = c.y;
-    P.vx = 0;
-    P.vy = 0;
-    stage.classList.remove('swim');
-  }
-  if (S.dock === 'fixed') {
-    // 固定不动：停在当前位置（拖到哪待在哪），番茄钟也不再游走
-    P.vx = 0;
-    P.vy = 0;
-    P.swimTo = null;
-    stage.classList.remove('swim');
-  }
-  syncSettingsUI();
-  if (save) saveSettings();
-}
 
-function applyLedgerSource(src, save) {
-  S.ledgerSource = API_SOURCES.includes(src) ? src : 'qoder';
-  S.ledger = null;
-  syncSettingsUI();
-  if (save) saveSettings();
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // 各平台 Key 配置状态有变化时刷新按钮
-function applyKeysUI() {
-  syncSettingsUI();
-}
 
-function applyLedger(on, save) {
-  S.ledgerOn = !!on;
-  applyLedgerUI();
-  syncSettingsUI();
-  if (save) saveSettings();
-}
 
-function applyAutoUpdate(on, save) {
-  S.autoUpdate = !!on;
-  syncSettingsUI();
-  if (save) saveSettings();
-}
 
-function refreshAutostartHint() {
-  if (!setAutoStartHint || typeof api.autostartStatus !== 'function') return;
-  Promise.resolve()
-    .then(() => api.autostartStatus())
-    .then((s) => {
-      if (!s || !setAutoStartHint) return;
-      if (!s.enabled) setAutoStartHint.textContent = '已关闭：登录 Windows 时不会自动启动。';
-      else if (s.task) setAutoStartHint.textContent = '已开启：登录时由计划任务启动，无延迟。';
-      else setAutoStartHint.textContent = '已开启，但系统里没有找到计划任务；请再点一次「开启」重建。';
-    })
-    .catch(() => {});
-}
 
-function applyAutoStart(on, save) {
-  S.autoStart = on === true || on === '1' || on === 1;
-  syncSettingsUI();
-  if (save) {
-    saveSettings();
-    setTimeout(refreshAutostartHint, 900);
-  }
-}
 
-function applySafeResume(on, save) {
-  S.safeResume = !!on;
-  syncSettingsUI();
-  if (save) saveSettings();
-}
 
-function applyFullscreenHide(on, save) {
-  S.fullscreenHide = !!on;
-  syncSettingsUI();
-  if (save) saveSettings();
-}
 
-function applyMemeOrder(mode, save) {
-  S.memeOrder = mode === 'random' ? 'random' : 'queue';
-  resetMemeQueues();
-  syncSettingsUI();
-  if (save) saveSettings();
-}
 
-function applyLinkedApp(p, save) {
-  S.launchApp = typeof p === 'string' ? p : '';
-  syncSettingsUI();
-  if (save) saveSettings();
-}
+
+
+
+
+
+
+
+
+
 
 // ---- 检查更新（内联显示结果，不弹系统窗口）----
 let updateInfo = null;
 let updateDownloading = false;
 let updateChecking = false;
 
-function relayoutUpdatePanel() {
-  if (settingsOpen) requestAnimationFrame(positionSettings);
-}
 
-function showUpdateButtons(show) {
-  updateActions.classList.toggle('hide', !show);
-  updateInstallRow.classList.toggle('hide', !show);
-  relayoutUpdatePanel();
-}
-
-function resetUpdateButtons() {
-  updateDownloading = false;
-  updateDirect.disabled = false;
-  updateAccel.disabled = false;
-  if (updateLanzou) updateLanzou.disabled = false;
-}
-
-async function doCheckUpdate() {
-  if (updateDownloading || updateChecking) return;
-  updateChecking = true;
-  const prev = updateInfo;
-  updateHint.textContent = '正在检查 GitHub Releases…';
-  try {
-    const r = await api.checkUpdate();
-    if (!r || r.error) {
-      if (prev && prev.hasUpdate) {
-        updateInfo = prev;
-        updateHint.textContent = `检查失败：${(r && r.error) || '网络错误'}；仍可下载上次发现的新版本 ${prev.latest}`;
-        showUpdateButtons(true);
-      } else {
-        updateInfo = r || null;
-        updateHint.textContent = `检查失败：${(r && r.error) || '网络错误'}`;
-        showUpdateButtons(false);
-      }
-      return;
-    }
-    updateInfo = r;
-    if (!r.hasUpdate) {
-      updateHint.textContent = `已是最新版本 v${r.current}`;
-      showUpdateButtons(false);
-      return;
-    }
-    updateHint.textContent = `发现新版本 ${r.latest}（当前 v${r.current}），选择下载方式：`;
-    showUpdateButtons(true);
-  } catch {
-    if (prev && prev.hasUpdate) {
-      updateInfo = prev;
-      updateHint.textContent = `检查失败：网络错误；仍可下载上次发现的新版本 ${prev.latest}`;
-      showUpdateButtons(true);
-    } else {
-      updateHint.textContent = '检查失败：网络错误';
-      showUpdateButtons(false);
-    }
-  } finally {
-    updateChecking = false;
-    relayoutUpdatePanel();
-  }
-}
-
-async function startUpdateDownload(mode) {
-  if (updateDownloading || !updateInfo || !updateInfo.hasUpdate) return;
-  updateDownloading = true;
-  updateDirect.disabled = true;
-  updateAccel.disabled = true;
-  if (updateLanzou) updateLanzou.disabled = true;
-  updateHint.textContent = '开始下载…';
-  try {
-    const r = await api.downloadUpdate(mode);
-    if (r && r.started === false) {
-      resetUpdateButtons();
-      updateHint.textContent = `下载未开始：${r.error || '未知错误'}`;
-      relayoutUpdatePanel();
-    }
-  } catch (e) {
-    resetUpdateButtons();
-    updateHint.textContent = `下载失败：${e.message || '未知错误'}`;
-    relayoutUpdatePanel();
-  }
-}
-
-api.on('update-progress', (p) => {
-  if (!p) return;
-  const suffix = '（完成后打开安装程序）';
-  updateHint.textContent = p.total > 0 ? `下载中… ${p.percent}%${suffix}` : `下载中…${suffix}`;
-  relayoutUpdatePanel();
-});
-
-api.on('update-done', (d) => {
-  if (d && d.ok && d.launching) {
-    updateHint.textContent = '下载完成，正在关闭桌宠并打开安装程序…';
-    relayoutUpdatePanel();
-    return;
-  }
-  resetUpdateButtons();
-  if (d && d.ok) updateHint.textContent = `已保存到 Downloads：${d.file}`;
-  else updateHint.textContent = `下载失败：${(d && d.error) || '网络错误'}`;
-  relayoutUpdatePanel();
-});
-
-async function pickLinkedApp() {
-  if (!api.pickApp) return;
-  const p = await api.pickApp();
-  if (p) applyLinkedApp(p, true);
-}
-
-// 切换形象：video 显示 <video>，立绘显示 <img>，图集显示 <canvas>；重置动画记录并重建动作面板
-function applyCharacter(id, save) {
-  // 图集/立绘型包的素材目录与代码里的形象 key 不同（gptv1 -> gpt），
-  // 下载完成或旧状态里出现 pack:gptv1 时统一映射回代码 key，避免用视频播图集。
-  const codeKey = Object.keys(CODE_CHAR_PACKS).find((k) => 'pack:' + CODE_CHAR_PACKS[k] === id);
-  if (codeKey && CHARS[codeKey]) id = codeKey;
-  S.character = CHARS[id] ? id : 'v1';
-  const kind = charNow().kind;
-  applyAnimTables(charNow(), S.character);
-  vidEl.classList.toggle('hide', kind !== 'video' && kind !== 'pack');
-  petImgEl.classList.toggle('hide', kind !== 'pose');
-  petSpriteEl.classList.toggle('hide', kind !== 'sprite');
-  curAnim = '';
-  curPose = '';
-  oneShotPlaying = false;
-  oneShotSeq++;
-  clearTimeout(oneShotTimer);
-  stopSpriteAnimation();
-  pickerBuilt = false;
-  pickerBody.innerHTML = '';
-  if (kind === 'video' || kind === 'pack') {
-    petImgEl.removeAttribute('src');
-    petSpriteEl.getContext('2d').clearRect(0, 0, SPRITE.cellW, SPRITE.cellH);
-    spriteDrawn = '';
-  } else {
-    vidEl.pause();
-    vidEl.removeAttribute('src');
-  }
-  if (kind === 'pose') {
-    petSpriteEl.getContext('2d').clearRect(0, 0, SPRITE.cellW, SPRITE.cellH);
-    spriteDrawn = '';
-  }
-  if (kind === 'sprite') {
-    petImgEl.removeAttribute('src');
-    ensureSpriteSheet();
-    hitEl.style.left = '126px';
-    hitEl.style.top = '36px';
-    hitEl.style.width = '173px';
-    hitEl.style.height = '187px';
-  } else {
-    hitEl.style.left = '';
-    hitEl.style.top = '';
-    hitEl.style.width = '';
-    hitEl.style.height = '';
-  }
-  refreshMenu();
-  syncSettingsUI();
-  renderStore();          // 商店列表的「使用中」标记必须跟着切换刷新，否则选中和实际使用对不上
-  applyBase();
-  // 换形象后立刻按新动作表起一个基础动作；睡眠中必须继续睡，不能切回待机
-  if (kind === 'video' || kind === 'pack') {
-    curAnim = '';
-    if (!S.awake || S.autoDoze) playAnim(ANIM.sleep, true);
-    else playAnim(ANIM.idle, true);
-  }
-  // 专注中换形象：重启工作动作调度，避免停在旧动作/间歇
-  if (S.pomoRunning) {
-    clearPomoGap();
-    pomoAnim = null;
-    pomoResting = false;
-    if (charNow().kind === 'pose') applyBase();
-    else startPomoWork();
-  }
-  if (save) saveSettings();
-}
 
 // 音效包：default / whale / off
-function applySfx(v, save) {
-  S.sfx = v === 'whale' || v === 'off' ? v : 'default';
-  syncSettingsUI();
-  if (save) saveSettings();
-}
+
 
 // 自动动作间隔（5~300 秒，5 秒步进，默认 20）
-function applyAutoActionSec(v, save) {
-  const n = Number(v);
-  S.autoActionSec = clamp(Math.round((Number.isFinite(n) ? n : 40) / AUTO_STEP) * AUTO_STEP, AUTO_MIN, AUTO_MAX);
-  syncSettingsUI();
-  if (save) saveSettings();
-}
+
 
 // 内置字体走系统字体（不占安装包），自定义字体由 Go 端复制到配置目录后经 /userfonts/ 提供。
 const FONT_PRESETS = ['soft', 'yahei', 'dengxian', 'kaiti', 'simsun'];
 const customFontName = (fam) => (typeof fam === 'string' && fam.startsWith('custom:') ? fam.slice(7) : '');
 
-function setCustomFontFace(file) {
-  let style = document.getElementById('user-font-face');
-  if (!style) {
-    style = document.createElement('style');
-    style.id = 'user-font-face';
-    document.head.appendChild(style);
-  }
-  style.textContent = `@font-face{font-family:"UserFont";src:url("/userfonts/${encodeURIComponent(file)}");font-display:swap;}`;
-}
 
-function updateFontHint() {
-  if (!setFontHint) return;
-  const name = customFontName(S.fontFamily);
-  setFontHint.textContent = name
-    ? `当前：${name}（自定义），重新导入会替换。`
-    : '支持 .ttf / .otf / .woff / .woff2；看不清时建议换「雅黑」并把字体大小调大。';
-}
 
-function applyFontFamily(v, save) {
-  const raw = typeof v === 'string' ? v : 'soft';
-  const custom = customFontName(raw);
-  const fam = custom ? 'custom' : FONT_PRESETS.includes(raw) ? raw : 'soft';
-  S.fontFamily = custom ? raw : fam;
-  if (custom) {
-    setCustomFontFace(custom);
-    if (document.fonts && document.fonts.load) {
-      document.fonts.load('16px "UserFont"', '你好呀蓝色大肥鱼0123456789').catch(() => {});
-    }
-  }
-  document.documentElement.dataset.font = fam;
-  updateFontHint();
-  syncSettingsUI();
-  if (save) {
-    saveSettings();
-    if (bubbleEl.classList.contains('show')) {
-      requestAnimationFrame(() => {
-        positionBubble();
-        reportRegionNow(true);
-      });
-    }
-  }
-}
 
-function importFont() {
-  if (typeof api.importFont !== 'function') return;
-  const btn = document.getElementById('font-import');
-  if (btn) btn.disabled = true;
-  Promise.resolve()
-    .then(() => api.importFont())
-    .then((name) => {
-      if (name) applyFontFamily(`custom:${name}`, true);
-    })
-    .catch(() => {
-      if (setFontHint) setFontHint.textContent = '导入失败：请选择 .ttf / .otf / .woff / .woff2 字体文件，且不超过 40 MB。';
-    })
-    .finally(() => {
-      if (btn) btn.disabled = false;
-    });
-}
+
+
+
+
 
 // 气泡字体大小（0.8×~1.4×，只影响气泡里的文字）
-function applyFontSize(v, save) {
-  const n = Number(v);
-  S.fontScale = clamp(Math.round((Number.isFinite(n) && n > 0 ? n : 1) / FONT_STEP) * FONT_STEP, FONT_MIN, FONT_MAX);
-  document.documentElement.style.setProperty('--fs', S.fontScale.toFixed(2));
-  syncSettingsUI();
-  if (save) saveSettings();
-}
 
-function applyPomoMin(v, save) {
-  const n = Number(v);
-  S.pomoMin = clamp(Math.round(Number.isFinite(n) ? n : 25), POMO_MIN, POMO_MAX);
-  syncSettingsUI();
-  if (save) saveSettings();
-}
 
-function applyPomoAnimSec(v, save) {
-  const n = Number(v);
-  S.pomoAnimSec = clamp(Math.round((Number.isFinite(n) ? n : 5) / POMO_ANIM_STEP) * POMO_ANIM_STEP, POMO_ANIM_MIN, POMO_ANIM_MAX);
-  // 正处在动作间休息时，按新间隔重新计时
-  if (S.pomoRunning && pomoResting && !oneShotPlaying) enterPomoGap();
-  syncSettingsUI();
-  if (save) saveSettings();
-}
+
+
+
 
 // 自定义互动文字：编辑后先交给主进程做离线敏感词检查，通过才写入状态
-function setWordsStatusText(text, kind) {
-  if (!setWordsStatus) return;
-  setWordsStatus.textContent = text;
-  setWordsStatus.classList.toggle('ok', kind === 'ok');
-  setWordsStatus.classList.toggle('err', kind === 'err');
-}
 
-function syncWordsButtons() {
-  const has = S.customQuips.length > 0;
-  if (setWordsEnable) setWordsEnable.classList.toggle('on', has && S.useCustomQuips);
-  if (setWordsDisable) setWordsDisable.classList.toggle('on', has && !S.useCustomQuips);
-}
 
-function wordsSummary() {
-  if (!S.customQuips.length) return '还没有自定义文字，当前使用默认台词。';
-  return `已保存 ${S.customQuips.length} 行，当前${S.useCustomQuips ? '启用' : '未启用'}。`;
-}
 
-function syncWordsUI() {
-  syncWordsButtons();
-  setWordsStatusText(wordsSummary());
-}
+
+
+
+
 
 const SET_PAGE_TITLES = {
   look: '🐟 形象与音效',
@@ -2865,80 +640,16 @@ const SET_PAGE_TITLES = {
 // 设置面板定位：优先放在鱼的左边，放不下就放右边；无论鱼在哪、页面多高，
 // 都把面板整体夹取在屏幕内（子页切换后高度会变，需要重新调用）
 // 角色本体的屏幕范围（包围盒四周有透明留白，菜单按本体对齐才会显得"贴得近"）
-function visiblePetRect() {
-  const s = petScale;
-  return {
-    left: P.x + PET.x0 * s,
-    right: P.x + PET.x1 * s,
-    top: P.y + PET.y0 * s,
-    bottom: P.y + PET.y1 * s,
-  };
-}
 
-function positionSettings() {
-  const w = settingsEl.offsetWidth;
-  const h = settingsEl.offsetHeight;
-  const v = visiblePetRect();
-  let sx = v.left - w - 10; // 贴着角色左侧
-  if (sx < 8) sx = v.right + 10; // 左边放不下就贴右侧
-  settingsEl.style.left = `${clamp(sx, 8, Math.max(8, innerWidth - w - 8))}px`;
-  settingsEl.style.top = `${clamp(v.top - 6, 8, Math.max(8, innerHeight - h - 8))}px`;
-}
 
-function showHome() {
-  setTitle.textContent = '⚙️ 设置';
-  setBack.classList.add('hide');
-  setHome.classList.remove('hide');
-  for (const pg of setPages) pg.classList.add('hide');
-  const body = settingsEl.querySelector('.set-body');
-  if (body) body.scrollTop = 0;
-  positionSettings();
-}
 
-function openSetPage(id) {
-  if (!SET_PAGE_TITLES[id]) return showHome();
-  setTitle.textContent = SET_PAGE_TITLES[id];
-  setBack.classList.remove('hide');
-  setHome.classList.add('hide');
-  for (const pg of setPages) pg.classList.toggle('hide', pg.dataset.page !== id);
-  if (id === 'words') syncWordsUI();
-  if (id === 'startup') refreshAutostartHint();
-  const body = settingsEl.querySelector('.set-body');
-  if (body) body.scrollTop = 0;
-  positionSettings();
-}
 
-async function openSettings() {
-  closeMenu();
-  closePicker();
-  syncSettingsUI();
-  // 先扩 Region 再显示设置；等待串行队列把之前的关闭调用处理完
-  await ensurePanelOpen();
-  settingsEl.classList.remove('hide');
-  showHome();
-  positionSettings();
-  requestAnimationFrame(() => settingsEl.classList.add('show'));
-  settingsOpen = true;
-  P.frozen = true;
-  P.vx = 0;
-  P.vy = 0;
-  P.target = null;
-  stage.classList.remove('swim');
-  if (api.setFocusable) api.setFocusable(true);
-}
 
-function closeSettings() {
-  if (!settingsOpen) return;
-  settingsOpen = false;
-  if (api.closeOverlays) api.closeOverlays();
-  settingsEl.classList.remove('show');
-  setTimeout(() => {
-    if (!settingsOpen) settingsEl.classList.add('hide');
-  }, 160);
-  P.frozen = false;
-  api.setPanel(null);
-  if (api.setFocusable) api.setFocusable(false);
-}
+
+
+
+
+
 
 settingsEl.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
@@ -2958,6 +669,30 @@ settingsEl.addEventListener('click', (e) => {
   }
   if (btn.id === 'update-lanzou') {
     api.openExternal('https://wwaql.lanzouu.com/b01i5xmkri');
+    return;
+  }
+  if (btn.id === 'ledger-recheck') {
+    recheckLedger();
+    return;
+  }
+  if (btn.id === 'ledger-diag-toggle') {
+    toggleLedgerDiag();
+    return;
+  }
+  if (btn.id === 'fs-diag-refresh') {
+    refreshFsDiag(true);
+    return;
+  }
+  if (btn.id === 'fs-diag-toggle') {
+    toggleFsDiag();
+    return;
+  }
+  if (btn.id === 'export-diagnostics') {
+    exportDiagnostics();
+    return;
+  }
+  if (btn.dataset.lang) {
+    applyLanguage(btn.dataset.lang, true);
     return;
   }
   if (btn.id === 'set-words-edit') {
@@ -3038,194 +773,15 @@ const PICKER_GROUPS = [
   { name: '文字碎碎念', list: [...byPool('text'), ...WHISPERS] },
 ];
 
-function pinsFor(charId = S.character) {
-  const arr = S.pinnedActions && S.pinnedActions[charId];
-  return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string') : [];
-}
 
-function actionText(name) {
-  const prefix = name.startsWith('__pose:') ? '__pose:' : name.startsWith('__sprite:') ? '__sprite:' : '';
-  if (!prefix) return name;
-  const key = name.slice(prefix.length);
-  const found = charNow().actions.find(([p]) => p === key);
-  return found ? found[1] : key;
-}
 
-function actionAvailable(name) {
-  const ch = charNow();
-  if (ch.kind === 'pose') return ch.actions.some(([p]) => `__pose:${p}` === name);
-  if (ch.kind === 'sprite') return ch.actions.some(([p]) => `__sprite:${p}` === name);
-  return HAS.has(name);
-}
 
-function updatePickerHint(errorText) {
-  if (!pickerHint) return;
-  const n = pinsFor().filter(actionAvailable).length;
-  pickerHint.textContent = errorText || `点击动作右侧的 ☆ 可置顶，当前 ${n}/${PINS_MAX}`;
-  pickerHint.classList.toggle('err', !!errorText);
-}
 
-function togglePin(name) {
-  const charId = S.character;
-  const arr = [...pinsFor(charId)];
-  const i = arr.indexOf(name);
-  if (i >= 0) {
-    arr.splice(i, 1);
-  } else {
-    if (arr.length >= PINS_MAX) {
-      updatePickerHint(`最多置顶 ${PINS_MAX} 个动作，请先取消一个`);
-      return;
-    }
-    arr.push(name);
-  }
-  S.pinnedActions = { ...S.pinnedActions, [charId]: arr };
-  saveSettings();
-  if (pickerOpen) {
-    const scroll = pickerBody.scrollTop;
-    pickerBuilt = false;
-    pickerBody.innerHTML = '';
-    buildPicker();
-    pickerBody.scrollTop = scroll;
-    positionPicker();
-  } else {
-    pickerBuilt = false;
-  }
-}
 
-function pickerSec(label, items) {
-  const sec = document.createElement('div');
-  sec.className = 'pick-sec';
-  const lab = document.createElement('div');
-  lab.className = 'pick-label';
-  lab.textContent = label;
-  const row = document.createElement('div');
-  row.className = 'pick-row';
-  for (const it of items) {
-    const n = typeof it === 'string' ? it : it.id;
-    const text = typeof it === 'string' ? it : it.text;
-    const item = document.createElement('div');
-    item.className = 'pick-item';
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.dataset.anim = n;
-    b.textContent = text;
-    const pin = document.createElement('button');
-    pin.type = 'button';
-    pin.className = `pick-pin${pinsFor().includes(n) ? ' on' : ''}`;
-    pin.dataset.pin = n;
-    pin.title = pinsFor().includes(n) ? '取消置顶' : '置顶这个动作';
-    pin.setAttribute('aria-label', pin.title);
-    pin.textContent = pinsFor().includes(n) ? '📌' : '☆';
-    item.append(b, pin);
-    row.appendChild(item);
-  }
-  sec.append(lab, row);
-  return sec;
-}
 
-function buildPicker() {
-  if (pickerBuilt) return;
-  pickerBuilt = true;
-  updatePickerHint();
-  const ch = charNow();
-  const pinned = pinsFor().filter(actionAvailable);
-  if (pinned.length) {
-    pickerBody.appendChild(
-      pickerSec(`📌 置顶动作 ${pinned.length}/${PINS_MAX}`, pinned.map((n) => ({ id: n, text: actionText(n) }))),
-    );
-  }
-  if (ch.kind === 'sprite') {
-    // GPT 娘：直接列图集动作（__sprite: 前缀走同一套播放管线）
-    pickerBody.appendChild(
-      pickerSec(
-        `${ch.label} 的动作`,
-        ch.actions.map(([p, text]) => ({ id: `__sprite:${p}`, text })),
-      ),
-    );
-    return;
-  }
-  if (ch.kind === 'pose') {
-    // 立绘形象：直接列它自己的姿势（__pose: 前缀走同一套播放管线）
-    pickerBody.appendChild(
-      pickerSec(
-        `${ch.label} 的动作`,
-        ch.actions.map(([p, text]) => ({ id: `__pose:${p}`, text })),
-      ),
-    );
-    return;
-  }
-  const added = new Set();
-  for (const g of PICKER_GROUPS) {
-    const items = [];
-    for (const n of g.list) {
-      if (added.has(n) || !HAS.has(n) || items.includes(n)) continue;
-      items.push(n);
-    }
-    if (!items.length) continue;
-    items.forEach((n) => added.add(n));
-    pickerBody.appendChild(pickerSec(g.name, items));
-  }
-  // 扩充包动作单独列一节；plus 池只参与随机调度，不在 PICKER_GROUPS 里
-  const plus = byPool('plus').filter((n) => HAS.has(n) && !added.has(n));
-  if (plus.length) {
-    plus.forEach((n) => added.add(n));
-    const target = Object.keys(PLUS).find((k) => CHARS[k]) || 'v1';
-    pickerBody.appendChild(pickerSec(`${CHARS[target].label} plus（${plus.length}）`, plus));
-  }
-  const rest = [...HAS].filter((n) => !added.has(n)).sort();
-  if (rest.length) pickerBody.appendChild(pickerSec('其他', rest));
-}
 
-function positionPicker() {
-  const w = pickerEl.offsetWidth;
-  const h = pickerEl.offsetHeight;
-  const v = visiblePetRect();
-  let sx = v.left - w - 10; // 贴着角色左侧
-  if (sx < 8) sx = v.right + 10; // 左边放不下就贴右侧
-  pickerEl.style.left = `${clamp(sx, 8, Math.max(8, innerWidth - w - 8))}px`;
-  pickerEl.style.top = `${clamp(v.top - 8, 8, Math.max(8, innerHeight - h - 8))}px`;
-}
 
-async function openPicker() {
-  closeMenu();
-  closeSettings();
-  buildPicker();
-  await ensurePanelOpen();
-  pickerEl.classList.remove('hide');
-  positionPicker();
-  pickerOpen = true;
-  P.frozen = true;
-  P.vx = 0;
-  P.vy = 0;
-  P.target = null;
-  stage.classList.remove('swim');
-  requestAnimationFrame(() => {
-    positionPicker();
-    pickerEl.classList.add('show');
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (pickerOpen) positionPicker(); }).catch(() => {});
-    setTimeout(() => { if (pickerOpen) positionPicker(); }, 300);
-  });
-}
 
-function closePicker() {
-  if (!pickerOpen) return;
-  pickerOpen = false;
-  pickerEl.classList.remove('show');
-  setTimeout(() => {
-    if (!pickerOpen) pickerEl.classList.add('hide');
-  }, 160);
-  P.frozen = false;
-  api.setPanel(null);
-}
-
-function playAction(name) {
-  wake();
-  if (S.autoDoze) {
-    S.autoDoze = false;
-    applyDoze();
-  }
-  playOnce([name], true);
-}
 
 pickerEl.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
@@ -3244,409 +800,31 @@ pickerEl.addEventListener('click', (e) => {
   playAction(name);
 });
 
-window.addEventListener('resize', () => {
-  if (menuOpen) positionMenu();
-  if (settingsOpen) positionSettings();
-  if (pickerOpen) positionPicker();
-});
-
-// Wails 版 API Key / 自定义文字弹窗挂在 #settings 之外，点弹窗时不能被当成"点面板外"
-function modalOpen() {
-  const m = document.getElementById('wails-modal-root');
-  return !!m && !m.classList.contains('hide');
-}
-
-// 兜底：两个版本同时运行时，个别情况下按下事件会被系统吞掉（只剩 up）。
-// 1) 孤儿 up 落在菜单/设置卡/动作面板的按钮上 → 补发一次点击，保证按钮可用；
-// 2) 孤儿 up 落在鱼身上 → 按一次"点击"处理（双击喂饭也由此兜底）；
-// 3) 孤儿 up 落在面板外 → 等价于"点击别处"，收起面板（否则菜单关不掉）
-let downSeen = false;
-document.addEventListener('mousedown', () => {
-  downSeen = true;
-}, true);
-document.addEventListener(
-  'mouseup',
-  (e) => {
-    const orphan = !downSeen;
-    downSeen = false;
-    if (!orphan || !e.target || !e.target.closest || modalOpen()) return;
-    const btn = e.target.closest('#menu button, #settings button, #picker button');
-    if (btn) {
-      btn.click();
-      return;
-    }
-    if (e.target.closest('#hit')) {
-      closeMenu();
-      closeSettings();
-      closePicker();
-      handlePetClick();
-      return;
-    }
-    if (menuOpen && !e.target.closest('#menu')) closeMenu();
-    if (settingsOpen && !e.target.closest('#settings')) closeSettings();
-    if (pickerOpen && !e.target.closest('#picker')) closePicker();
-  },
-  true,
-);
-
-// ---------------------------------------------------------------- 指针交互
-
-// 点击/双击判定不依赖浏览器的 dblclick 事件：两个版本同时运行时个别"按下"会被系统
-// 吞掉，Chromium 便不会产生 dblclick（表现为双击喂饭时灵时不灵）。这里自己数连击，
-// 500ms 内两次点击即喂饭；配合上面的孤儿 up 兜底，只有 up 也能算一次点击
-const DOUBLE_CLICK_MS = 500;
-let lastClickAt = 0;
-
-function handlePetClick() {
-  const now = Date.now();
-  clearTimeout(S.quipTimer);
-  if (now - lastClickAt < DOUBLE_CLICK_MS) {
-    lastClickAt = 0;
-    api.action('feed');
-    return;
-  }
-  lastClickAt = now;
-  S.quipTimer = setTimeout(() => {
-    wake();
-    S.mood = clamp(S.mood + 1, 0, 100);
-    playOnce(ANIM.clicks);
-    sfx('click');
-    const custom = usingCustomQuips();
-    const line = !custom && Math.random() < 0.3 ? creditsLine() : null;
-    if (custom) say(pick(quipsPool()), 3200);
-    else if (line) sayScene('ledger', line);
-    else sayClickCombo(pick(quipsPool()), 3200);
-    api.updateStats({ satiety: S.satiety, mood: S.mood });
-  }, 230);
-}
-
-// 采样当前动画帧/立绘的 alpha 包围盒，避免 Region 切掉立绘两侧或动作道具
-const maskCanvas = document.createElement('canvas');
-const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
-let maskCache = { at: 0, src: '', pose: false, box: null };
-
-function alphaBounds(el, w, h) {
-  if (!w || !h) return null;
-  const mw = 160;
-  const mh = Math.max(1, Math.round((mw * h) / w));
-  if (maskCanvas.width !== mw || maskCanvas.height !== mh) {
-    maskCanvas.width = mw;
-    maskCanvas.height = mh;
-  }
-  maskCtx.clearRect(0, 0, mw, mh);
-  try {
-    maskCtx.drawImage(el, 0, 0, mw, mh);
-  } catch {
-    return null;
-  }
-  const data = maskCtx.getImageData(0, 0, mw, mh).data;
-  let minX = mw, minY = mh, maxX = -1, maxY = -1;
-  for (let y = 0; y < mh; y++) {
-    const row = y * mw * 4;
-    for (let x = 0; x < mw; x++) {
-      if (data[row + x * 4 + 3] > 8) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
-    }
-  }
-  if (maxX < minX || maxY < minY) return null;
-  return { x0: minX / mw, y0: minY / mh, x1: (maxX + 1) / mw, y1: (maxY + 1) / mh };
-}
-
-function petRenderBox() {
-  const kind = charNow().kind;
-  const el = kind === 'pose' ? petImgEl : kind === 'sprite' ? petSpriteEl : vidEl;
-  const src = kind === 'sprite' ? `sprite:${spriteDrawn}` : el.currentSrc || el.getAttribute('src') || '';
-  const now = performance.now();
-  if (maskCache.box && maskCache.src === src && maskCache.pose === kind && now - maskCache.at < 120) return maskCache.box;
-  const rect = el.getBoundingClientRect();
-  const iw = kind === 'pose' ? petImgEl.naturalWidth : kind === 'sprite' ? SPRITE.cellW : vidEl.videoWidth;
-  const ih = kind === 'pose' ? petImgEl.naturalHeight : kind === 'sprite' ? SPRITE.cellH : vidEl.videoHeight;
-  const ab = alphaBounds(el, iw, ih);
-  let box = null;
-  if (ab && rect.width > 0 && rect.height > 0) {
-    const mirrored = flipEl.classList.contains('left');
-    const x0 = mirrored ? 1 - ab.x1 : ab.x0;
-    const x1 = mirrored ? 1 - ab.x0 : ab.x1;
-    box = {
-      x: rect.left + x0 * rect.width,
-      y: rect.top + ab.y0 * rect.height,
-      w: (x1 - x0) * rect.width,
-      h: (ab.y1 - ab.y0) * rect.height,
-    };
-  }
-  maskCache = { at: now, src, pose: kind, box };
-  return box;
-}
-
-// 真正可见的窗口区域：角色命中区 + 当前画面 alpha 包围盒 + 气泡 / 倒计时牌 / 特效 / Zzz。
-// Go 端用它生成窗口 Region，空白处不再挡住桌面点击与滚轮。
-function petHitBoxes(includeBubble = false) {
-  const boxes = [];
-  const add = (el, pad, hit) => {
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    if (!(r.width > 0) || !(r.height > 0)) return;
-    boxes.push({ x: r.left - pad, y: r.top - pad, w: r.width + pad * 2, h: r.height + pad * 2, hit: !!hit });
-  };
-  add(hitEl, 8, true);
-  const rb = petRenderBox();
-  if (rb) boxes.push({ x: rb.x - 6, y: rb.y - 6, w: rb.w + 12, h: rb.h + 12, hit: false });
-  const bubbleIncluded = includeBubble || bubbleEl.classList.contains('show') || Number(getComputedStyle(bubbleEl).opacity) > 0.02;
-  if (bubbleIncluded) {
-    add(bubbleEl, 8);
-    if (bubbleReserve > 0) {
-      const r = bubbleEl.getBoundingClientRect();
-      const down = bubbleEl.classList.contains('down');
-      // 换更长的文字时气泡会在同一帧变宽；贴屏幕边时还会整体平移。
-      // SetWindowRgn 比页面晚 2~3 帧，只按当前矩形预留会把新宽度裁成直边
-      // （非 v1 形象命中框窄，旧 Region 更窄，所以只有它们明显）。
-      const layoutW = bubbleEl.offsetWidth || r.width;
-      const maxW = (parseFloat(getComputedStyle(bubbleEl).maxWidth) || r.width) * (layoutW ? r.width / layoutW : 1);
-      const cx = r.left + r.width / 2;
-      const left = Math.min(r.left, cx - maxW + r.width / 2) - 8;
-      const right = Math.max(r.right, cx + maxW - r.width / 2) + 8;
-      boxes.push({
-        x: left,
-        y: r.top - 8 - (down ? 0 : bubbleReserve),
-        w: right - left,
-        h: r.height + 16 + bubbleReserve,
-        hit: false,
-      });
-    }
-  }
-  if (chipEl.classList.contains('show') || Number(getComputedStyle(chipEl).opacity) > 0.02) add(chipEl, 6);
-  for (const el of fxEl.children) add(el, 4);
-  if (stage.classList.contains('doze')) add(document.querySelector('.zzz'), 6);
-  return boxes;
-}
-window.__petHitBoxes = petHitBoxes;
-
-function hitTest(x, y) {
-  if (menuOpen && menuEl.classList.contains('show')) {
-    const m = menuEl.getBoundingClientRect();
-    if (x >= m.left && x <= m.right && y >= m.top && y <= m.bottom) return true;
-  }
-  const r = hitEl.getBoundingClientRect();
-  const pad = 6;
-  return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
-}
-
-hitEl.addEventListener('mousedown', (e) => {
-  if (e.button !== 0) return;
-  e.preventDefault();
-  closeMenu();
-  closeSettings();
-  closePicker();
-  S.dragging = true;
-  S.downAt = Date.now();
-  S.downX = e.clientX;
-  S.downY = e.clientY;
-  S.moved = 0;
-  P.dragOff.x = e.clientX - P.x;
-  P.dragOff.y = e.clientY - P.y;
-  P.target = null;
-  stage.classList.add('drag');
-  api.setDragging(true);
-  applyBase();
-  wake();
-});
-
-document.addEventListener('mousemove', (e) => {
-  S.mouse.x = e.clientX;
-  S.mouse.y = e.clientY;
-  applyLean(e.clientX, e.clientY);
-
-  if (!S.dragging) return;
-  S.moved = Math.max(S.moved, Math.hypot(e.clientX - S.downX, e.clientY - S.downY));
-  if (S.moved > 3) {
-    P.x = e.clientX - P.dragOff.x;
-    P.y = e.clientY - P.dragOff.y;
-    clampInBounds();
-  }
-});
-
-window.addEventListener('mouseup', () => {
-  if (!S.dragging) return;
-  S.dragging = false;
-  stage.classList.remove('drag');
-  api.setDragging(false);
-  applyBase();
-  if (S.moved < 6 && Date.now() - S.downAt < 500) handlePetClick();
-});
-
-document.addEventListener('contextmenu', (e) => {
-  e.preventDefault();
-  if (S.dragging || modalOpen()) return;
-  if (hitTest(e.clientX, e.clientY)) openMenu(e.clientX, e.clientY);
-  else {
-    closeMenu();
-    closePicker();
-  }
-});
-
-document.addEventListener('mousedown', (e) => {
-  if (modalOpen()) return;
-  if (menuOpen && !e.target.closest('#menu')) closeMenu();
-  if (settingsOpen && !e.target.closest('#settings')) closeSettings();
-  if (pickerOpen && !e.target.closest('#picker')) closePicker();
-});
-
 // ---------------------------------------------------------------- 主进程事件
 
-api.on('init', (st) => {
-  S.satiety = st.satiety;
-  S.mood = st.mood;
-  S.awake = st.awake;
-  S.ledger = st.ledger || null;
-  const set = st.settings || {};
-  S.ledgerOn = set.ledger !== false;
-  S.autoStart = !!set.autoStart;
-  S.safeResume = set.safeResume !== false;
-  S.fullscreenHide = set.fullscreenHide !== false;
-  S.memeOrder = set.memeOrder === 'random' ? 'random' : 'queue';
-  S.launchApp = typeof set.launchApp === 'string' ? set.launchApp : '';
-  applyFontFamily(set.fontFamily, false);
-  applyLedgerUI();
-  // 形象包要读磁盘、是异步的：先按内置形象起来，读完再把保存的包形象应用回去。
-  // 不要在包装好前就按包路径加载，否则 gpt 图集会先 404 一次（表现为闪一下空白）。
-  const savedChar = String(set.character || 'v1');
-  const needsPack = savedChar.startsWith('pack:') || !!CODE_CHAR_PACKS[savedChar];
-  applyCharacter(needsPack ? 'v1' : savedChar, false);
-  // 包形象要等注册完再问候，否则会在「先按 v1 起来」的阶段说成大肥鱼。
-  const greet = () => {
-    const hi = creditsLine();
-    const hello = charIntro();
-    setTimeout(() => say(hi ? `${hello} ${hi}` : hello, 4600), 700);
-  };
-  if (!needsPack) greet();
-  loadInstalledCharacters().then(() => {
-    if (needsPack && CHARS[savedChar]) applyCharacter(savedChar, false);
-    if (needsPack) greet();
-  });
-  applyFontSize(set.fontSize, false);
-  applySfx(set.sfx, false);
-  applyAutoActionSec(set.autoActionSec || 40, false);
-  S.ledgerSource = API_SOURCES.includes(set.ledgerSource) ? set.ledgerSource : 'qoder';
-  S.autoUpdate = set.autoUpdate !== false;
-  S.customQuips = Array.isArray(set.customQuips) ? set.customQuips : [];
-  S.useCustomQuips = set.useCustomQuips !== false;
-  S.pinnedActions = {};
-  if (set.pinnedActions && typeof set.pinnedActions === 'object') {
-    for (const [charId, list] of Object.entries(set.pinnedActions)) {
-      if (Array.isArray(list)) {
-        S.pinnedActions[charId] = list.filter((x) => typeof x === 'string').slice(0, PINS_MAX);
-      }
-    }
-  }
-  S.apiKeys = st.apiKeys || {};
-  if (st.version) {
-    setVersionEl.textContent = `v${st.version}`;
-    const aboutV = document.getElementById('about-version');
-    if (aboutV) aboutV.textContent = `v${st.version}`;
-  }
-  if (st.appName) {
-    const aboutName = document.getElementById('about-name');
-    if (aboutName) aboutName.textContent = st.appName;
-  }
-  applyKeysUI();
-  applyScale(set.scale, false);
-  applyPomoMin(set.pomoMin || 25, false);
-  applyPomoAnimSec(set.pomoAnimSec || 5, false);
-  if (st.pomodoro && st.pomodoro.running) setPomodoro(st.pomodoro);
-  const b = bounds();
-  if (st.pos) {
-    P.x = clamp(st.pos.x, b.minX, b.maxX);
-    P.y = clamp(st.pos.y, b.minY, b.maxY);
-  } else {
-    P.x = b.maxX - 80;
-    P.y = b.maxY - 60;
-  }
-  applyDock(set.dock, false);
-  // 初始化完成前不上报位置，避免把游戏开始前的 (0,0) 写进状态
-  window.__petPosReady = true;
-  const firstReport = api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale, force: true });
-  Promise.resolve(firstReport).then(
-    () => requestAnimationFrame(markPetReady),
-    () => requestAnimationFrame(markPetReady),
-  );
-  setTimeout(markPetReady, 1500); // Region 上报异常时也不能一直藏着
-  applyHungry();
-  applyDoze();
-  applyBase();
-  syncSettingsUI();
-  refreshAutostartHint();
-});
 
-api.on('power-resume', (p) => {
-  try {
-    if (p && Number.isFinite(p.x)) P.x = p.x;
-    if (p && Number.isFinite(p.y)) P.y = p.y;
-    clampInBounds();
-    api.reportPos({ x: Math.round(P.x), y: Math.round(P.y), s: petScale });
-    if (menuOpen) positionMenu();
-    if (settingsOpen) positionSettings();
-    if (pickerOpen) positionPicker();
-  } finally {
-    if (api.powerAck) api.powerAck(p && p.seq);
-  }
-});
 
-api.on('keys-updated', (keys) => {
-  S.apiKeys = keys || {};
-  applyKeysUI();
-});
+api.on('init', handleInit);
 
-api.on('words-updated', (w) => {
-  S.customQuips = Array.isArray(w && w.customQuips) ? w.customQuips : [];
-  S.useCustomQuips = !w || w.useCustomQuips !== false;
-  syncWordsUI();
-});
+api.on('power-resume', handlePowerResume);
 
-api.on('usage', (l) => {
-  S.ledger = l;
-  // 账本气泡开着的时候，异步结果回来必须就地重渲染：
-  // 以前只写进 S.ledger，用户看到的是打开瞬间那份空数据（issue #3）
-  if (l && !usageEl.classList.contains('hide') && bubbleEl.classList.contains('show')) {
-    showUsage(l, false);
-  }
-});
+api.on('keys-updated', handleKeysUpdated);
 
-api.on('show-usage', (l) => {
-  if (l) S.ledger = l;
-  showUsage(l);
-});
+api.on('words-updated', handleWordsUpdated);
 
-api.on('feed', (st) => {
-  if (st) {
-    S.satiety = st.satiety;
-    S.mood = st.mood;
-    applyHungry();
-  }
-  playEat();
-});
+api.on('usage', handleUsage);
 
-api.on('awake', (v) => {
-  S.awake = !!v;
-  if (S.awake) wake();
-  applyDoze();
-  if (!S.awake) sayScene('sleep', pick(sleepLines()), 2600);
-});
+api.on('show-usage', handleShowUsage);
+
+api.on('feed', handleFeed);
+
+api.on('awake', handleAwake);
 
 api.on('bubble', (t) => say(t));
 
 api.on('pomodoro', (p) => setPomodoro(p));
 
-api.on('pomodoro-done', () => {
-  setPomodoro({ running: false, remaining: 0 });
-  if (S.dock === 'roam') P.swimTo = { x: innerWidth / 2 - PET.cx, y: innerHeight / 2 - PET.cy };
-  playHappy();
-  burstHearts(6);
-  sayScene('happy', '专注结束啦，起来动一动～', 5000);
-});
+api.on('pomodoro-done', handlePomodoroDone);
 
 api.on('show-status', showStatus);
 
@@ -3655,14 +833,7 @@ api.on('show-settings', () => openSettings());
 api.on('show-picker', () => openPicker());
 
 // 主进程轮询光标：同时用于视线跟随与"被摸到就醒来"
-api.on('cursor', (c) => {
-  S.mouse.x = c.x;
-  S.mouse.y = c.y;
-  lastCursorAt = performance.now();
-  applyLean(c.x, c.y);
-  if (c.over && !S.over) wake();
-  S.over = !!c.over;
-});
+api.on('cursor', handleCursor);
 
 // ---------------------------------------------------------------- 循环
 
@@ -3695,8 +866,8 @@ setInterval(() => {
   }
 }, 30000);
 
-// 自动动作 / 专注工作动画心跳：250ms 检查一次，切换间隔更准
-setInterval(maybeShow, 250);
+// 自动动作 / 专注工作动画心跳：500ms 检查一次即可（最短自动间隔也有 5 秒）
+setInterval(maybeShow, 500);
 
 requestAnimationFrame(frame);
 
@@ -3779,3 +950,34 @@ if (!hasApi) {
 }
 
 api.ready();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

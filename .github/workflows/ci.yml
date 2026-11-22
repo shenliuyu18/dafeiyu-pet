@@ -37,8 +37,21 @@ jobs:
       - name: 脚本语法检查
         run: |
           node --check renderer/pet.js
+          node --check renderer/lib/i18n.js
+          node --check renderer/lib/format.js
+          node --check renderer/lib/motion.js
+          node --check renderer/lib/meme-queue.js
           node --check wails/frontend/api.js
           python -c "import ast,glob;[ast.parse(open(f,encoding='utf-8').read(),f) for f in glob.glob('tools/*.py')+glob.glob('tools/character-pack/*.py')]"
+
+      - name: 安装前端工具链
+        run: npm ci --no-audit --no-fund
+
+      - name: 前端类型检查
+        run: npm run typecheck
+
+      - name: 前端单元测试
+        run: npm run test:frontend
 
       # wails/frontend/dist 是 go:embed 的依赖，必须先由脚本生成
       - name: 生成前端资源
@@ -65,3 +78,7 @@ jobs:
       - name: 编译校验
         working-directory: wails
         run: go build -o "${{ runner.temp }}/dafeiyu-pet.exe" .
+
+
+
+

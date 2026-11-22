@@ -77,17 +77,28 @@ func startDebugServer(a *App) {
 	})
 	mux.HandleFunc("/fullscreen", func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
-		fsHidden, hidden, h := a.fsHidden, a.hidden, a.hwnd
+		h := a.hwnd
 		a.mu.Unlock()
-		resp := map[string]interface{}{
-			"active":   immersiveFullscreenActive(),
-			"fsHidden": fsHidden,
-			"hidden":   hidden,
-			"visible":  a.windowVisible(),
-			"hwnd":     h,
-		}
+		resp := a.FullscreenDiagnostics()
+		resp["visible"] = a.windowVisible()
+		resp["hwnd"] = h
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
+	})
+	mux.HandleFunc("/ledger", func(w http.ResponseWriter, r *http.Request) {
+		var l map[string]interface{}
+		if r.URL.Query().Get("refresh") == "1" {
+			l = a.RefreshUsage()
+		} else {
+			a.mu.Lock()
+			l = a.ledger
+			a.mu.Unlock()
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"source": a.ledgerSource(),
+			"ledger": l,
+		})
 	})
 	mux.HandleFunc("/resume", func(w http.ResponseWriter, r *http.Request) {
 		a.scheduleResumeCheck()

@@ -22,32 +22,50 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.5.2"
+var Version = "1.5.3"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
 
+// isolatedMode 由 --isolated 开启：独立状态目录 / 单实例 / 窗口类名，
+// 方便开发时和本机已安装版本同时运行、做真机性能与交互验证。
+var isolatedMode bool
+
+func isIsolated() bool { return isolatedMode }
+
 func isLite() bool { return Variant == "lite" }
 
 func appName() string {
+	base := "大肥鱼桌宠"
 	if isLite() {
-		return "大肥鱼桌宠 Lite"
+		base += " Lite"
 	}
-	return "大肥鱼桌宠"
+	if isolatedMode {
+		base += "（隔离调试）"
+	}
+	return base
 }
 
 func appDataDirName() string {
+	base := "dafeiyu-desktop-pet"
 	if isLite() {
-		return "dafeiyu-desktop-pet-lite"
+		base += "-lite"
 	}
-	return "dafeiyu-desktop-pet"
+	if isolatedMode {
+		base += "-isolated"
+	}
+	return base
 }
 
 func singleInstanceName() string {
+	name := `Global\dafeiyu-desktop-pet-wails`
 	if isLite() {
-		return `Global\dafeiyu-desktop-pet-wails-lite`
+		name += "-lite"
 	}
-	return `Global\dafeiyu-desktop-pet-wails`
+	if isolatedMode {
+		name += "-isolated"
+	}
+	return name
 }
 
 //go:embed all:frontend/dist
@@ -62,9 +80,10 @@ type Pomodoro struct {
 type App struct {
 	ctx context.Context
 
-	mu        sync.Mutex
-	state     map[string]interface{}
-	statePath string
+	mu         sync.Mutex
+	state      map[string]interface{}
+	statePath  string
+	stateDirty bool
 
 	hwnd      uintptr
 	className string
@@ -102,9 +121,14 @@ type App struct {
 	powerSeq        int
 	powerAckAt      time.Time
 
-	fsHidden     bool
-	fsClearSince time.Time
-	fsHits       int // 连续判定为全屏的采样次数（滞回用）
+	fsHidden  bool
+	fsDecider fullscreenHysteresis     // 隐藏/恢复的滞回状态机
+	fsLog     []map[string]interface{} // 最近的全屏判定记录（issue #2 诊断）
+	fsLast    bool                     // 上次记录的 active 值，用于只记录变化
+	fsHasLast bool
+	fsTopAt   time.Time // 上次补置顶的时间：全屏轮询 500ms 一次，没必要每次都查窗口样式
+
+	ledgerOK map[string]int64 // 各平台上次成功查询的时间（毫秒），失败时保留
 
 	regionMu      sync.Mutex
 	regionSet     bool
@@ -121,6 +145,7 @@ type App struct {
 }
 
 func main() {
+	isolatedMode = hasArg("--isolated")
 	if hasArg("--resume-restart-helper") {
 		runResumeRestartHelper()
 		return
@@ -131,6 +156,9 @@ func main() {
 	windowClass := "DafeiyuPetWindow"
 	if isLite() {
 		windowClass = "DafeiyuPetWindowLite"
+	}
+	if isolatedMode {
+		windowClass += "Isolated"
 	}
 	app := &App{
 		className: windowClass,
@@ -193,25 +221,31 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.words = NewWordsFilter(lex)
 	a.loadState()
+	a.healSelectedCharacter()
 	go startPowerMonitor(a)
 	a.SetupWindow()
 	go a.fullscreenLoop()
 	go a.cursorLoop()
+	go a.stateSaveLoop()
 	go a.startTray()
 	if hasArg("--dev-debug") {
 		go startDebugServer(a)
 	}
-	a.applyLoginItemAsync()
+	if !isolatedMode {
+		a.applyLoginItemAsync()
+	}
 	a.launchLinkedApp()
 	a.refreshUsage()
-	go func() {
-		time.Sleep(12 * time.Second)
-		if time.Since(time.Unix(millis(a.get("lastUpdateCheck")), 0)) > 24*time.Hour {
-			a.set("lastUpdateCheck", nowMillis())
-			a.saveState()
-			a.silentUpdateCheck()
-		}
-	}()
+	if !isolatedMode {
+		go func() {
+			time.Sleep(12 * time.Second)
+			if time.Since(time.Unix(millis(a.get("lastUpdateCheck")), 0)) > 24*time.Hour {
+				a.set("lastUpdateCheck", nowMillis())
+				a.saveState()
+				a.silentUpdateCheck()
+			}
+		}()
+	}
 	go func() {
 		t := time.NewTicker(5 * time.Minute)
 		defer t.Stop()
@@ -314,17 +348,44 @@ func clampF(v, lo, hi float64) float64 {
 
 func round1(v float64) float64 { return float64(int64(v*10+0.5)) / 10 }
 
-func crashLog(kind string, msg string) {
+func errorLogPath() string {
 	p := os.Getenv("TEMP")
 	if p == "" {
 		p = os.TempDir()
 	}
-	f, err := os.OpenFile(p+string(os.PathSeparator)+"dafeiyu-error.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	return p + string(os.PathSeparator) + "dafeiyu-error.log"
+}
+
+func crashLog(kind string, msg string) {
+	logPath := errorLogPath()
+	// 长期运行 / 反复失败时日志不能无限长：超过 1MB 就轮转一份 .1
+	if st, err := os.Stat(logPath); err == nil && st.Size() > 1<<20 {
+		_ = os.Remove(logPath + ".1")
+		_ = os.Rename(logPath, logPath+".1")
+	}
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return
 	}
 	defer f.Close()
 	fmt.Fprintf(f, "[%s] %s: %s\n", time.Now().Format(time.RFC3339), kind, msg)
+}
+
+// LogFrontend 接收前端未捕获异常，写入本机错误日志（不联网），方便用户反馈时定位。
+func (a *App) LogFrontend(level, msg string) {
+	switch level {
+	case "error", "warn", "info":
+	default:
+		level = "info"
+	}
+	msg = strings.TrimSpace(msg)
+	if msg == "" {
+		return
+	}
+	if r := []rune(msg); len(r) > 1500 {
+		msg = string(r[:1500]) + "…"
+	}
+	crashLog("frontend-"+level, msg)
 }
 
 func (a *App) assetFile(name string) (string, error) {
@@ -477,15 +538,14 @@ func (a *App) ReportPos(x, y, s float64, boxesJSON string, force bool) {
 		}
 	}
 	a.petInit = true
+	// 位置只标记 dirty，由 stateSaveLoop 合并落盘；退出 / 隐藏时会立即 flush
 	save := time.Since(a.lastSavedPos) > 20*time.Second
 	if save {
 		a.lastSavedPos = time.Now()
 		a.state["pos"] = map[string]interface{}{"x": int(x), "y": int(y)}
+		a.stateDirty = true
 	}
 	a.mu.Unlock()
-	if save {
-		a.saveState()
-	}
 	// 位置驱动的 Region 更新走节流（80ms 一次足够，移动速度远低于这个粒度）；
 	// 气泡显示 / 改尺寸等几何突变会带 force，必须绕过节流当场生效，
 	// 否则 SetWindowRgn 落后两三帧，首次亮出的气泡上半截会被旧 Region 裁掉。
@@ -528,8 +588,8 @@ func (a *App) UpdateStats(satiety, mood float64) {
 	a.mu.Lock()
 	a.state["satiety"] = clampF(satiety, 0, 100)
 	a.state["mood"] = clampF(mood, 0, 100)
+	a.stateDirty = true
 	a.mu.Unlock()
-	a.saveState()
 }
 
 func (a *App) SaveSettings(raw string) {
@@ -633,6 +693,12 @@ func (a *App) SaveSettings(raw string) {
 			a.state["sfx"] = str
 		}
 	}
+	if v, ok := apply("lang"); ok {
+		if str, ok := v.(string); ok && (str == "zh" || str == "en" || str == "ja") {
+			a.state["lang"] = str
+			a.setUILang(str)
+		}
+	}
 	if v, ok := apply("autoActionSec"); ok {
 		if f, ok := v.(float64); ok {
 			a.state["autoActionSec"] = int(clampF(mathRound(f), 5, 300))
@@ -693,7 +759,10 @@ func validChar(s string) bool {
 }
 
 func (a *App) PickApp() string {
-	p, err := openFileDialog(a.ctx)
+	p, err := openFileDialog(a.ctx,
+		a.t("选择要和桌宠一起启动的应用", "Choose an app to launch with the pet", "ペットと一緒に起動するアプリを選択"),
+		a.t("应用 / 快捷方式", "Applications / shortcuts", "アプリ / ショートカット"),
+		a.t("所有文件", "All files", "すべてのファイル"))
 	if err != nil {
 		return ""
 	}

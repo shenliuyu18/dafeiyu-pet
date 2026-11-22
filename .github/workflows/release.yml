@@ -23,6 +23,9 @@ jobs:
       # 素材脚本会打印中文文件名，CI 的 Python 默认 cp1252 会抛 UnicodeEncodeError
       PYTHONIOENCODING: utf-8
       PYTHONUTF8: '1'
+      # 可选：配置后自动给 SHA256SUMS.txt 签名，并在构建时注入公钥
+      UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+      UPDATE_SIGNING_PUBKEY: ${{ secrets.UPDATE_SIGNING_PUBKEY }}
       # 手动触发时用输入的 tag，push tag 时用 ref_name
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
@@ -111,6 +114,9 @@ jobs:
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           } | Set-Content -Encoding utf8NoBOM dist/SHA256SUMS.txt
 
+      - name: 可选：签名校验清单
+        run: node tools/sign-update.js dist/SHA256SUMS.txt
+
       - name: 发布到 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -119,6 +125,7 @@ jobs:
           files: |
             dist/*-setup.exe
             dist/SHA256SUMS.txt
+            dist/SHA256SUMS.txt.sig
           generate_release_notes: true
           # 带 -beta / -rc 的 tag 自动标为预发布
           prerelease: ${{ contains(env.TAG, '-') }}

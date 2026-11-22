@@ -64,23 +64,31 @@ type CharacterManifest struct {
 	Cover         string                `json:"cover"`
 	Source        string                `json:"source"`
 	License       string                `json:"license"`
+	MinAppVersion string                `json:"minAppVersion"`
+	Homepage      string                `json:"homepage"`
+	Tags          []string              `json:"tags"`
+	UpdatedAt     string                `json:"updatedAt"`
 	Slots         map[string]StringList `json:"slots"`
 	Actions       []CharacterAction     `json:"actions"`
 }
 
 // InstalledCharacter 是回给前端的精简结构
 type InstalledCharacter struct {
-	ID       string                `json:"id"`
-	Name     string                `json:"name"`
-	Version  string                `json:"version"`
-	Author   string                `json:"author"`
-	Desc     string                `json:"description"`
-	License  string                `json:"license"`
-	Cover    string                `json:"cover"` // 相对 URL，前端可直接 img src
-	Slots    map[string]StringList `json:"slots"`
-	Actions  []CharacterAction     `json:"actions"`
-	Bytes    int64                 `json:"bytes"`
-	Category []string              `json:"categories"` // 去重后的分类
+	ID            string                `json:"id"`
+	Name          string                `json:"name"`
+	Version       string                `json:"version"`
+	Author        string                `json:"author"`
+	Desc          string                `json:"description"`
+	License       string                `json:"license"`
+	Cover         string                `json:"cover"` // 相对 URL，前端可直接 img src
+	MinAppVersion string                `json:"minAppVersion"`
+	Homepage      string                `json:"homepage"`
+	Tags          []string              `json:"tags"`
+	UpdatedAt     string                `json:"updatedAt"`
+	Slots         map[string]StringList `json:"slots"`
+	Actions       []CharacterAction     `json:"actions"`
+	Bytes         int64                 `json:"bytes"`
+	Category      []string              `json:"categories"` // 去重后的分类
 }
 
 func (a *App) userConfigDir() string {
@@ -140,6 +148,27 @@ func (a *App) loadInstalledCharacter(id string) (*CharacterManifest, error) {
 	return &m, nil
 }
 
+// healSelectedCharacter 启动自检：选中的形象包已删除 / 清单损坏时回落到大肥鱼，避免启动后一片空白。
+func (a *App) healSelectedCharacter() {
+	a.mu.Lock()
+	id := str(a.state["character"], "")
+	a.mu.Unlock()
+	if !strings.HasPrefix(id, "pack:") {
+		return
+	}
+	pid := strings.TrimPrefix(id, "pack:")
+	if m, err := a.loadInstalledCharacter(pid); err == nil && validateManifest(m) == nil {
+		return
+	}
+	a.mu.Lock()
+	a.state["character"] = "v1"
+	a.stateDirty = true
+	a.mu.Unlock()
+	a.saveState()
+	a.balloon("error", a.displayName(), a.t("形象包读取失败，已切回大肥鱼；可在设置里重新下载", "Failed to load the character pack. Switched back to the big fish; you can download it again in Settings.", "キャラクターパックの読み込みに失敗しました。大肥魚に戻しました。設定から再ダウンロードできます。"))
+	crashLog("character-heal", id+" -> v1")
+}
+
 // ListInstalledCharacters 供前端启动时拉取：已安装的形象包 + 动作表
 func (a *App) ListInstalledCharacters() []InstalledCharacter {
 	out := []InstalledCharacter{}
@@ -174,6 +203,7 @@ func (a *App) ListInstalledCharacters() []InstalledCharacter {
 		out = append(out, InstalledCharacter{
 			ID: m.ID, Name: m.Name, Version: m.Version, Author: m.Author,
 			Desc: m.Description, License: m.License,
+			MinAppVersion: m.MinAppVersion, Homepage: m.Homepage, Tags: m.Tags, UpdatedAt: m.UpdatedAt,
 			Cover: cover, Slots: m.Slots, Actions: m.Actions, Bytes: size, Category: cats,
 		})
 	}
@@ -338,6 +368,9 @@ func safeJoin(base, rel string) (string, error) {
 func validateManifest(m *CharacterManifest) error {
 	if m.SchemaVersion != 1 {
 		return fmt.Errorf("schemaVersion 必须是 1（当前 %d）", m.SchemaVersion)
+	}
+	if m.MinAppVersion != "" && cmpVersion(Version, m.MinAppVersion) < 0 {
+		return fmt.Errorf("需要应用 %s 或更高版本（当前 %s）", m.MinAppVersion, Version)
 	}
 	if !packIDPattern.MatchString(m.ID) {
 		return fmt.Errorf("id 需为 2–32 位小写字母/数字/-/_，且以字母或数字开头（当前 %q）", m.ID)

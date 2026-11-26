@@ -57,24 +57,24 @@ dsh-meme 表情图库素材
   dshlearn-29.jpeg  （大肥鱼·学图（hZsFN 投稿），personal）
   dshlearn-30.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
   dshlearn-31.jpg  （大肥鱼·学图（hZsFN 投稿），personal）
-  dshgpt-01.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-02.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-03.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-04.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-05.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-06.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-07.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-08.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-09.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-10.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-11.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-12.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-13.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-14.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-15.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-16.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-17.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
-  dshgpt-18.png  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-01.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-02.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-03.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-04.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-05.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-06.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-07.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-08.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-09.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-10.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-11.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-12.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-13.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-14.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-15.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-16.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-17.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
+  dshgpt-18.webp  （GPT生大肥鱼（Anterique0 投稿），CC-BY-NC-SA-4.0）
 
 说明：dsh-meme 仓库代码采用 MIT；上述图片素材的授权按各自图库 manifest / dsh-meme-packs LICENSES.md 执行，不随代码 MIT 改变。
 如果要把本程序公开发布或商业使用，personal 图库部分必须先取得 yyh-001 及对应贡献者的许可。

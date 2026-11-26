@@ -4,6 +4,60 @@
 
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## [1.5.4] - 2026-11-26
+
+Main changes since 1.5.3: a power-saving mode plus leaner startup and idle cost; downloadable character packs upgraded to format 1.0.1 (lines, replies, memes, en/ja translations and sprite parameters ship with the pack); reworked settings and panels with complete trilingual coverage; and a batch of stability fixes around the pet disappearing, click-through, the ledger and updates.
+
+### Added
+
+-   **Power-saving mode**: settings → Idle & auto actions gains Auto / Always / Off. On battery, idle drops to 6 fps and roaming to 30 fps, the idle video pauses and a low-frequency breathing offset takes over; the page shows AC/battery live and a power change applies within seconds
+-   **Font weight**: Regular / Bold; fonts without that weight use the nearest one, and single-weight fonts use synthesized bold
+-   **Unified update-failure messages**: a failed download or install shows a copyable summary that distinguishes network errors, hash mismatches, package/version mismatch, installer launch failure and disk write failure
+-   **Action picker search and collapsible groups**: a live filter at the top and collapsible groups, so 100+ actions no longer require endless scrolling; the picker remembers your scroll position per character
+-   **Character-pack format 1.0.1**: a pack can now carry its lines, feed/hungry/sleep replies, memes, en/ja translations and sprite parameters; every action must declare a category and the picker groups by it. The store catalogue now points at 1.0.1 — old-format packs are incompatible and need re-downloading
+-   **Resumable and conditional updates**: interrupted downloads resume from the breakpoint (falling back to a full download when Range is unsupported); update checks use ETag/Last-Modified and skip re-downloading unchanged release info
+-   **State-file self-healing**: a corrupt state file is backed up as `.corrupt-*` and replaced with defaults
+-   **Window self-heal and visual diagnostics**: periodic checks of window size, visibility and z-order, plus a visual-stall watchdog and logs for DWM cloaking and fullscreen recovery durations (`visual-stall` / `cloak` / `fs-restore`)
+-   **Download/extract size caps**: oversized packs abort with a message instead of filling the disk
+
+### Changed
+
+-   **Settings reorganized**: eight scenario-based categories; language moved into “Language & text”; fullscreen/ledger diagnostics and diagnostics export folded into “About & help → Advanced diagnostics”; long explanations collapse; the duplicated README link is gone from About
+-   **Menu and visual polish**: Settings / Hide / Exit grouped after a separator, the ledger uses a 🧾 icon; helper text meets WCAG AA; store covers are larger and square
+-   **Ledger sources**: only DeepSeek / Kimi / SiliconFlow / OpenAI / Claude official APIs remain; Qoder local transcripts and Doubao are removed and old settings are cleaned on startup; Kimi / SiliconFlow fall back to the international site on auth failure; the default source is DeepSeek
+-   **Ledger settings and key entry**: switch, source, key and safety notes share one card; the key has its own block with a “Required / Configured” badge; key and custom-line dialogs open next to the pet (flipping sides when needed, closing on outside click or Esc, following the chosen font)
+-   **Ledger bubble**: the tray and bubble show the platform short name and available balance; without a key it points straight to setup; auto actions pause while the ledger is open
+-   **Self-drawn confirm dialogs**: replace native confirm/alert, with a red danger button, anchored to the triggering button
+-   **Cleaner uninstall**: removes the whole app-data directory, separated per Full/Lite variant
+-   **Auto-update is off by default for new installs**: the tray only notifies; enable it in settings
+-   **Download hints appear only when an update is available**
+-   **Other packs use only their own memes** (no fallback to the big-fish gallery); the self-intro uses the short pack name
+-   **Installed packs migrate automatically**: after upgrading, official packs installed earlier get the 1.0.1 manifest fields (version, action categories, en/ja translations and sprite parameters) filled in at startup — only `manifest.json` changes, a `.bak-*` backup is kept, and nothing is re-downloaded or fetched; third-party packs are left untouched
+-   **Trilingual coverage completed**: status bubbles, power-saving hints, update errors, store cards, key/custom-line dialogs, ledger errors and hints, pack action names and more follow the UI language
+
+### Fixed
+
+-   **Pet occasionally disappearing (main focus)**: title-barred full-screen windows, image viewers reporting D3D fullscreen (QUNS=3), Explorer reporting QUNS=5, z-order not restored after “show desktop”, and third-party apps changing window size/visibility are each tightened; recovery after a false hide is cut from about 2 s to about 1 s, with a final re-check before hiding
+-   **Blank window when Chromium resets the media pipeline**: a cover frame is kept ready, shown immediately on media resets or frame stalls and removed when frames return (`video-reload` / `media-emptied` in the log)
+-   **Click-through occasionally stuck**: the system can re-add `WS_EX_TRANSPARENT`, making the pet unclickable; it is now re-corrected against the real style every loop
+-   **Bubbles swallowing clicks**: only soft areas such as bubbles are interactive; action canvases and alpha envelopes no longer are
+-   **Edge clipping and flashing when switching animations or sources**: the old frame is held until the new video really presents a frame, and source switches are deferred until after the snapshot is composited
+-   **Panels and menus**: settings clipped after cancelling the uninstall dialog, the uninstall dialog too far from its button, the Shift+F10 menu closed by a second contextmenu, panels not cancellable while opening
+-   **Store and packs**: 404 covers/animations after packaging, old packs wrongly shown as updatable, legacy GPT-chan sprite packs rejected, local import using a Wails v1 dialog, missing download-progress events, installed list not refreshing
+-   **Ledger**: endless “reading the ledger” with no cache, stale errors after saving a key, auto actions interrupting the ledger
+-   **Updates and background**: package/version mismatch validation, backend and update-error messages not following the language
+-   **Other**: pet flashing on PrtSc, double-click feeding occasionally missing, flicker after drag release, store button fonts not following the setting, performance-budget script missing warnings
+
+### Performance & stability
+
+-   Leaner startup: no network requests before the first frame; cold start to first frame is about 0.23 s
+-   Store download progress updates per card, so a 40 MB download has no long tasks; panels open faster and store memory is released when settings close
+-   Lossless slimming for the full build: memes converted to lossless WebP, installer from 117 MB to about 96.6 MiB (101 MB), pixel-identical to the originals
+-   Streaming asset packaging cuts peak memory by more than 90% while producing byte-identical output
+-   Power-idle breathing moved from a 60 fps CSS animation to the main loop (~10 fps): renderer CPU in the same state drops from about 17% to about 9%
+-   Lower idle overhead: the cursor loop no longer queries work area/DPI every 30 ms (now every 2 s) and idles at 60 ms (16 ms near the pet, while dragging or with a panel open); the fallback cover frame refreshes every 3 s
+-   Performance budgets now cover first frame, store first open, download long tasks and main-process CPU
+
 ## [1.5.3] - 2026-11-22
 
 Main changes since 1.5.2: failed ledger queries can be self-diagnosed and re-checked, mandatory verification of update packages, fullscreen debouncing and diagnostics, state schema v2, diagnostic bundle export, complete Chinese / English / Japanese UI with a localized installer, and a batch of performance and stability improvements.

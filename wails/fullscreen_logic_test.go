@@ -30,13 +30,11 @@ func TestFullscreenHysteresisRestoreNeedsClearTicksAndDelay(t *testing.T) {
 	h.step(true, t0)
 	h.step(true, drift(t0, testTick))
 
+	// 第一次 clear：次数满足（clearTicks=1），但稳定时长还没到，不能恢复。
 	if got := h.step(false, drift(t0, 2*testTick)); got != fsDecisionNone {
-		t.Fatalf("first clear sample must not restore, got %v", got)
-	}
-	if got := h.step(false, drift(t0, 3*testTick)); got != fsDecisionNone {
 		t.Fatalf("restore must wait for %v, got %v", fullscreenRestoreDelay, got)
 	}
-	if got := h.step(false, drift(t0, 3*testTick+fullscreenRestoreDelay)); got != fsDecisionRestore {
+	if got := h.step(false, drift(t0, 2*testTick+fullscreenRestoreDelay)); got != fsDecisionRestore {
 		t.Fatalf("stable clear should restore, got %v", got)
 	}
 }

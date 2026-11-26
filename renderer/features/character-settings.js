@@ -5,6 +5,7 @@
 function applyCharacter(id, save) {
   // 图集/立绘型包的素材目录与代码里的形象 key 不同（gptv1 -> gpt），
   // 下载完成或旧状态里出现 pack:gptv1 时统一映射回代码 key，避免用视频播图集。
+  const prevKind = charNow().kind;
   const codeKey = Object.keys(CODE_CHAR_PACKS).find((k) => 'pack:' + CODE_CHAR_PACKS[k] === id);
   if (codeKey && CHARS[codeKey]) id = codeKey;
   const resolved = CHARS[id] ? id : 'v1';
@@ -27,13 +28,11 @@ function applyCharacter(id, save) {
   stopSpriteAnimation();
   pickerBuilt = false;
   pickerBody.innerHTML = '';
+  if (prevKind === 'video' || prevKind === 'pack') releaseVideo();
   if (kind === 'video' || kind === 'pack') {
     petImgEl.removeAttribute('src');
     petSpriteEl.getContext('2d').clearRect(0, 0, SPRITE.cellW, SPRITE.cellH);
     spriteDrawn = '';
-  } else {
-    vidEl.pause();
-    vidEl.removeAttribute('src');
   }
   if (kind === 'pose') {
     petSpriteEl.getContext('2d').clearRect(0, 0, SPRITE.cellW, SPRITE.cellH);
@@ -54,7 +53,7 @@ function applyCharacter(id, save) {
   }
   refreshMenu();
   syncSettingsUI();
-  renderStore();          // 商店列表的「使用中」标记必须跟着切换刷新，否则选中和实际使用对不上
+  markStoreDirty();       // 商店列表的「使用中」标记必须跟着切换刷新，否则选中和实际使用对不上
   applyBase();
   // 换形象后立刻按新动作表起一个基础动作；睡眠中必须继续睡，不能切回待机
   if (kind === 'video' || kind === 'pack') {

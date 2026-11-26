@@ -43,7 +43,6 @@ function dialogueLines() {
     }
   }
   data.QUIPS.forEach((x) => set.add(x));
-  data.GPT_QUIPS.forEach((x) => set.add(x));
   neutralLines().forEach((x) => set.add(x));
   extraMemes().forEach((m) => set.add(m.text));
   for (const arr of Object.values(data.MEMES)) arr.forEach((x) => set.add(x));
@@ -51,7 +50,7 @@ function dialogueLines() {
   return [...set];
 }
 
-test('全部角色台词与默认梗图都有英/日翻译', () => {
+test('内置形象台词与默认梗图都有英/日翻译', () => {
   const lines = dialogueLines();
   const missing = [];
   for (const line of lines) {

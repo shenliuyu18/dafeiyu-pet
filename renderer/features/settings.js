@@ -6,97 +6,62 @@
   'use strict';
 
 function saveSettings() {
-  api.saveSettings({
-    scale: petScale,
-    dock: S.dock,
-    pomoMin: S.pomoMin,
-    pomoAnimSec: S.pomoAnimSec,
-    ledger: S.ledgerOn,
-    autoStart: S.autoStart,
-    safeResume: S.safeResume,
-    fullscreenHide: S.fullscreenHide,
-    memeOrder: S.memeOrder,
-    launchApp: S.launchApp,
-    character: S.character,
-    fontFamily: S.fontFamily,
-    fontSize: S.fontScale,
-    sfx: S.sfx,
-    lang: S.lang,
-    autoActionSec: S.autoActionSec,
-    ledgerSource: S.ledgerSource,
-    autoUpdate: S.autoUpdate,
-    customQuips: S.customQuips,
-    useCustomQuips: S.useCustomQuips,
-    pinnedActions: S.pinnedActions,
-  });
+  api.saveSettings(window.PetLib.settingsPayload.settingsPayload(S, petScale));
+}
+
+function syncKeyBtn(btn, provider) {
+  if (!btn) return;
+  btn.dataset.key = provider;
+  const has = !!S.apiKeys[provider];
+  const name = API_LABEL[provider] || provider;
+  const label = btn.querySelector('.klabel');
+  const state = btn.querySelector('.kstate');
+  const badge = document.getElementById('set-key-badge');
+  if (label) label.textContent = `填写 ${name} API Key`;
+  if (state) state.textContent = has ? '已配置' : '去填写';
+  if (badge) {
+    badge.textContent = has ? '已配置 ✓' : '待填写';
+    badge.classList.toggle('ok', has);
+  }
+  btn.classList.toggle('ok', has);
+}
+
+function syncSegmentButtons(group, isSelected) {
+  if (!group) return;
+  for (const btn of group.querySelectorAll('button')) {
+    const selected = !!isSelected(btn);
+    btn.classList.toggle('on', selected);
+    btn.setAttribute('aria-pressed', String(selected));
+  }
 }
 
 function syncSettingsUI() {
   setSizeVal.textContent = `${Math.round(petScale * 100)}%`;
-  for (const btn of setSizes.querySelectorAll('button')) {
-    btn.classList.toggle('on', Math.abs(Number(btn.dataset.size) - petScale) < 0.001);
-  }
+  syncSegmentButtons(setSizes, (btn) => Math.abs(Number(btn.dataset.size) - petScale) < 0.001);
   setFontVal.textContent = `${Math.round(S.fontScale * 100)}%`;
-  if (setFonts) {
-    for (const btn of setFonts.querySelectorAll('button')) {
-      btn.classList.toggle('on', btn.dataset.font === S.fontFamily);
-    }
-  }
-  for (const btn of setSfx.querySelectorAll('button')) {
-    btn.classList.toggle('on', btn.dataset.sfx === S.sfx);
-  }
-  if (setLang) {
-    for (const btn of setLang.querySelectorAll('button')) {
-      btn.classList.toggle('on', btn.dataset.lang === S.lang);
-    }
-  }
-  for (const btn of setLedgerSrc.querySelectorAll('button')) {
-    btn.classList.toggle('on', btn.dataset.ledgerSrc === S.ledgerSource);
-  }
-  for (const btn of document.querySelectorAll('#set-api-keys button')) {
-    const p = btn.dataset.key;
-    btn.textContent = `${API_LABEL[p] || p} Key${S.apiKeys[p] ? ' ✓' : ''}`;
-    btn.classList.toggle('on', !!S.apiKeys[p]);
-  }
+  syncSegmentButtons(setFontWeights, (btn) => Number(btn.dataset.fw) === S.fontWeight);
+  syncSegmentButtons(setFonts, (btn) => btn.dataset.font === S.fontFamily);
+  syncSegmentButtons(setSfx, (btn) => btn.dataset.sfx === S.sfx);
+  syncSegmentButtons(setLang, (btn) => btn.dataset.lang === S.lang);
+  syncSegmentButtons(setLedgerSrc, (btn) => {
+    const selected = btn.dataset.ledgerSrc === S.ledgerSource;
+    btn.classList.toggle('has-key', !!S.apiKeys[btn.dataset.ledgerSrc]);
+    return selected;
+  });
+  syncKeyBtn(document.getElementById('set-key-btn'), S.ledgerSource);
   setAutoVal.textContent = `${S.autoActionSec} 秒`;
-  for (const btn of setDocks.querySelectorAll('button')) {
-    btn.classList.toggle('on', btn.dataset.dock === S.dock);
-  }
+  syncSegmentButtons(setDocks, (btn) => btn.dataset.dock === S.dock);
   setPomoVal.textContent = `${S.pomoMin} 分钟`;
-  for (const btn of setPomoPresets.querySelectorAll('button')) {
-    btn.classList.toggle('on', Number(btn.dataset.pomo) === S.pomoMin);
-  }
+  syncSegmentButtons(setPomoPresets, (btn) => Number(btn.dataset.pomo) === S.pomoMin);
   setPomoAnimVal.textContent = `${S.pomoAnimSec} 秒`;
-  for (const btn of setPomoAnimPresets.querySelectorAll('button')) {
-    btn.classList.toggle('on', Number(btn.dataset.pomoAnim) === S.pomoAnimSec);
-  }
-  for (const btn of setLedger.querySelectorAll('button')) {
-    btn.classList.toggle('on', (btn.dataset.ledger === '1') === S.ledgerOn);
-  }
-  for (const btn of setAutoStart.querySelectorAll('button')) {
-    btn.classList.toggle('on', (btn.dataset.autostart === '1') === S.autoStart);
-  }
-  if (setSafeResume) {
-    for (const btn of setSafeResume.querySelectorAll('button')) {
-      btn.classList.toggle('on', (btn.dataset.saferesume === '1') === S.safeResume);
-    }
-  }
-  if (setFullscreenHide) {
-    for (const btn of setFullscreenHide.querySelectorAll('button')) {
-      btn.classList.toggle('on', (btn.dataset.fullscreenhide === '1') === S.fullscreenHide);
-    }
-  }
-  if (setMemeOrder) {
-    for (const btn of setMemeOrder.querySelectorAll('button')) {
-      btn.classList.toggle('on', btn.dataset.memeorder === S.memeOrder);
-    }
-  }
-  const setAutoUpdate = document.getElementById('set-autoupdate');
-  if (setAutoUpdate) {
-    for (const btn of setAutoUpdate.querySelectorAll('button')) {
-      btn.classList.toggle('on', (btn.dataset.autoupdate === '1') === S.autoUpdate);
-    }
-  }
+  syncSegmentButtons(setPomoAnimPresets, (btn) => Number(btn.dataset.pomoAnim) === S.pomoAnimSec);
+  syncSegmentButtons(setLedger, (btn) => (btn.dataset.ledger === '1') === S.ledgerOn);
+  syncSegmentButtons(setAutoStart, (btn) => (btn.dataset.autostart === '1') === S.autoStart);
+  syncSegmentButtons(setSafeResume, (btn) => (btn.dataset.saferesume === '1') === S.safeResume);
+  syncSegmentButtons(setFullscreenHide, (btn) => (btn.dataset.fullscreenhide === '1') === S.fullscreenHide);
+  syncSegmentButtons(setMemeOrder, (btn) => btn.dataset.memeorder === S.memeOrder);
+  syncSegmentButtons(setPowerSave, (btn) => btn.dataset.powersave === S.powerSave);
+  syncSegmentButtons(setAutoUpdate, (btn) => (btn.dataset.autoupdate === '1') === S.autoUpdate);
   setAppName.textContent = S.launchApp ? S.launchApp.split(/[\\/]/).pop() : '未设置';
   setAppName.title = S.launchApp || '';
   syncWordsButtons();

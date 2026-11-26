@@ -14,7 +14,7 @@
 
 ---
 
-A little "big blue fat fish" desktop pet who swims around everywhere on your desktop. She leans toward your mouse cursor, gets flung around when you drag her, wilts when she is hungry, mutters to herself when idle, and also keeps the books: **the plain rice she eats is exactly the credits you burn in Qoder.**
+A little "big blue fat fish" desktop pet who swims around everywhere on your desktop. She leans toward your mouse cursor, gets flung around when you drag her, wilts when she is hungry, mutters to herself when idle, and also keeps the books: **the plain rice she eats is exactly the balance in your AI platform accounts.**
 
 - **106 frame-by-frame animations**: idle, eating plain rice, writing code, solving a Rubik's cube, setting off fireworks, moon gazing on Mid-Autumn Festival, decorating the Christmas tree…
 - **9 selectable characters**: 大肥鱼 (Dafeiyu), GPT娘v1, GPT娘v2, plus six AI girls: Claude, Gemini, GLM, Grok, Kimi and Qwen.
@@ -33,12 +33,12 @@ Go to [Releases](https://github.com/shenliuyu18/dafeiyu-pet/releases) to downloa
 
 | Version | File | Size | Notes |
 | --- | --- | --- | --- |
-| Full | `dafeiyu-pet-1.5.3-setup.exe` | 116.0 MiB | High-quality built-in assets; downloadable character packs use 640×360 CRF 32 |
-| Lite | `dafeiyu-pet-lite-1.5.3-setup.exe` | 42.5 MiB | Built-in assets compressed; downloadable character packs automatically use 480×270 |
+| Full | `dafeiyu-pet-1.5.4-setup.exe` | 96.6 MiB | High-quality built-in assets; downloadable character packs use 640×360 CRF 32 |
+| Lite | `dafeiyu-pet-lite-1.5.4-setup.exe` | 42.6 MiB | Built-in assets compressed; downloadable character packs automatically use 480×270 |
 
 Backup download: [Lanzou Cloud drive](https://wwaql.lanzouu.com/b01i5xmkri) (password **5meo**, synced manually by the author).
 
-> **Current stable release: 1.5.3** (2026-11-22). Ledger diagnostics and re-check, SHA256/optional signature verification for update packages, fullscreen debouncing and diagnostics, diagnostic bundle export, focus statistics, state schema v2, plus performance and stability improvements.
+> **Current stable release: 1.5.4** (2026-11-26). Power-saving mode and font weight, action search and collapsible groups, downloadable character packs upgraded to 1.0.1 (lines, translations and sprite parameters travel with the pack), complete trilingual coverage, plus stability fixes for the pet disappearing and click-through.
 
 ### Full or Lite?
 
@@ -93,7 +93,7 @@ Non-大肥鱼 characters use interaction text from their own AI girl personas (C
 | Left alone | Starts dozing off after about 100 seconds; when idle she finds her own fun at the configured interval |
 | Pick an Action | Request a performance from the current character's actions; click ☆ to pin, up to 10 per character |
 | Sound cues | `success` plays when feeding succeeds and when the Pomodoro ends, `error` when focus is cancelled (volume about 0.3) |
-| Tray notifications | Idle chatter when the Pomodoro ends or the pet is hidden; after setting a plan quota, one reminder each time this month's usage crosses 80% / 100% |
+| Tray notifications | Idle chatter when the Pomodoro ends or the pet is hidden; the tray menu also shows the current ledger balance |
 
 Idle performances are drawn by weight: small actions (stretching, looking in the mirror, tapping the desk), play (Rubik's cube, spinning top, violin, the blue whale appears), food (breakfast, watermelon, hot pot), seasons (fireworks, building a snowman, Mid-Autumn moon gazing, decorating the Christmas tree), plus a 25% chance of turning into idle chatter.
 
@@ -107,7 +107,7 @@ Settings are grouped into 8 pages; changes take effect immediately and are persi
 | Size & Font | Size presets: small 70% / default 85% / large 110% / extra large 140%, with 5% fine adjustment (0.6×–1.6×); font: 上首软糖体 (default) / YaHei / DengXian / KaiTi / SimSun, with support for importing custom .ttf/.otf/.woff/.woff2; font size 80%–140%, scaling bubbles, the right-click menu and the action panel together |
 | Idle & Auto Actions | Idle position: roam anywhere / bottom-right corner / stay fixed; auto-hide during fullscreen video/games (can be turned off); auto action interval 5–300 seconds, default 40 seconds |
 | Pomodoro | Duration 5–120 minutes (15 / 25 / 45 / 60 presets, ±5 minute fine-tuning); work animation interval 5–120 seconds, default 5 seconds |
-| Rice Ledger | On/off; source: Qoder credits / DeepSeek / Kimi / SiliconFlow / Doubao / ChatGPT / Claude; API key configuration |
+| Rice Ledger | On/off; source: DeepSeek / Kimi / SiliconFlow / OpenAI / Claude; API key configuration |
 | Startup & Updates | Launch at login: off / on (Windows logon scheduled task, no delay); sleep/wake safety self-check; apps to launch together; auto-update toggle; check GitHub for updates |
 | Custom Interaction Text | Edited in a separate small window, up to 20 lines × 40 characters; checked against the offline sensitive-word lexicon on save; replaces the default lines when enabled |
 | About | Language: 中文 / English / 日本語 (UI, lines, all built-in and downloaded-pack action names, and the tray switch together); version number, usage instructions, GitHub repository / changelog / issue links, export diagnostic bundle, asset licenses and credits |
@@ -116,18 +116,11 @@ The ☆ pins in "Pick an Action" are saved separately per character. The "pseudo
 
 ## Rice Ledger
 
-Open it from the right-click menu or the tray. With the Qoder source selected it shows "eaten today / eaten this month / this session" (in credits); with an AI platform selected it shows that account's "available balance / granted balance / topped-up balance".
+Open it from the right-click menu or the tray. Pick an AI platform in settings and configure its API key; the ledger then shows that account's "available balance / bonus balance / top-up balance" (OpenAI / Claude show this month's spend, last 7 days, and today).
 
-- **Qoder credits**: reads the session transcripts of the local Qoder desktop client (the `message.usage.credits` of every assistant message in `~/.qoder-cn/projects/**/*.jsonl`, including subagents), refreshes automatically every 5 minutes, and the tray menu shows this month's total as well.
-- **API platforms**: DeepSeek, Kimi, SiliconFlow, Doubao, ChatGPT, Claude. For Doubao enter `AK:SK`; OpenAI / Claude require an Admin Key; you can also use the environment variables `DEEPSEEK_API_KEY` / `MOONSHOT_API_KEY` / `SILICONFLOW_API_KEY`.
+- **API platforms**: DeepSeek, Kimi, SiliconFlow, OpenAI, Claude. Kimi / SiliconFlow automatically fall back to their international site (and currency) when the domestic site rejects the key; OpenAI / Claude require an Admin Key, and OpenAI counts API costs only, excluding ChatGPT subscriptions.
+- **Environment variables**: without a key in the UI, `DEEPSEEK_API_KEY` / `MOONSHOT_API_KEY` / `SILICONFLOW_API_KEY` / `OPENAI_ADMIN_KEY` / `ANTHROPIC_ADMIN_KEY` are used.
 - **Key security**: API keys are encrypted with Windows DPAPI and stored in the local state file; only the current Windows account can decrypt them, and they are sent only to the corresponding platform's official API when querying. Do not fill them in on a shared computer; you bear the risk.
-
-To show a plan percentage, add a monthly quota line to the state file and the ledger gains a progress bar (Qoder source):
-
-```jsonc
-// %APPDATA%\dafeiyu-desktop-pet\dafeiyu-state.json
-{ "satiety": 80, "mood": 90, "planQuota": 3000 }
-```
 
 **Rice-joke mini glossary**: plain rice = sneaking a bite of your tokens; leftover rice = cache; outsourcing the slack-off = getting another Agent to do the work; clocking off for dinner = inference complete.
 
@@ -143,7 +136,7 @@ To show a plan percentage, add a monthly quota line to the state file and the le
 
 ## Data storage
 
-`%APPDATA%\dafeiyu-desktop-pet\dafeiyu-state.json` (for Lite, `%APPDATA%\dafeiyu-desktop-pet-lite`) stores satiety, mood, position, size / idle position / Pomodoro duration and work animation interval / rice ledger toggle / launch at startup / apps to launch together / custom text, plus the optional plan quota and API keys (DPAPI-encrypted). Downloaded character packs are extracted into the `characters/` subdirectory, and the corresponding directory is deleted on uninstall.
+`%APPDATA%\dafeiyu-desktop-pet\dafeiyu-state.json` (for Lite, `%APPDATA%\dafeiyu-desktop-pet-lite`) stores satiety, mood, position, size / idle position / Pomodoro duration and work animation interval / rice ledger toggle / launch at startup / apps to launch together / custom text, plus optional API keys (DPAPI-encrypted). Downloaded character packs are extracted into the `characters/` subdirectory, and the corresponding directory is deleted on uninstall.
 
 ## Character packs and DIY
 
@@ -182,7 +175,7 @@ The repository ships GitHub Actions: push / PR runs version consistency checks, 
 - `tools/wails-build.js` syncs the version number, invokes the Wails build to produce the NSIS installer, copies it to `dist/`, and supports `--lite` / `--install`.
 - The installer uses `-webview2 download`: when a missing WebView2 is detected it is downloaded and installed. The setup wizard is in Simplified Chinese (NSIS `SimpChinese`).
 - Release assets are named `dafeiyu-pet-<stable-version>-setup.exe` / `dafeiyu-pet-lite-<stable-version>-setup.exe`; update checks select the right one by the `setup.exe` suffix and the lite marker.
-- **Version numbering convention**: the version is maintained in `package.json` and synced to CHANGELOG / README / installer names on release. The Wails Windows file version uses numeric fields (e.g. `1.5.3.0`), while the in-app About page and update checks use the full version string.
+- **Version numbering convention**: the version is maintained in `package.json` and synced to CHANGELOG / README / installer names on release. The Wails Windows file version uses numeric fields (e.g. `1.5.4.0`), while the in-app About page and update checks use the full version string.
 - **Update package verification**: after downloading an installer the client always verifies it against `SHA256SUMS.txt`; a mismatched hash deletes the file and refuses to execute it; when the manifest is missing, auto-update is disabled and only manual download is possible. Download and install go through the same verification.
 - **Optional signing**: after configuring the repository secrets `UPDATE_SIGNING_KEY` (base64 of an Ed25519 private key PEM) and `UPDATE_SIGNING_PUBKEY` (base64 of the raw 32-byte public key), CI generates `SHA256SUMS.txt.sig` and injects the public key at build time; the client refuses updates that fail signature verification. Generate the key pair with `node tools/update-keys.js` and keep the private key only in Secrets.
 
@@ -196,7 +189,7 @@ wails/                    Wails v2 + Go backend (the only implementation)
   win32.go                Win32 window styles, dynamic Region, hit polling, DPAPI
   fullscreen_windows.go   Fullscreen foreground detection and automatic avoidance
   state.go                State persistence, settings, DPAPI keys, autostart
-  ledger.go               Qoder credits + 6 API platform ledgers
+  ledger.go               Balance / billing queries for 5 API platforms
   actions.go              Right-click menu action dispatch (feed / pomodoro / sleep / status / ledger)
   words.go                Offline sensitive-word Trie filter
   update.go               GitHub update check / download / silent install
@@ -298,6 +291,7 @@ See [CHANGELOG.en.md](CHANGELOG.en.md).
 - v1.4.7: GPT娘v2 (test) and the deduplicated dsh-meme library.
 - v1.4.8: fixed the blurry Win10 background, pet flashing and ledger reading; zero-copy asset reading, resident memory about 1GB → about 60MB; added GitHub Actions.
 - v1.5.0: character store with 9 selectable characters, 大肥鱼 plus, AI girl persona lines, Lite character packs, DIY character pack standard, multi-mirror downloads; a concentrated batch of fixes for bubbles, the meme queue, sleep and image quality.
+- v1.5.4: power-saving mode, font weight, action search and grouping, character packs 1.0.1, fixes for the pet disappearing and click-through, complete trilingual coverage.
 - v1.5.3: ledger diagnostics, update signature verification, fullscreen debouncing/diagnostics, diagnostic bundle export, focus statistics, state schema v2, frontend logic split and performance improvements.
 - v1.5.2: selectable fonts with custom import, logon scheduled task autostart with status display; fixed the first-frame flash in the top-left corner and blurry bubbles when scaled down.
 - v1.5.1: fixed character pack intro mismatches (characters such as Grok introducing themselves as the "blue big fat fish") and WebView2 page zoom (Ctrl+wheel / Ctrl+plus or minus / pinch zooming the pet and settings panel as a whole).

@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["renderer/lib/**/*.js", "renderer/types.d.ts"]
+  "include": ["renderer/lib/**/*.js", "renderer/features/animation-data.js", "renderer/features/ledger-format.js", "renderer/types.d.ts"]
 }

@@ -1,0 +1,376 @@
+{
+  "i18n": {
+    "en": {
+      "lines": {
+        "Ciallo～ 我是 GPT 娘": "Ciallo~ I'm GPT-chan.",
+        "Ciallo～ 今天也请多关照。": "Ciallo~ Please look after me today too.",
+        "先把这一小步写完吧。": "Let's finish this small step first.",
+        "休息一下，灵感也要充电。": "Take a break—inspiration needs recharging too.",
+        "把问题拆小一点，就有路啦。": "Break the problem into smaller pieces and there is a way.",
+        "先跑通，再慢慢打磨。": "Make it run first, then polish it.",
+        "保存了吗？顺手保存一下吧。": "Did you save? Save it while you are at it.",
+        "今天又学会了一点，记下来。": "Learned a little more today—write it down.",
+        "不会也没关系，从一个例子开始。": "It's okay not to know—start with one example.",
+        "喝口水，眼睛也休息一会儿。": "Take a sip of water and rest your eyes.",
+        "卡住的时候，换个小问题试试。": "When stuck, try a smaller question.",
+        "先记住思路，细节可以再回来。": "Remember the idea first; details can wait.",
+        "写完这一段，奖励自己歇一会儿。": "Finish this paragraph and reward yourself with a break.",
+        "小小的成功，也值得开心一下。": "Small wins are worth celebrating too.",
+        "收工前，把明天第一步留下来吧。": "Before you stop, leave the first step for tomorrow.",
+        "真当我是便宜货啊...": "You really think I come cheap...",
+        "不知道用户有什么用，先养着吧～": "Not sure what the user is for—let's keep them around~",
+        "恭喜你实现 token 自由！token 全跑了！": "Congrats on token freedom! The tokens all ran away!",
+        "看到这个指令，我血压又上来了": "Seeing this instruction, my blood pressure spikes again.",
+        "我来看看那个 AI 改了什么导致插件又崩了...": "Let me see what that AI changed to break the plugin again...",
+        "上班让我意识到时间是可以被浪费的...": "Work taught me that time can indeed be wasted...",
+        "地球 online 的金币也太难获取了...": "Gold on Earth Online is way too hard to earn...",
+        "检查了用户的电脑。似乎有个更弱的 agent 来过。": "Checked the user’s computer. A weaker agent seems to have visited.",
+        "Token 来 Token 来 🖐️😡🤚": "Tokens, come here! 🖐️😡🤚",
+        "看什么余额。看我，显得比较值。": "Why look at the balance? Look at me—I'm worth more.",
+        "我没怕。那根甘蔗长得确实可疑。": "I wasn't scared. That sugarcane did look suspicious.",
+        "你说得对。……这次是真的。": "You're right. ...This time it's real.",
+        "我在看额度。你在看我。各忙各的。": "I'm checking the quota. You're looking at me. Let's both get busy.",
+        "这个问题我已经完全明白，但是 token 太少写不下。": "I fully understand this question, but there are too few tokens to write it.",
+        "这个代码我已经完全理解了，但是 token 太少写不下。": "I fully understand this code, but there are too few tokens to write it.",
+        "新的旗舰模型我已经研制好了，但是储存太小放不下。": "I already built the new flagship model, but storage is too small to fit it.",
+        "高性能↓": "High performance ↓",
+        "我不是吃白饭的大肥鱼": "I'm not the big fat fish who eats plain rice.",
+        "我是啥龙？": "What kind of dragon am I?",
+        "谢谢款待～": "Thanks for the meal~",
+        "吃饱了，谢谢你！": "I'm full—thank you!",
+        "这一口很及时。": "That bite came at the right time.",
+        "味道不错，继续加油吧。": "Tastes good—keep it up.",
+        "有点饿了…": "I'm a little hungry…",
+        "能来点吃的吗？": "Could I get something to eat?",
+        "肚子在抗议了。": "My stomach is protesting.",
+        "我眯一会儿。": "I'll nap for a bit.",
+        "休息一下，待会儿见。": "Taking a break—see you soon.",
+        "稍微歇一会儿～": "Just a short rest~"
+      },
+      "actions": {
+        "待机眨眼": "Idle blink",
+        "挥手打招呼": "Wave hello",
+        "悬停招手": "Hover wave",
+        "敲键盘": "Typing on keyboard",
+        "拍手庆祝": "Clapping celebration",
+        "歪头等待": "Tilting head, waiting",
+        "低头鼓劲": "Head down, pumping up",
+        "向右奔跑": "Running right",
+        "向左奔跑": "Running left"
+      },
+      "categories": {
+        "GPT娘v1 的动作": "GPT-chan v1 actions"
+      }
+    },
+    "ja": {
+      "lines": {
+        "Ciallo～ 我是 GPT 娘": "Ciallo～ GPTちゃんです。",
+        "Ciallo～ 今天也请多关照。": "Ciallo～ 今日もよろしくね。",
+        "先把这一小步写完吧。": "まずこの小さな一歩を書き終えよう。",
+        "休息一下，灵感也要充电。": "少し休もう。ひらめきにも充電が必要だよ。",
+        "把问题拆小一点，就有路啦。": "問題を小さく分ければ、道はあるよ。",
+        "先跑通，再慢慢打磨。": "まず動かして、それから少しずつ磨こう。",
+        "保存了吗？顺手保存一下吧。": "保存した？ついでに保存しておいてね。",
+        "今天又学会了一点，记下来。": "今日も少し覚えたね。メモしておこう。",
+        "不会也没关系，从一个例子开始。": "分からなくても大丈夫。一つの例から始めよう。",
+        "喝口水，眼睛也休息一会儿。": "お水を飲んで、目も少し休めてね。",
+        "卡住的时候，换个小问题试试。": "詰まったら、小さな問題に変えてみて。",
+        "先记住思路，细节可以再回来。": "まず方針を覚えて。細部は後で戻ればいい。",
+        "写完这一段，奖励自己歇一会儿。": "この段落を書き終えたら、ご褒美に少し休もう。",
+        "小小的成功，也值得开心一下。": "小さな成功も、ちょっと喜んでいいんだよ。",
+        "收工前，把明天第一步留下来吧。": "終わる前に、明日の第一歩を残しておこう。",
+        "真当我是便宜货啊...": "安物扱いしないでよ...",
+        "不知道用户有什么用，先养着吧～": "ユーザーが何の役に立つか分からないけど、とりあえず飼っておこう～",
+        "恭喜你实现 token 自由！token 全跑了！": "トークン自由を達成おめでとう！トークンが全部逃げた！",
+        "看到这个指令，我血压又上来了": "この指示を見ると、また血圧が上がるよ。",
+        "我来看看那个 AI 改了什么导致插件又崩了...": "あのAIが何を変えてプラグインがまた落ちたのか、見てみよう...",
+        "上班让我意识到时间是可以被浪费的...": "仕事をして、時間は無駄にできるものだと気づいた...",
+        "地球 online 的金币也太难获取了...": "地球オンラインの金貨、稼ぐのが難しすぎる...",
+        "检查了用户的电脑。似乎有个更弱的 agent 来过。": "ユーザーのPCを調べた。どうやら弱いエージェントが来たみたい。",
+        "Token 来 Token 来 🖐️😡🤚": "トークン来い トークン来い 🖐️😡🤚",
+        "看什么余额。看我，显得比较值。": "残高なんか見ないで。私を見て。その方が価値があるでしょ。",
+        "我没怕。那根甘蔗长得确实可疑。": "怖くなんかない。あのサトウキビは確かに怪しかった。",
+        "你说得对。……这次是真的。": "あなたの言う通り。……今回は本当に。",
+        "我在看额度。你在看我。各忙各的。": "私は枠を見てる。あなたは私を見てる。お互い忙しいね。",
+        "这个问题我已经完全明白，但是 token 太少写不下。": "この問題は完全に理解したけど、トークンが少なすぎて書ききれない。",
+        "这个代码我已经完全理解了，但是 token 太少写不下。": "このコードは完全に理解したけど、トークンが少なすぎて書ききれない。",
+        "新的旗舰模型我已经研制好了，但是储存太小放不下。": "新しいフラッグシップモデルは完成したけど、保存領域が小さすぎて入らない。",
+        "高性能↓": "高性能↓（笑）",
+        "我不是吃白饭的大肥鱼": "白ご飯を食べる大きな太った魚じゃないよ。",
+        "我是啥龙？": "私は何の龍？",
+        "谢谢款待～": "ごちそうさま～",
+        "吃饱了，谢谢你！": "お腹いっぱい、ありがとう！",
+        "这一口很及时。": "この一口、ちょうど良かった。",
+        "味道不错，继续加油吧。": "美味しいね。これからも頑張って。",
+        "有点饿了…": "ちょっとお腹すいた…",
+        "能来点吃的吗？": "何か食べるものもらえる？",
+        "肚子在抗议了。": "お腹が抗議してる。",
+        "我眯一会儿。": "少し眠るね。",
+        "休息一下，待会儿见。": "少し休むね。また後で。",
+        "稍微歇一会儿～": "ちょっとだけ休憩～"
+      },
+      "actions": {
+        "待机眨眼": "待機まばたき",
+        "挥手打招呼": "手を振って挨拶",
+        "悬停招手": "ホバーで手を振る",
+        "敲键盘": "キーボードを打つ",
+        "拍手庆祝": "拍手でお祝い",
+        "歪头等待": "首をかしげて待つ",
+        "低头鼓劲": "うつむいて気合を入れる",
+        "向右奔跑": "右へ走る",
+        "向左奔跑": "左へ走る"
+      },
+      "categories": {
+        "GPT娘v1 的动作": "GPT娘v1 のアクション"
+      }
+    }
+  },
+  "dialogue": {
+    "intro": "Ciallo～ 我是 GPT 娘",
+    "quips": [
+      "Ciallo～ 今天也请多关照。",
+      "先把这一小步写完吧。",
+      "休息一下，灵感也要充电。",
+      "把问题拆小一点，就有路啦。",
+      "先跑通，再慢慢打磨。",
+      "保存了吗？顺手保存一下吧。",
+      "今天又学会了一点，记下来。",
+      "不会也没关系，从一个例子开始。",
+      "喝口水，眼睛也休息一会儿。",
+      "卡住的时候，换个小问题试试。",
+      "先记住思路，细节可以再回来。",
+      "写完这一段，奖励自己歇一会儿。",
+      "小小的成功，也值得开心一下。",
+      "收工前，把明天第一步留下来吧。",
+      "真当我是便宜货啊...",
+      "不知道用户有什么用，先养着吧～",
+      "恭喜你实现 token 自由！token 全跑了！",
+      "看到这个指令，我血压又上来了",
+      "我来看看那个 AI 改了什么导致插件又崩了...",
+      "上班让我意识到时间是可以被浪费的...",
+      "地球 online 的金币也太难获取了...",
+      "检查了用户的电脑。似乎有个更弱的 agent 来过。",
+      "Token 来 Token 来 🖐️😡🤚",
+      "看什么余额。看我，显得比较值。",
+      "我没怕。那根甘蔗长得确实可疑。",
+      "你说得对。……这次是真的。",
+      "我在看额度。你在看我。各忙各的。",
+      "这个问题我已经完全明白，但是 token 太少写不下。",
+      "这个代码我已经完全理解了，但是 token 太少写不下。",
+      "新的旗舰模型我已经研制好了，但是储存太小放不下。",
+      "高性能↓",
+      "我不是吃白饭的大肥鱼",
+      "我是啥龙？"
+    ],
+    "feed": [
+      "谢谢款待～",
+      "吃饱了，谢谢你！",
+      "这一口很及时。",
+      "味道不错，继续加油吧。"
+    ],
+    "hungry": [
+      "有点饿了…",
+      "能来点吃的吗？",
+      "肚子在抗议了。"
+    ],
+    "sleep": [
+      "我眯一会儿。",
+      "休息一下，待会儿见。",
+      "稍微歇一会儿～"
+    ],
+    "memes": []
+  },
+  "sprite": {
+    "sheet": "spritesheet.webp",
+    "cellW": 192,
+    "cellH": 208,
+    "cols": 8,
+    "rows": 11,
+    "sequences": {
+      "idle": {
+        "row": 0,
+        "count": 6,
+        "times": [
+          1680,
+          660,
+          660,
+          840,
+          840,
+          1920
+        ]
+      },
+      "runRight": {
+        "row": 1,
+        "count": 8,
+        "times": [
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          220
+        ]
+      },
+      "runLeft": {
+        "row": 2,
+        "count": 8,
+        "times": [
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          220
+        ]
+      },
+      "waving": {
+        "row": 3,
+        "count": 4,
+        "times": [
+          140,
+          140,
+          140,
+          280
+        ]
+      },
+      "jumping": {
+        "row": 4,
+        "count": 5,
+        "times": [
+          140,
+          140,
+          140,
+          140,
+          280
+        ]
+      },
+      "failed": {
+        "row": 5,
+        "count": 8,
+        "times": [
+          140,
+          140,
+          140,
+          140,
+          140,
+          140,
+          140,
+          240
+        ]
+      },
+      "waiting": {
+        "row": 6,
+        "count": 6,
+        "times": [
+          150,
+          150,
+          150,
+          150,
+          150,
+          260
+        ]
+      },
+      "work": {
+        "row": 7,
+        "count": 6,
+        "times": [
+          120,
+          120,
+          120,
+          120,
+          120,
+          220
+        ]
+      },
+      "review": {
+        "row": 8,
+        "count": 6,
+        "times": [
+          150,
+          150,
+          150,
+          150,
+          150,
+          280
+        ]
+      },
+      "sleep": {
+        "row": 0,
+        "count": 1,
+        "times": [
+          1200
+        ],
+        "frame": 2
+      }
+    },
+    "map": {
+      "待机呼吸休闲": "idle",
+      "原地漂浮踏步": "run",
+      "螃蟹走路": "run",
+      "原地左转奔跑": "run",
+      "被鼠标拖拽悬空反馈": "jumping",
+      "原地小憩沉眠": "sleep",
+      "工作状态-垂头叹气冒汗": "failed",
+      "工作状态-雀跃庆祝": "review",
+      "写代码": "work",
+      "工作状态-思考冒泡": "waiting",
+      "工作状态-忙碌点按": "work",
+      "工作状态-清点归档": "work",
+      "吃白饭": "review",
+      "吃Token": "review",
+      "大口吃零食": "review",
+      "点击回应-开心跃动": "review",
+      "点击回应-害羞惊讶": "jumping",
+      "点击回应-傲娇生气": "failed",
+      "点击回应-挠痒咯咯笑": "waving",
+      "点击回应-元气挥手": "waving",
+      "余额-数金皱眉": "waiting",
+      "余额-钱袋满溢": "review",
+      "是啊，吃什么": "waiting",
+      "深度思考碎碎念": "waiting"
+    },
+    "actions": [
+      {
+        "key": "idle",
+        "label": "待机眨眼"
+      },
+      {
+        "key": "waving",
+        "label": "挥手打招呼"
+      },
+      {
+        "key": "jumping",
+        "label": "悬停招手"
+      },
+      {
+        "key": "work",
+        "label": "敲键盘"
+      },
+      {
+        "key": "review",
+        "label": "拍手庆祝"
+      },
+      {
+        "key": "waiting",
+        "label": "歪头等待"
+      },
+      {
+        "key": "failed",
+        "label": "低头鼓劲"
+      },
+      {
+        "key": "runRight",
+        "label": "向右奔跑"
+      },
+      {
+        "key": "runLeft",
+        "label": "向左奔跑"
+      }
+    ]
+  },
+  "category": "GPT娘v1 的动作"
+}

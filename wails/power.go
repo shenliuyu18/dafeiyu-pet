@@ -24,12 +24,97 @@ type deviceNotifySubscribeParameters struct {
 var (
 	powrprof                                   = syscall.NewLazyDLL("powrprof.dll")
 	procPowerRegisterSuspendResumeNotification = powrprof.NewProc("PowerRegisterSuspendResumeNotification")
+	procGetSystemPowerStatus                   = kernel32.NewProc("GetSystemPowerStatus")
 
 	powerSubscriber   deviceNotifySubscribeParameters
 	powerCallback     uintptr
 	powerRegistration uintptr
 	powerApp          *App // 供休眠/唤醒回调使用，同时保证对象不被 GC 回收
 )
+
+type systemPowerStatus struct {
+	ACLineStatus        byte
+	BatteryFlag         byte
+	BatteryLifePercent  byte
+	SystemStatusFlag    byte
+	BatteryLifeTime     uint32
+	BatteryFullLifeTime uint32
+}
+
+// readPowerStatus 返回是否接交流电以及状态是否可信。GetSystemPowerStatus
+// 在台式和笔记本上都很轻，5 秒轮询一次即可，不需要再开事件回调。
+func readPowerStatus() (onAC bool, known bool) {
+	var st systemPowerStatus
+	r, _, _ := procGetSystemPowerStatus.Call(uintptr(unsafe.Pointer(&st)))
+	if r == 0 {
+		return true, false
+	}
+	switch st.ACLineStatus {
+	case 0:
+		return false, true
+	case 1:
+		return true, true
+	default:
+		return true, false
+	}
+}
+
+func normalizePowerSave(v string) string {
+	switch v {
+	case "on", "off":
+		return v
+	default:
+		return "auto"
+	}
+}
+
+func powerSavingActive(mode string, onAC, known bool) bool {
+	switch normalizePowerSave(mode) {
+	case "on":
+		return true
+	case "off":
+		return false
+	default:
+		return known && !onAC
+	}
+}
+
+func (a *App) PowerStatus() map[string]interface{} {
+	a.mu.Lock()
+	mode := normalizePowerSave(strv(a.state["powerSave"], "auto"))
+	onAC, known := a.powerOnAC, a.powerKnown
+	a.mu.Unlock()
+	return map[string]interface{}{
+		"mode":   mode,
+		"onAC":   onAC,
+		"known":  known,
+		"saving": powerSavingActive(mode, onAC, known),
+	}
+}
+
+func (a *App) startPowerStatusLoop() {
+	go func() {
+		a.refreshPowerStatus(true)
+		t := time.NewTicker(5 * time.Second)
+		defer t.Stop()
+		for range t.C {
+			a.refreshPowerStatus(false)
+		}
+	}()
+}
+
+func (a *App) refreshPowerStatus(force bool) {
+	onAC, known := readPowerStatus()
+	a.mu.Lock()
+	changed := force || onAC != a.powerOnAC || known != a.powerKnown
+	prevSaving := powerSavingActive(strv(a.state["powerSave"], "auto"), a.powerOnAC, a.powerKnown)
+	a.powerOnAC, a.powerKnown = onAC, known
+	saving := powerSavingActive(strv(a.state["powerSave"], "auto"), onAC, known)
+	a.mu.Unlock()
+	if changed || saving != prevSaving {
+		a.emit("power-mode", a.PowerStatus())
+	}
+}
 
 func startPowerMonitor(a *App) {
 	if powerRegistration != 0 {

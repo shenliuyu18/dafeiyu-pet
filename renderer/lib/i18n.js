@@ -189,9 +189,19 @@
   };
   const LINES = { en: LINE_EN, ja: LINE_JA };
 
+  // 形象包自带的台词与动作名译文：随包安装/卸载整体重建，
+  // 未下载的包在应用里不留下任何词条。
+  const PACK_LINES = { en: {}, ja: {} };
+  const PACK_UI = { en: {}, ja: {} };
+  // 应用内置的“包动作名兜底译文”：已安装的旧包没有 i18n 时用它补齐，不覆盖包内自带译文/内置词典
+  const PACK_FALLBACK = { en: {}, ja: {} };
+
   function line(text, lang) {
+    const key = String(text || '').trim();
+    const pack = PACK_LINES[lang];
+    if (pack && pack[key]) return pack[key];
     const dict = LINES[lang];
-    return (dict && dict[String(text || '').trim()]) || text;
+    return (dict && dict[key]) || text;
   }
 
   const DICTS = { en: EN, ja: JA };
@@ -204,11 +214,10 @@
       [/^([−＋+-]) (\d+) 秒$/, '$1 $2 s'],
       [/^([−＋+-]) (\d+) 分钟$/, '$1 $2 min'],
       [/^今天 (\d+) 分钟 · 近 7 天 (\d+) 分钟 · 累计 (\d+) 分钟$/, 'Today $1 min · Last 7 days $2 min · Total $3 min'],
-      [/^套餐 (.+) \/ (.+)（(.+)%）$/, 'Plan $1 / $2 ($3%)'],
       [/^🍅 开始专注 (\d+) 分钟$/, '🍅 Start a $1-minute focus'],
       [/^🍅 结束专注$/, '🍅 End focus'],
-      [/^🍚 白饭账本 · 本月 (.+)$/, '🍚 Rice ledger · $1 this month'],
-      [/^🍚 用量账本 · 本月 (.+)$/, '🍚 Usage ledger · $1 this month'],
+      [/^🍚 白饭账本 · (.+)$/, '🍚 Rice ledger · $1'],
+      [/^🍚 用量账本 · (.+)$/, '🍚 Usage ledger · $1'],
       [/^🍚 白饭账本$/, '🍚 Rice ledger'],
       [/^🍚 用量账本$/, '🍚 Usage ledger'],
       [/^已启用 (\d+) 行自定义文字。$/, 'Enabled $1 custom lines.'],
@@ -219,8 +228,6 @@
       [/^已保存到 Downloads：(.+)$/, 'Saved to Downloads: $1'],
       [/^已导出 (.+)：(.+)$/, 'Exported $1: $2'],
       [/^这是 (.+) 的账单$/, 'This is the $1 ledger'],
-      [/^今天你已经喂了我 (.+) credits 白饭啦$/, 'You fed me $1 credits of rice today'],
-      [/^这个月我吃掉了 (.+) credits 白饭$/, 'I ate $1 credits of rice this month'],
       [/^(.+)：暂无数据$/, '$1: No data'],
       [/^你好呀，我是(.+)～$/, "Hi, I'm $1~"],
       [/^(.+)  (全屏|非全屏)  /, '$1  $2  '],
@@ -233,9 +240,16 @@
       [/^最多置顶 (\d+) 个动作，请先取消一个$/, 'You can pin up to $1 actions. Unpin one first.'],
       [/^动作已并入 (.+)$/, 'Actions merged into $1'],
       [/^来自 (.+) 官方接口$/, 'From the official $1 API'],
+      [/^已连上 (.+)，但账户当前不可用（余额不足或被停用）$/, 'Connected to $1, but this account is currently unavailable (insufficient balance or suspended)'],
+      [/^已连上 (.+)$/, 'Connected to $1'],
+      [/^未配置 (.+) API Key$/, 'No $1 API key configured'],
+      [/^还没填写 (.+) 的 API Key$/, 'No $1 API key set yet'],
+      [/^还差 (.+) 额度才能完成本次请求$/, 'Need $1 more credit to complete this request'],
+      [/^账户当前不可用（余额不足或被停用）$/, 'Account currently unavailable (insufficient balance or suspended)'],
       [/^当前：(.+)（(.+)） · 桌宠：(.+) · 连续命中 (\d+)\/(\d+)，连续恢复 (\d+)\/(\d+)$/, 'Current: $1 ($2) · Pet: $3 · hits $4/$5, recovery $6/$7'],
       [/^(.+)：(已连上 ✓|未连上|检测中…)$/, '$1: $2'],
       [/^配置 (.+) API Key$/, 'Configure $1 API key'],
+      [/^填写 (.+) API Key$/, 'Fill in $1 API key'],
       [/^(\d+) \/ (\d+) 行 · 第 (\d+) 行超长$/, '$1 / $2 lines · line $3 is too long'],
       [/^(\d+) \/ (\d+) 行$/, '$1 / $2 lines'],
       [/^已保存 (\d+) 行，并通过敏感词检查 ✓$/, 'Saved $1 lines and passed the sensitive-word check ✓'],
@@ -262,11 +276,10 @@
       [/^([−＋+-]) (\d+) 秒$/, '$1 $2秒'],
       [/^([−＋+-]) (\d+) 分钟$/, '$1 $2分'],
       [/^今天 (\d+) 分钟 · 近 7 天 (\d+) 分钟 · 累计 (\d+) 分钟$/, '今日 $1分 · 直近7日 $2分 · 累計 $3分'],
-      [/^套餐 (.+) \/ (.+)（(.+)%）$/, 'プラン $1 / $2（$3%）'],
       [/^🍅 开始专注 (\d+) 分钟$/, '🍅 $1分の集中を開始'],
       [/^🍅 结束专注$/, '🍅 集中を終了'],
-      [/^🍚 白饭账本 · 本月 (.+)$/, '🍚 ご飯帳簿 · 今月 $1'],
-      [/^🍚 用量账本 · 本月 (.+)$/, '🍚 使用量帳簿 · 今月 $1'],
+      [/^🍚 白饭账本 · (.+)$/, '🍚 ご飯帳簿 · $1'],
+      [/^🍚 用量账本 · (.+)$/, '🍚 使用量帳簿 · $1'],
       [/^🍚 白饭账本$/, '🍚 ご飯帳簿'],
       [/^🍚 用量账本$/, '🍚 使用量帳簿'],
       [/^已启用 (\d+) 行自定义文字。$/, 'カスタム台詞を$1行有効にしました。'],
@@ -277,8 +290,6 @@
       [/^已保存到 Downloads：(.+)$/, 'Downloads に保存しました：$1'],
       [/^已导出 (.+)：(.+)$/, '書き出しました $1：$2'],
       [/^这是 (.+) 的账单$/, 'これは $1 の帳簿です'],
-      [/^今天你已经喂了我 (.+) credits 白饭啦$/, '今日は $1 クレジット分のご飯をくれたね'],
-      [/^这个月我吃掉了 (.+) credits 白饭$/, '今月は $1 クレジット分のご飯を食べたよ'],
       [/^(.+)：暂无数据$/, '$1：データなし'],
       [/^你好呀，我是(.+)～$/, 'こんにちは、$1です～'],
       [/^(.+)  (全屏|非全屏)  /, '$1  $2  '],
@@ -291,9 +302,15 @@
       [/^最多置顶 (\d+) 个动作，请先取消一个$/, 'ピン留めは最大$1個です。先に1つ解除してください'],
       [/^动作已并入 (.+)$/, 'アクションは $1 に統合済み'],
       [/^来自 (.+) 官方接口$/, '$1 公式APIから'],
+      [/^已连上 (.+)，但账户当前不可用（余额不足或被停用）$/, '$1 に接続しましたが、アカウントは現在利用できません（残高不足または停止）'],
+      [/^已连上 (.+)$/, '$1 に接続しました'],
+      [/^未配置 (.+) API Key$/, '$1 のAPIキーが未設定'],
+      [/^还没填写 (.+) 的 API Key$/, '$1 のAPIキーが未設定'],
+      [/^账户当前不可用（余额不足或被停用）$/, 'アカウントは現在利用できません（残高不足または停止）'],
       [/^当前：(.+)（(.+)） · 桌宠：(.+) · 连续命中 (\d+)\/(\d+)，连续恢复 (\d+)\/(\d+)$/, '現在：$1（$2） · ペット：$3 · 連続命中 $4/$5、連続復帰 $6/$7'],
       [/^(.+)：(已连上 ✓|未连上|检测中…)$/, '$1：$2'],
       [/^配置 (.+) API Key$/, '$1 のAPIキーを設定'],
+      [/^填写 (.+) API Key$/, '$1 のAPIキーを入力'],
       [/^(\d+) \/ (\d+) 行 · 第 (\d+) 行超长$/, '$1 / $2 行 · $3行目が長すぎます'],
       [/^(\d+) \/ (\d+) 行$/, '$1 / $2 行'],
       [/^已保存 (\d+) 行，并通过敏感词检查 ✓$/, '$1行を保存し、NGワード検査に合格しました ✓'],
@@ -340,10 +357,16 @@
   function lookup(text, lang) {
     const key = String(text == null ? '' : text).trim();
     if (!key) return text;
+    const pack = PACK_UI[lang];
+    if (pack && pack[key]) return pack[key];
     const dict = DICTS[lang];
     let out = text;
     if (dict && dict[key]) out = dict[key];
     else {
+      const fb = PACK_FALLBACK[lang];
+      if (fb && fb[key]) out = fb[key];
+    }
+    if (out === text) {
       const rules = RULES[lang];
       if (rules) for (const [re, to] of rules) {
         if (re.test(key)) {
@@ -508,7 +531,23 @@
     }
   }
 
-  const api = { apply, line, T, translate: lookup, extend, extendUI, dictionaries: DICTS };
+  // 形象包译文整体替换：refreshPacks 时重建，卸载后立刻消失。
+  function setPackDictionaries(lines, ui) {    for (const lang of ['en', 'ja']) {
+      const lineDict = PACK_LINES[lang];
+      const uiDict = PACK_UI[lang];
+      for (const k of Object.keys(lineDict)) delete lineDict[k];
+      for (const k of Object.keys(uiDict)) delete uiDict[k];
+      Object.assign(lineDict, (lines && lines[lang]) || {});
+      Object.assign(uiDict, (ui && ui[lang]) || {});
+    }
+  }
+
+  function extendPackFallback(en, ja) {
+    Object.assign(PACK_FALLBACK.en, en || {});
+    Object.assign(PACK_FALLBACK.ja, ja || {});
+  }
+
+  const api = { apply, line, T, translate: lookup, extend, extendUI, extendPackFallback, setPackDictionaries, dictionaries: DICTS };
   root.PetLib = root.PetLib || {};
   root.PetLib.i18n = api;
   // 原生 alert / title 等不在 DOM 文本节点里的短句，用 tr() 直接翻译。

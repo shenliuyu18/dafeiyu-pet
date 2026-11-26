@@ -52,12 +52,22 @@ func (a *App) displayName() string {
 	return a.t("大肥鱼桌宠", "Big Fat Fish Desktop Pet", "大肥魚デスクトップペット")
 }
 
-func (a *App) t(zh, en, ja string) string {
-	switch a.uiLang() {
+func (a *App) t(zh, en, ja string) string { return t3(zh, en, ja) }
+
+// t3 是给没有 App 接收者的函数（账本 fetch、更新错误）用的三语助手。
+func t3(zh, en, ja string) string {
+	switch uiLang() {
 	case "en":
 		return en
 	case "ja":
 		return ja
 	}
 	return zh
+}
+
+func uiLang() string {
+	if v, ok := uiLangStore.Load().(string); ok {
+		return normalizeLang(v)
+	}
+	return "zh"
 }

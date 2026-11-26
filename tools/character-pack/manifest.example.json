@@ -8,6 +8,60 @@
   "cover": "cover.webp",
   "source": "https://example.com/my-neko",
   "license": "CC BY-NC-SA 4.0",
+  "dialogue": {
+    "intro": "喵～我是你的猫娘。",
+    "quips": ["今天也要加油喵。", "要不要摸摸头？"],
+    "feed": ["小鱼干最好吃了！"],
+    "hungry": ["肚子饿得咕咕叫…"],
+    "sleep": ["我先眯一会儿喵。"],
+    "memes": [
+      {
+        "file": "memes/pat.webp",
+        "scenes": ["click", "feed"],
+        "text": "摸摸头"
+      }
+    ]
+  },
+  "i18n": {
+    "en": {
+      "lines": {
+        "喵～我是你的猫娘。": "Meow~ I'm your catgirl.",
+        "今天也要加油喵。": "Let's do our best today, meow.",
+        "要不要摸摸头？": "Want a head pat?",
+        "小鱼干最好吃了！": "Dried fish is the best!",
+        "肚子饿得咕咕叫…": "My tummy is rumbling…",
+        "我先眯一会儿喵。": "I'll nap for a bit, meow.",
+        "摸摸头": "Head pat"
+      },
+      "actions": {
+        "待机呼吸": "Idle breathing",
+        "敲键盘": "Typing on keyboard"
+      },
+      "categories": {
+        "待机": "Idle",
+        "点击回应": "Click response"
+      }
+    },
+    "ja": {
+      "lines": {
+        "喵～我是你的猫娘。": "にゃ～ あなたの猫娘だよ。",
+        "今天也要加油喵。": "今日も頑張るにゃ。",
+        "要不要摸摸头？": "頭をなでてくれる？",
+        "小鱼干最好吃了！": "煮干しが一番おいしい！",
+        "肚子饿得咕咕叫…": "お腹がグーグー鳴ってる…",
+        "我先眯一会儿喵。": "ちょっと眠るにゃ。",
+        "摸摸头": "なでなで"
+      },
+      "actions": {
+        "待机呼吸": "待機呼吸",
+        "敲键盘": "キーボードを打つ"
+      },
+      "categories": {
+        "待机": "待機",
+        "点击回应": "クリック反応"
+      }
+    }
+  },
   "slots": {
     "idle": ["待机呼吸"],
     "click": ["点击回应-挥手", "点击回应-害羞"],

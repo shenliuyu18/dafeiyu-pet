@@ -152,6 +152,23 @@ func startDebugServer(a *App) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(out)
 	})
+	mux.HandleFunc("/boxes", func(w http.ResponseWriter, r *http.Request) {
+		a.mu.Lock()
+		out := map[string]interface{}{
+			"regionBoxes": a.regionBoxes,
+			"hitBox":      a.hitBox,
+			"petX":        a.petX,
+			"petY":        a.petY,
+			"dpi":         a.dpi,
+		}
+		a.mu.Unlock()
+		a.regionMu.Lock()
+		out["regionLast"] = a.regionLast
+		out["regionFull"] = a.regionFull
+		a.regionMu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(out)
+	})
 	mux.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
 		a.Quit()
 		w.Write([]byte("bye"))

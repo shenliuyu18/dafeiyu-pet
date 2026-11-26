@@ -137,6 +137,13 @@ Section "uninstall"
 
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
 
+    ; 删除整个应用数据目录（状态、形象包、缓存），按变体区分，Lite 与完整版互不影响
+    !if "${PRODUCT_EXECUTABLE}" == "dafeiyu-pet-lite.exe"
+      RMDir /r "$APPDATA\dafeiyu-desktop-pet-lite"
+    !else
+      RMDir /r "$APPDATA\dafeiyu-desktop-pet"
+    !endif
+
     RMDir /r $INSTDIR
 
     Delete "$SMPROGRAMS\$(ShortcutName).lnk"

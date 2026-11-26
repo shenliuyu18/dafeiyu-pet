@@ -14,6 +14,12 @@ function handleInit(st) {
   S.safeResume = set.safeResume !== false;
   S.fullscreenHide = set.fullscreenHide !== false;
   S.memeOrder = set.memeOrder === 'random' ? 'random' : 'queue';
+  S.powerSave = window.PetLib.powerSave.normalizeMode(set.powerSave);
+  if (st.power && typeof st.power === 'object') {
+    S.powerKnown = st.power.known === true;
+    S.onAC = st.power.onAC !== false;
+  }
+  applyPowerProfile();
   S.launchApp = typeof set.launchApp === 'string' ? set.launchApp : '';
   applyFontFamily(set.fontFamily, false);
   applyLedgerUI();
@@ -34,12 +40,13 @@ function handleInit(st) {
     if (needsPack) greet();
   });
   applyFontSize(set.fontSize, false);
+  applyFontWeight(set.fontWeight, false);
   applySfx(set.sfx, false);
   S.lang = ['zh', 'en', 'ja'].includes(set.lang) ? set.lang : 'zh';
   applyLanguage(S.lang, false);
   applyAutoActionSec(set.autoActionSec || 40, false);
-  S.ledgerSource = API_SOURCES.includes(set.ledgerSource) ? set.ledgerSource : 'qoder';
-  S.autoUpdate = set.autoUpdate !== false;
+  S.ledgerSource = API_SOURCES.includes(set.ledgerSource) ? set.ledgerSource : 'deepseek';
+  S.autoUpdate = set.autoUpdate === true;
   S.customQuips = Array.isArray(set.customQuips) ? set.customQuips : [];
   S.useCustomQuips = set.useCustomQuips !== false;
   S.pinnedActions = {};
@@ -86,7 +93,16 @@ function handleInit(st) {
   applyDoze();
   applyBase();
   syncSettingsUI();
-  refreshAutostartHint();
+}
+
+function handlePowerMode(p) {
+  if (!p) return;
+  S.powerKnown = p.known === true;
+  S.onAC = p.onAC !== false;
+  if (p.mode) S.powerSave = window.PetLib.powerSave.normalizeMode(p.mode);
+  applyPowerProfile();
+  syncSettingsUI();
+  updatePowerHint();
 }
 
 function handlePowerResume(p) {
@@ -162,6 +178,5 @@ function handleCursor(c) {
   applyLean(c.x, c.y);
   if (c.over && !S.over) wake();
   S.over = !!c.over;
-  startMaybeShowTimer();
 }
 

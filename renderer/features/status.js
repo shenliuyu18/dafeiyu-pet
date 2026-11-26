@@ -22,11 +22,8 @@ function showStatus() {
 function creditsLine() {
   if (!S.ledgerOn || !isDsh()) return null;
   const l = S.ledger;
-  if (!l || !l.available) return null;
-  if (l.source && l.source !== 'qoder') return `${l.providerShort || 'API'}：${(l.rows && l.rows[0] && l.rows[0].value) || '暂无数据'}`;
-  if (l.today > 0) return `今天你已经喂了我 ${l.today} credits 白饭啦`;
-  if (l.month > 0) return `这个月我吃掉了 ${l.month} credits 白饭`;
-  return '今天还没吃到白饭，快让我干活';
+  if (!l || !l.available || !l.rows || !l.rows[0]) return null;
+  return `${l.providerShort || 'API'}：${l.rows[0].value || '暂无数据'}`;
 }
 
 function applyHungry() {

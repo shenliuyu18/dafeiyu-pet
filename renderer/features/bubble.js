@@ -220,7 +220,29 @@ function classicMeme(name) {
   return window.PetLib.memePool.classicMeme(name, CLASSIC_MEME_TEXTS[name] || '', '../assets/memes/');
 }
 
+// 包内文件路径：只接受包内相对路径，拒绝 ../ 与绝对路径（清单来自下载的 zip）
+function packRelPath(p) {
+  const s = String(p || '').replace(/\\/g, '/');
+  if (!s || s.startsWith('/') || s.split('/').some((x) => x === '..')) return '';
+  return s;
+}
+
 function sceneMemePool(scene) {
+  // 形象包自带梗图时只用包内的；形象包没配梗图就用纯文字，
+  // 绝不能回退到应用自带的 dsh / 档案馆图库（那是大肥鱼的形象，套到别的角色上很违和）。
+  const p = activePack();
+  if (p) {
+    const list = (p.dialogue && p.dialogue.memes) || [];
+    return list
+      .filter((m) => {
+        const rel = packRelPath(m && m.file);
+        return rel && Array.isArray(m.scenes) && m.scenes.includes(scene);
+      })
+      .map((m) => {
+        const rel = packRelPath(m.file);
+        return { file: rel, url: `../characters/${p.id}/${rel}`, text: m.text };
+      });
+  }
   const classic = (MEMES[scene] || []).map((name) => classicMeme(name));
   const gallery = allMemes()
     .filter((m) => m.scenes.includes(scene))
@@ -241,7 +263,7 @@ function resetMemeQueues() {
 }
 
 function sayScene(scene, fallbackText, ms = 3200) {
-  if (!isDsh() || usingCustomQuips()) {
+  if (usingCustomQuips()) {
     say(fallbackText, ms);
     return;
   }

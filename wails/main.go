@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	dbg "runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,7 +21,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.5.3"
+var Version = "1.5.4"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -30,8 +29,6 @@ var Variant = "full"
 // isolatedMode 由 --isolated 开启：独立状态目录 / 单实例 / 窗口类名，
 // 方便开发时和本机已安装版本同时运行、做真机性能与交互验证。
 var isolatedMode bool
-
-func isIsolated() bool { return isolatedMode }
 
 func isLite() bool { return Variant == "lite" }
 
@@ -80,10 +77,14 @@ type Pomodoro struct {
 type App struct {
 	ctx context.Context
 
-	mu         sync.Mutex
-	state      map[string]interface{}
-	statePath  string
-	stateDirty bool
+	mu          sync.Mutex
+	state       map[string]interface{}
+	statePath   string
+	stateDirty  bool
+	stateSaveMu sync.Mutex
+
+	characterLocksMu sync.Mutex
+	characterLocks   map[string]*characterLock
 
 	hwnd      uintptr
 	className string
@@ -99,12 +100,13 @@ type App struct {
 	interact  bool
 	hidden    bool
 
-	pomo   Pomodoro
-	ledger map[string]interface{}
+	pomo      Pomodoro
+	ledger    map[string]interface{}
+	ledgerSeq uint64 // 账本来源代次；切换来源时递增，用于丢弃旧请求结果
 
 	words *WordsFilter
 
-	apiFetching  map[string]bool // 按平台去重的请求中标记
+	apiFetching  map[string]uint64 // 平台 -> 正在处理的请求代次，按平台去重
 	lastUpdate   map[string]interface{}
 	lastUpdateAt time.Time
 	updateBusy   bool
@@ -120,13 +122,24 @@ type App struct {
 	resumeChecking  bool
 	powerSeq        int
 	powerAckAt      time.Time
+	powerOnAC       bool
+	powerKnown      bool
 
-	fsHidden  bool
-	fsDecider fullscreenHysteresis     // 隐藏/恢复的滞回状态机
-	fsLog     []map[string]interface{} // 最近的全屏判定记录（issue #2 诊断）
-	fsLast    bool                     // 上次记录的 active 值，用于只记录变化
-	fsHasLast bool
-	fsTopAt   time.Time // 上次补置顶的时间：全屏轮询 500ms 一次，没必要每次都查窗口样式
+	bootUsageScheduled bool
+
+	releaseETag    string
+	releaseLastMod string
+	releaseRaw     map[string]interface{}
+
+	fsHidden   bool
+	fsHiddenAt time.Time                // 进入全屏隐藏的时刻，用于排查“消失 N 秒”的实际来源
+	cloakAt    time.Time                // DWM 把窗口标成 cloaked 的时刻（可见却不出画时定位用）
+	zHealAt    time.Time                // 上次因 z-order 被 shell 压住而重新置顶的时刻（限频）
+	fsDecider  fullscreenHysteresis     // 隐藏/恢复的滞回状态机
+	fsLog      []map[string]interface{} // 最近的全屏判定记录（issue #2 诊断）
+	fsLast     bool                     // 上次记录的 active 值，用于只记录变化
+	fsHasLast  bool
+	fsTopAt    time.Time // 上次补置顶的时间：全屏轮询 500ms 一次，没必要每次都查窗口样式
 
 	ledgerOK map[string]int64 // 各平台上次成功查询的时间（毫秒），失败时保留
 
@@ -139,9 +152,10 @@ type App struct {
 	regionBoxes   []RegionBox
 	hitBox        RegionBox
 	panelHold     time.Time
-	regionPending bool   // 节流窗口内被压下的那次更新
-	lastBoxes     string // 上次上报的命中框 JSON，完全一致时跳过 Region 重算
-	accentFixed   bool   // 是否已做过 Win10 毛玻璃修复
+	regionHold    time.Time // 动画切换 / 拖拽松手时短暂保持整窗，避免边缘竞态
+	regionPending bool      // 节流窗口内被压下的那次更新
+	lastBoxes     string    // 上次上报的命中框 JSON，完全一致时跳过 Region 重算
+	accentFixed   bool      // 是否已做过 Win10 毛玻璃修复
 }
 
 func main() {
@@ -221,8 +235,11 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.words = NewWordsFilter(lex)
 	a.loadState()
+	// 旧版安装的官方形象包在启动时补齐 1.0.1 清单字段（只改 manifest.json，不联网）
+	a.migrateInstalledPacks()
 	a.healSelectedCharacter()
 	go startPowerMonitor(a)
+	a.startPowerStatusLoop()
 	a.SetupWindow()
 	go a.fullscreenLoop()
 	go a.cursorLoop()
@@ -235,7 +252,8 @@ func (a *App) startup(ctx context.Context) {
 		a.applyLoginItemAsync()
 	}
 	a.launchLinkedApp()
-	a.refreshUsage()
+	// 账本查询和商店目录都不要挡首帧：2 秒后再拉。
+	a.scheduleBootUsage()
 	if !isolatedMode {
 		go func() {
 			time.Sleep(12 * time.Second)
@@ -266,6 +284,28 @@ func (a *App) startup(ctx context.Context) {
 			a.releaseMemory()
 		}
 	}()
+}
+
+// scheduleBootUsage 把首次账本刷新放到首帧之后；petStatus 在账本为空时也会调用，
+// 用标记保证只排一次。刷新结果通过 usage 事件回填，不阻塞 init。
+func (a *App) scheduleBootUsage() {
+	a.mu.Lock()
+	if a.bootUsageScheduled {
+		a.mu.Unlock()
+		return
+	}
+	a.bootUsageScheduled = true
+	a.mu.Unlock()
+	time.AfterFunc(2*time.Second, func() {
+		if !a.ledgerOn() {
+			return
+		}
+		go func() {
+			if l := a.refreshUsage(); l != nil {
+				a.emit("usage", l)
+			}
+		}()
+	})
 }
 
 // releaseMemory 只在空闲时把堆内存还给系统，避免在拖拽 / 面板交互中触发 STW 造成卡顿。
@@ -307,6 +347,29 @@ func (a *App) emit(name string, payload interface{}) {
 		return
 	}
 	runtimeEventsEmit(a.ctx, name, payload)
+}
+
+// beginUpdate 在同一把锁内检查并占用共享更新状态，避免手动/自动更新同时启动。
+func (a *App) beginUpdate(automatic bool) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.updateBusy || a.autoUpdating {
+		return false
+	}
+	a.updateBusy = true
+	if automatic {
+		a.autoUpdating = true
+	}
+	return true
+}
+
+func (a *App) endUpdate(automatic bool) {
+	a.mu.Lock()
+	a.updateBusy = false
+	if automatic {
+		a.autoUpdating = false
+	}
+	a.mu.Unlock()
 }
 
 // Ready 由渲染层在监听器注册完成后调用，确保 init 不会丢。
@@ -422,19 +485,6 @@ func (a *App) getString(key, def string) string {
 	return v
 }
 
-func (a *App) getFloat(key string, def float64) float64 {
-	switch v := a.get(key).(type) {
-	case float64:
-		return v
-	case int:
-		return float64(v)
-	case json.Number:
-		f, _ := v.Float64()
-		return f
-	}
-	return def
-}
-
 func (a *App) getBool(key string, def bool) bool {
 	if v, ok := a.get(key).(bool); ok {
 		return v
@@ -442,55 +492,7 @@ func (a *App) getBool(key string, def bool) bool {
 	return def
 }
 
-func (a *App) getStrings(key string) []string {
-	v, ok := a.get(key).([]interface{})
-	if !ok {
-		if s, ok := a.get(key).([]string); ok {
-			return s
-		}
-		return nil
-	}
-	out := make([]string, 0, len(v))
-	for _, x := range v {
-		if s, ok := x.(string); ok {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
 func (a *App) ledgerOn() bool { return a.getBool("ledger", true) }
-
-func (a *App) planQuota() float64 { return a.getFloat("planQuota", 0) }
-
-func (a *App) charID() string {
-	v := a.getString("character", "v1")
-	if v == "whale1" || v == "whale2" || !validChar(v) {
-		return "v1"
-	}
-	return v
-}
-
-func (a *App) fontSize() float64 { return clampF(a.getFloat("fontSize", 1), 0.8, 1.4) }
-
-func (a *App) scale() float64 {
-	s := a.getFloat("scale", 0.85)
-	if s <= 0 {
-		s = 0.85
-	}
-	return clampF(s, 0.6, 1.6)
-}
-
-func (a *App) autoActionSec() int {
-	n := int(a.getFloat("autoActionSec", 40))
-	if n < 5 {
-		n = 5
-	}
-	if n > 300 {
-		n = 300
-	}
-	return n
-}
 
 func (a *App) launchLinkedApp() {
 	p := strings.TrimSpace(a.getString("launchApp", ""))
@@ -566,6 +568,21 @@ func (a *App) SetPanel(open bool) {
 	a.updateWindowRegion(true)
 }
 
+// HoldRegion 在视频动画切换 / 拖拽结束等短时间内保持整窗 Region。
+// 这些时刻角色形状会突变，若立刻按旧 alpha 盒收缩，边缘会被裁一下才补齐。
+func (a *App) HoldRegion(ms int) {
+	if ms <= 0 {
+		ms = 160
+	}
+	if ms > 1000 {
+		ms = 1000
+	}
+	a.mu.Lock()
+	a.regionHold = time.Now().Add(time.Duration(ms) * time.Millisecond)
+	a.mu.Unlock()
+	a.updateWindowRegion(true)
+}
+
 func (a *App) SetDragging(on bool) {
 	a.mu.Lock()
 	a.dragging = on
@@ -597,8 +614,9 @@ func (a *App) SaveSettings(raw string) {
 	if json.Unmarshal([]byte(raw), &s) != nil {
 		return
 	}
-	oldSource := a.getString("ledgerSource", "qoder")
 	autoStartChanged := false
+	powerSaveChanged := false
+	ledgerDirty := false
 	a.mu.Lock()
 	apply := func(key string) (interface{}, bool) {
 		v, ok := s[key]
@@ -626,6 +644,9 @@ func (a *App) SaveSettings(raw string) {
 	}
 	if v, ok := apply("ledger"); ok {
 		if b, ok := v.(bool); ok {
+			if boolv(a.state["ledger"], true) != b {
+				ledgerDirty = true
+			}
 			a.state["ledger"] = b
 		}
 	}
@@ -652,6 +673,15 @@ func (a *App) SaveSettings(raw string) {
 			a.state["memeOrder"] = s
 		}
 	}
+	if v, ok := apply("powerSave"); ok {
+		if str, ok := v.(string); ok {
+			m := normalizePowerSave(str)
+			if normalizePowerSave(strv(a.state["powerSave"], "auto")) != m {
+				powerSaveChanged = true
+			}
+			a.state["powerSave"] = m
+		}
+	}
 	if v, ok := apply("launchApp"); ok {
 		if str, ok := v.(string); ok {
 			if len(str) > 1024 {
@@ -661,9 +691,11 @@ func (a *App) SaveSettings(raw string) {
 		}
 	}
 	if v, ok := apply("ledgerSource"); ok {
-		if str, ok := v.(string); ok && (str == "qoder" || apiProviders[str].label != "") {
-			if oldSource != str {
+		if str, ok := v.(string); ok && apiProviders[str].label != "" {
+			if ledgerSourceLocked(a.state) != str {
 				a.ledger = nil
+				a.ledgerSeq++
+				ledgerDirty = true
 			}
 			a.state["ledgerSource"] = str
 		}
@@ -686,6 +718,11 @@ func (a *App) SaveSettings(raw string) {
 	if v, ok := apply("fontSize"); ok {
 		if f, ok := v.(float64); ok {
 			a.state["fontSize"] = clampF(f, 0.8, 1.4)
+		}
+	}
+	if v, ok := apply("fontWeight"); ok {
+		if f, ok := v.(float64); ok {
+			a.state["fontWeight"] = fontWeightOf(f)
 		}
 	}
 	if v, ok := apply("sfx"); ok {
@@ -731,9 +768,12 @@ func (a *App) SaveSettings(raw string) {
 	if autoStartChanged {
 		a.applyLoginItem()
 	}
+	if powerSaveChanged {
+		a.emit("power-mode", a.PowerStatus())
+	}
 	a.saveState()
-	if a.ledgerOn() {
-		a.refreshUsage()
+	if ledgerDirty && a.ledgerOn() {
+		go a.refreshUsage()
 	}
 	a.trayRefresh()
 }
@@ -774,6 +814,18 @@ func (a *App) OpenExternal(url string) {
 		return
 	}
 	_ = openURL(a.ctx, url)
+}
+
+// PickPackFile 让用户选择一个形象包 .zip，返回绝对路径（取消时返回空串）。
+func (a *App) PickPackFile() string {
+	p, err := pickPackFile(a.ctx,
+		a.t("选择形象包（.zip）", "Choose a character pack (.zip)", "キャラクターパック（.zip）を選択"),
+		a.t("形象包", "Character pack", "キャラクターパック"),
+		a.t("所有文件", "All files", "すべてのファイル"))
+	if err != nil {
+		return ""
+	}
+	return p
 }
 
 func allowedURL(s string) bool {
@@ -821,9 +873,4 @@ func boolv(v interface{}, def bool) bool {
 		return b
 	}
 	return def
-}
-
-func atoiSafe(s string) int {
-	n, _ := strconv.Atoi(s)
-	return n
 }

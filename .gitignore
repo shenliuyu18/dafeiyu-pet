@@ -38,3 +38,15 @@ assets-lite/
 characters-build/
 characters-build-pub/
 wails/build/
+
+# 素材转换前的原图备份（tools/optimize-assets.py --apply 生成）
+.asset-backup/
+
+# 性能预算报告（本地/CI 生成的构建产物）
+perf-report.json
+
+# 本地调试/回滚点
+.qoder-backup/
+glass_compare.png
+glass_on_desktop.png
+pet_track.png

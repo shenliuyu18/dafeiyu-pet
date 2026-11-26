@@ -4,6 +4,9 @@
 
 function frame(now) {
   requestAnimationFrame(frame);
+  // 画面停更看门狗（定义在 runtime.js）：vidEl 在 pet.js 才定义，所以延迟到首帧再初始化。
+  if (typeof initStallWatch === 'function') initStallWatch();
+  if (typeof watchRafGap === 'function') watchRafGap(now);
   if (document.hidden) {
     lastFrame = now;
     return;
@@ -19,6 +22,7 @@ function frame(now) {
   step(dt);
   updateEdgeFlips();
   applyLean(S.mouse.x, S.mouse.y);
+  applyBreath(now);
   const t = `translate3d(${P.x.toFixed(1)}px, ${P.y.toFixed(1)}px, 0)`;
   if (t !== lastTransform) {
     lastTransform = t;
@@ -37,6 +41,19 @@ function frame(now) {
       api.reportPos({ x: rx, y: ry, s: petScale });
     }
   }
+}
+
+// 省电待机的呼吸位移：跟着主循环的空闲帧率（约 10fps）走，替代原来 60fps 的 CSS 动画。
+// 实测那样每帧都要合成一次透明视频层，渲染进程 CPU 会从 ~8% 涨到 ~17%，省电模式反而更费电。
+const breathEl = document.getElementById('petBox');
+let lastBreath = '';
+function applyBreath(now) {
+  // powerIdle 由 pet.js 维护；脚本加载顺序不影响这里运行时读取
+  const on = window.powerIdle === true;
+  const t = on ? `translate3d(0, ${(Math.sin((now / 3600) * Math.PI * 2) * 2).toFixed(1)}px, 0)` : '';
+  if (t === lastBreath) return;
+  lastBreath = t;
+  breathEl.style.transform = t;
 }
 
 function markPetReady() {
@@ -64,6 +81,8 @@ function updateEdgeFlips() {
   }
 }
 
+let bubblePosRatio = 1;
+
 function positionBubble() {
   const h = Math.max(bubbleEl.offsetHeight, 240);
   bubbleEl.classList.toggle('down', window.PetLib.bubble.shouldFlipDown(P.y, h, petScale));
@@ -72,24 +91,21 @@ function positionBubble() {
   // 按比例换算会算错。关键：水平、垂直的偏移都要「先归零 → 量测 → 按实际缩放换算」，
   // 否则会在「已挪好」和「没挪」两个状态之间反复横跳——用户看到的就是
   // 「先弹出一半（被窗口上沿裁掉）→ 又变成完整」。
-  // 迭代收敛式夹取：不做任何「布局坐标↔屏幕坐标」换算（那套换算在 fs/petScale
-  // 叠加时永远算不准），而是量一次挪一点、再量再挪，2~3 次后必然收敛到屏幕内。
-  // 每轮：归零 → 量 → 计算本轮需要的屏幕像素位移 → 按上一轮的经验比例折算成本轮增量。
-  let accX = 0, accY = 0, prevScale = 0;
-  for (let k = 0; k < 3; k++) {
+  // 缩放比例在同一次布局里是稳定的，缓存后两轮即可收敛；原先每轮都重新量，
+  // 连续 20 次气泡会多出 20 次强制重排。
+  let accX = 0, accY = 0;
+  for (let k = 0; k < 2; k++) {
     bubbleEl.style.marginLeft = accX ? `${accX.toFixed(1)}px` : '';
     bubbleEl.style.setProperty('--bubble-shift', accY ? `${accY.toFixed(1)}px` : '');
     const r = bubbleEl.getBoundingClientRect();
     if (!r.width) break;
-    const scale = bubbleEl.offsetWidth ? r.width / bubbleEl.offsetWidth : 1;
+    const measured = bubbleEl.offsetWidth ? r.width / bubbleEl.offsetWidth : 1;
+    if (k === 0 && measured > 0) bubblePosRatio = measured;
+    const ratio = bubblePosRatio || measured || 1;
     const need = window.PetLib.bubble.edgeShift(r, innerWidth, 4);
-    if (k === 0) prevScale = scale;
-    if (Math.abs(need) < 2) break;
-    // 用「上一轮测得的实际缩放」把本轮屏幕像素位移折算成布局增量
-    const ratio = prevScale || scale || 1;
+    if (Math.abs(need) < 2 && k > 0) break;
     accX += need / ratio;
-    const upNeed = window.PetLib.bubble.topShift(r, 4) / ratio;
-    accY += upNeed;
+    accY += window.PetLib.bubble.topShift(r, 4) / ratio;
   }
   bubbleEl.style.marginLeft = accX ? `${accX.toFixed(1)}px` : '';
   bubbleEl.style.setProperty('--bubble-shift', accY ? `${accY.toFixed(1)}px` : '');

@@ -21,6 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: 版本号一致性检查
         shell: pwsh
@@ -35,12 +36,15 @@ jobs:
           Write-Host "版本一致：$pkg"
 
       - name: 脚本语法检查
+        shell: pwsh
         run: |
-          node --check renderer/pet.js
-          node --check renderer/lib/i18n.js
-          node --check renderer/lib/format.js
-          node --check renderer/lib/motion.js
-          node --check renderer/lib/meme-queue.js
+          $files = @(Get-ChildItem -LiteralPath renderer -Recurse -Filter '*.js' -File)
+          if ($files.Count -eq 0) { throw 'renderer 下未找到 JavaScript 文件' }
+          foreach ($file in $files) {
+            node --check $file.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Write-Host "已检查 renderer 下 $($files.Count) 个 JavaScript 文件"
           node --check wails/frontend/api.js
           python -c "import ast,glob;[ast.parse(open(f,encoding='utf-8').read(),f) for f in glob.glob('tools/*.py')+glob.glob('tools/character-pack/*.py')]"
 
@@ -56,6 +60,10 @@ jobs:
       # wails/frontend/dist 是 go:embed 的依赖，必须先由脚本生成
       - name: 生成前端资源
         run: node tools/wails-prepare.js
+
+      # 依赖 dist（断言不能残留 ../characters/），必须放在生成之后
+      - name: Renderer 烟雾测试
+        run: npm run test:smoke
 
       - name: gofmt 检查
         working-directory: wails

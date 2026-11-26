@@ -8,10 +8,12 @@ const (
 	// 连续两次采样都判定为全屏才隐藏（约 1 秒）：单次采样容易被最大化窗口、
 	// 通知弹窗、切换动画误触发。
 	fullscreenConfirmTicks = 2
-	// 退出全屏同样要连续两次非全屏采样，避免全屏应用切换的间隙误恢复。
-	fullscreenClearTicks = 2
-	// 退出全屏后至少稳定 1.2 秒才恢复。
-	fullscreenRestoreDelay = 1200 * time.Millisecond
+	// 退出全屏后只需再确认一次非全屏即可恢复（隐藏前已在 probeConclusiveFullscreen 里
+	// 做过一次严格复核，恢复侧不必再拖 1 秒多，缩短“误藏后消失”的时长）。
+	fullscreenClearTicks = 1
+	// 退出全屏后只需稳定 0.4 秒就恢复。误判隐藏时用户感知的消失时长 ≈ 确认+这段延迟，
+	// 之前 1.2 秒（加两次确认约 2.2 秒）太长。
+	fullscreenRestoreDelay = 400 * time.Millisecond
 	// 恢复后 4 秒内不再隐藏：边界抖动时桌宠不会每隔一秒闪一次。
 	fullscreenRehideDelay = 4 * time.Second
 	// 判定记录只保留最近 40 条，够贴 issue，又不会占内存。

@@ -10,11 +10,21 @@
 
 html {
   --font-ui: "ShouShou", "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  --fw: 400;
+  /* 标题与强调在正文字重上抬 300 / 200，常规档分别是原来的 700 / 600 */
+  --fw-strong: min(calc(var(--fw) + 300), 900);
+  --fw-semibold: min(calc(var(--fw) + 200), 900);
 }
 
-/* 软糖体只有 Regular，字形又圆；禁用合成粗体，避免假粗体把笔画糊成一团 */
+/* 软糖体只有 Regular，字形又圆；常规档禁用合成粗体，避免假粗体把笔画糊成一团。
+   用户显式选「半粗 / 加粗」时才放开合成，否则字重调节对单字重字体不起作用。 */
 html[data-font="soft"] {
   font-synthesis: none;
+}
+
+html[data-font="soft"][data-fw="bold"],
+html[data-font="custom"][data-fw="bold"] {
+  font-synthesis: weight;
 }
 
 html[data-font="yahei"] {
@@ -45,10 +55,28 @@ body {
   overflow: hidden;
   background: transparent;
   font-family: var(--font-ui);
+  /* 正文跟随用户选择的字重；标题与强调在其之上按比例加权，保证任何档位下都有层级差 */
+  font-weight: var(--fw, 400);
   user-select: none;
   -webkit-user-select: none;
   cursor: default;
   touch-action: pan-x pan-y; /* 禁捏合缩放，保留滚动/拖动 */
+}
+
+/* 浏览器给 button / 表单控件默认套系统 UI 字体，不跟随 body。
+   统一继承，避免个别面板漏写 font 声明就出现字体不一致
+   （形象商店卡片里的「使用 / 已并入 / 卸载」按钮就是这样）。 */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* 强调文字跟随正文字重再抬 300，常规档保持原来的 700，加粗档到 900 封顶 */
+b,
+strong {
+  font-weight: var(--fw-strong);
 }
 
 /* 开发用截图模式下垫一层桌面感的底色，方便预览 */
@@ -61,6 +89,17 @@ body.dev-bg {
 #stage {
   position: absolute;
   inset: 0;
+}
+
+:focus-visible {
+  outline: 3px solid #3157e8;
+  outline-offset: 2px;
+}
+
+#hit:focus-visible {
+  outline-style: dashed;
+  outline-offset: -5px;
+  border-radius: 24px;
 }
 
 /* ---------------------------------------------------------------- 角色 */
@@ -112,6 +151,10 @@ body.pet-ready #pet {
   width: 100%;
   height: 100%;
 }
+
+/* 省电待机：视频暂停后仍保留一点呼吸感。
+   不要用 CSS 动画（60fps 合成，实测渲染进程 CPU 从 ~8% 涨到 ~17%），
+   改由主循环在空闲帧率（约 10fps）里推 1~2px，见 loop.js 的 applyBreath。 */
 
 /* 立绘形象（大肥鱼 2 / GPT 娘）：静态姿势图，用轻微呼吸浮动补一点活气 */
 #petImg {
@@ -214,7 +257,7 @@ body.pet-ready #pet {
 .zzz span {
   position: absolute;
   color: #c3d4ff;
-  font-weight: 700;
+  font-weight: var(--fw-strong);
   text-shadow: 0 0 3px #4d6bfe, 0 0 2px #4d6bfe;
 }
 
@@ -451,38 +494,6 @@ body.pet-ready #pet {
   color: #2c3fbe;
   font-size: 1em;
   font-variant-numeric: tabular-nums;
-}
-
-.u-quota {
-  display: grid;
-  gap: 4px;
-}
-
-.u-quota.hide {
-  display: none;
-}
-
-.u-quota i {
-  display: block;
-  height: 7px;
-  border-radius: 4px;
-  background: #e7ecff;
-  overflow: hidden;
-}
-
-.u-quota i b {
-  display: block;
-  height: 100%;
-  width: 0;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #6f8bff, #4d6bfe);
-  transition: width 0.4s ease-out;
-}
-
-.u-quota span {
-  font-size: 0.79em;
-  color: #6b78a3;
-  text-align: right;
 }
 
 .u-note {
@@ -811,7 +822,7 @@ body.pet-ready #pet {
 .set-title {
   margin: 0 0 9px;
   font-size: calc(14.5px * var(--fs, 1));
-  font-weight: 700;
+  font-weight: var(--fw-strong);
 }
 
 .set-sec {
@@ -886,7 +897,7 @@ body.pet-ready #pet {
   margin-top: 5px;
   font-size: 11.5px;
   line-height: 1.5;
-  color: #97a2c4;
+  color: #64708f;
 }
 
 .set-hint.ok {
@@ -895,6 +906,212 @@ body.pet-ready #pet {
 
 .set-hint.err {
   color: #b33939;
+}
+
+/* 白饭账本：分组卡片、迷你开关与 Key 入口 */
+.set-page .set-card {
+  margin-bottom: 8px;
+  padding: 9px 10px;
+  border: 1px solid #e7ecfb;
+  border-radius: calc(11px * var(--fs, 1));
+  background: #f9fbff;
+}
+
+.set-card .set-label {
+  margin-bottom: 0;
+}
+
+.set-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.set-mini {
+  display: flex;
+  gap: 4px;
+}
+
+.set-mini button {
+  padding: 3px 10px;
+  border: 1px solid #dde4ff;
+  border-radius: calc(8px * var(--fs, 1));
+  background: #fff;
+  color: #5b688f;
+  font: inherit;
+  font-size: calc(11.5px * var(--fs, 1));
+  cursor: pointer;
+}
+
+.set-mini button:hover {
+  background: #eaefff;
+}
+
+.set-mini button.on {
+  border-color: #4d6bfe;
+  background: #4d6bfe;
+  color: #fff;
+}
+
+#set-ledger-src button {
+  position: relative;
+}
+
+#set-ledger-src button.has-key::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #45b97c;
+}
+
+/* 首次使用找不到填 Key 的入口，所以单独立一块「填写 API Key」：
+   标题 + 状态徽标 + 说明 + 实心主按钮，一眼能看出这里要动手。 */
+.key-entry {
+  margin-top: 8px;
+  padding: calc(8px * var(--fs, 1)) calc(9px * var(--fs, 1)) calc(9px * var(--fs, 1));
+  border: 1px solid #cdd8ff;
+  border-radius: calc(11px * var(--fs, 1));
+  background: #f2f6ff;
+}
+
+.key-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+}
+
+.key-entry-icon {
+  font-size: calc(12.5px * var(--fs, 1));
+}
+
+.key-entry-title {
+  font-size: calc(12.5px * var(--fs, 1));
+  font-weight: 700;
+  color: #22305e;
+}
+
+.key-entry-badge {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fff2e0;
+  color: #a35c00;
+  font-size: calc(10.5px * var(--fs, 1));
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.key-entry-badge.ok {
+  background: #e8f7ee;
+  color: #2f7d4f;
+}
+
+.key-entry-hint {
+  margin-bottom: 6px;
+  color: #5b688f;
+  font-size: calc(11px * var(--fs, 1));
+  line-height: 1.55;
+}
+
+.set-keybtn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-top: 7px;
+  padding: calc(6px * var(--fs, 1)) calc(9px * var(--fs, 1));
+  border: 1px solid #dde4ff;
+  border-radius: calc(9px * var(--fs, 1));
+  background: #fff;
+  color: #33406e;
+  font: inherit;
+  font-size: calc(12.5px * var(--fs, 1));
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 嵌进 key-entry 时换成实心主按钮：白底细边框太像说明文字。
+   不用和「已选中的来源」同样的纯 #4d6bfe，改为一枚带投影的强调按钮，
+   避免和上方来源分段选中态混淆。 */
+.key-entry .set-keybtn {
+  margin-top: 0;
+  border-color: transparent;
+  background: linear-gradient(135deg, #5b7bff 0%, #4360f2 100%);
+  box-shadow: 0 4px 12px rgba(67, 96, 242, 0.32);
+  color: #fff;
+  font-weight: 600;
+}
+
+.key-entry .set-keybtn:hover {
+  background: linear-gradient(135deg, #6a87ff 0%, #4a67f7 100%);
+  box-shadow: 0 5px 16px rgba(67, 96, 242, 0.4);
+}
+
+.set-keybtn .kaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.set-keybtn .kstate {
+  color: #97a2c4;
+  font-size: calc(11.5px * var(--fs, 1));
+}
+
+.set-keybtn .kchev {
+  opacity: 0.9;
+  font-size: calc(14px * var(--fs, 1));
+  line-height: 1;
+}
+
+.key-entry .set-keybtn .kstate {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.set-keybtn.ok {
+  border-color: #b8e2c8;
+  background: #f4fbf7;
+}
+
+.key-entry .set-keybtn.ok {
+  border-color: transparent;
+  background: #45b97c;
+}
+
+.set-keybtn.ok .kstate {
+  color: #2f7d4f;
+}
+
+.key-entry .set-keybtn.ok .kstate {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.set-details {
+  margin-top: 6px;
+}
+
+.set-details summary {
+  color: #5b688f;
+  font-size: calc(11.5px * var(--fs, 1));
+  cursor: pointer;
+}
+
+.set-details[open] summary {
+  margin-bottom: 4px;
+}
+
+.set-details .set-warn {
+  margin-top: 0;
 }
 
 .set-help b {
@@ -946,6 +1163,81 @@ body.pet-ready #pet {
   display: none;
 }
 
+/* 卸载 / 导入失败的确认框：不用浏览器原生 confirm（标题是 wails.localhost，
+   字体和配色也跟不上），改为与菜单、动作面板同一套外观与定位。 */
+#confirm {
+  position: absolute;
+  z-index: 24;
+  width: calc(258px * var(--fs, 1));
+  max-width: calc(100vw - 16px);
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 30px rgba(16, 28, 76, 0.34), 0 0 0 1px rgba(120, 150, 255, 0.22);
+  color: #22305e;
+  font-family: var(--font-ui);
+  font-size: calc(13px * var(--fs, 1));
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+}
+
+#confirm.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#confirm.hide {
+  display: none;
+}
+
+#confirm .confirm-title {
+  margin-bottom: 6px;
+  font-size: calc(13.5px * var(--fs, 1));
+  font-weight: var(--fw-bold, 700);
+}
+
+#confirm .confirm-msg {
+  color: #5b688f;
+  font-size: calc(12px * var(--fs, 1));
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+#confirm .confirm-foot {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+#confirm .confirm-foot button {
+  flex: 1;
+  padding: calc(6px * var(--fs, 1)) 0;
+  border: 1px solid #dde4ff;
+  border-radius: calc(9px * var(--fs, 1));
+  background: #f4f7ff;
+  color: #33406e;
+  font: inherit;
+  font-size: calc(12px * var(--fs, 1));
+  cursor: pointer;
+}
+
+#confirm .confirm-foot button.primary {
+  flex: 1.2;
+  border-color: transparent;
+  background: #4d6bfe;
+  color: #fff;
+  font-weight: 600;
+}
+
+#confirm .confirm-foot button.primary.danger {
+  background: #d94a4a;
+}
+
+#confirm .confirm-foot button:hover {
+  filter: brightness(0.97);
+}
+
 #picker-body {
   flex: 1;
   overflow-y: auto;
@@ -963,6 +1255,48 @@ body.pet-ready #pet {
 
 .pick-hint.err {
   color: #b33939;
+}
+
+.pick-search {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: calc(5px * var(--fs, 1)) calc(9px * var(--fs, 1));
+  border: 1px solid #dde4ff;
+  border-radius: calc(9px * var(--fs, 1));
+  background: #f7f9ff;
+  color: #22305e;
+  font: inherit;
+  font-size: calc(12px * var(--fs, 1));
+}
+
+.pick-search::placeholder {
+  color: #9aa4c6;
+}
+
+.pick-hide {
+  display: none !important;
+}
+
+.pick-sec > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pick-sec > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pick-sec > summary::before {
+  content: '▾';
+  display: inline-block;
+  width: 1em;
+  color: #8f9bc8;
+}
+
+.pick-sec:not([open]) > summary::before {
+  content: '▸';
 }
 
 #picker-body::-webkit-scrollbar {
@@ -1073,16 +1407,6 @@ body.pet-ready #pet {
 }
 
 /* ── 形象商店 ───────────────────────────────────────────── */
-.store-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-  margin-bottom: 8px;
-  border: 1px solid #e3e9fb;
-  border-radius: 12px;
-  background: #fbfcff;
-}
 /* 商店卡片（形象包/内置形象统一列表）
    注意：所有字号和关键尺寸都用 calc(N * var(--fs)) 跟全局字号缩放走，
    与设置面板其他部分保持一致，不要写死 px */
@@ -1097,9 +1421,9 @@ body.pet-ready #pet {
   background: #fbfcff;
 }
 .store-cover {
-  width: calc(38px * var(--fs, 1));
-  height: calc(38px * var(--fs, 1));
-  flex: 0 0 calc(38px * var(--fs, 1));
+  width: calc(44px * var(--fs, 1));
+  height: calc(44px * var(--fs, 1));
+  flex: 0 0 calc(44px * var(--fs, 1));
   object-fit: contain;
   border-radius: calc(9px * var(--fs, 1));
   background: #eef2ff;
@@ -1109,7 +1433,7 @@ body.pet-ready #pet {
   align-items: center;
   justify-content: center;
   font-size: calc(16px * var(--fs, 1));
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: #6f7fa8;
 }
 .store-meta { flex: 1; min-width: 0; }
@@ -1219,5 +1543,30 @@ body.pet-ready #pet {
 .pomo-col b {
   font-size: 10px;
   color: #46527a;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
+}
+
+/* 减少动态效果只作用于面板、气泡与装饰，不改 JS 驱动的桌宠移动/视频动作。 */
+@media (prefers-reduced-motion: reduce) {
+  #menu,
+  #settings,
+  #picker,
+  #menu *,
+  #settings *,
+  #picker *,
+  #bubble,
+  #bubble *,
+  #chip,
+  #fx,
+  #fx *,
+  .zzz,
+  .zzz *,
+  #lean,
+  #flip,
+  #tilt,
+  #petImg,
+  #petSprite {
+    animation: none !important;
+    transition: none !important;
+  }
 }

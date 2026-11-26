@@ -1,17 +1,13 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -25,19 +21,22 @@ type apiProvider struct {
 var apiProviders = map[string]apiProvider{
 	"deepseek":    {label: "DeepSeek", short: "DeepSeek", env: "DEEPSEEK_API_KEY", fetch: fetchDeepseek},
 	"moonshot":    {label: "Kimi（Moonshot）", short: "Kimi", env: "MOONSHOT_API_KEY", fetch: fetchMoonshot},
-	"siliconflow": {label: "SiliconFlow（硅基流动）", short: "SiliconFlow", env: "SILICONFLOW_API_KEY", fetch: fetchSiliconflow},
-	"doubao":      {label: "豆包（火山方舟）", short: "豆包", env: "VOLC_ACCESSKEY", fetch: fetchDoubao},
-	"openai":      {label: "ChatGPT（OpenAI）", short: "OpenAI", env: "OPENAI_ADMIN_KEY", fetch: fetchOpenai},
+	"siliconflow": {label: "SiliconFlow", short: "SiliconFlow", env: "SILICONFLOW_API_KEY", fetch: fetchSiliconflow},
+	"openai":      {label: "OpenAI", short: "OpenAI", env: "OPENAI_ADMIN_KEY", fetch: fetchOpenai},
 	"claude":      {label: "Claude（Anthropic）", short: "Claude", env: "ANTHROPIC_ADMIN_KEY", fetch: fetchClaude},
 }
 
-var keyHints = map[string]string{
-	"deepseek":    "普通 API Key 即可（sk-…）",
-	"moonshot":    "普通 API Key 即可（sk-…）",
-	"siliconflow": "普通 API Key 即可（sk-…）",
-	"doubao":      "豆包需要填写火山引擎访问密钥对「AK:SK」",
-	"openai":      "需要 OpenAI Admin Key（sk-admin…），普通 Key 无法查询账单",
-	"claude":      "需要 Anthropic Admin Key（sk-ant-admin…）",
+var keyHints = map[string][3]string{
+	"deepseek":    {"普通 API Key 即可（sk-…）", "A regular API key works (sk-…)", "通常の API キーで可（sk-…）"},
+	"moonshot":    {"普通 API Key 即可（sk-…）；国内站与国际站的 Key 不能混用", "A regular API key works (sk-…); keys for the China and international sites cannot be mixed", "通常の API キーで可（sk-…）。中国版と国際版のキーは併用できません"},
+	"siliconflow": {"普通 API Key 即可（sk-…）；国内站与国际站的 Key 不能混用", "A regular API key works (sk-…); keys for the China and international sites cannot be mixed", "通常の API キーで可（sk-…）。中国版と国際版のキーは併用できません"},
+	"openai":      {"需要 OpenAI Admin Key（sk-admin…）；只统计 API 费用，不含 ChatGPT 订阅", "Requires an OpenAI Admin key (sk-admin…); counts API charges only, not the ChatGPT subscription", "OpenAI の Admin キーが必要（sk-admin…）。API 利用料のみで ChatGPT サブスクは含みません"},
+	"claude":      {"需要 Anthropic Admin Key（sk-ant-admin…）", "Requires an Anthropic Admin key (sk-ant-admin…)", "Anthropic の Admin キーが必要（sk-ant-admin…）"},
+}
+
+func keyHint(provider string) string {
+	h := keyHints[provider]
+	return t3(h[0], h[1], h[2])
 }
 
 // apiError 是账单查询失败的结构化原因：前端据此给出可操作的提示，
@@ -83,7 +82,7 @@ func httpFailure(status int, body []byte) *apiError {
 	e := &apiError{
 		HTTPStatus: status,
 		Code:       "HTTP_ERROR",
-		Message:    fmt.Sprintf("请求失败（HTTP %d）", status),
+		Message:    fmt.Sprintf(t3("请求失败（HTTP %d）", "Request failed (HTTP %d)", "リクエストに失敗しました（HTTP %d）"), status),
 	}
 	if m := providerErrorMessage(body); m != "" {
 		e.Message += "：" + m
@@ -91,20 +90,20 @@ func httpFailure(status int, body []byte) *apiError {
 	switch status {
 	case 401:
 		e.Code = "UNAUTHORIZED"
-		e.Hint = "API Key 无效或已过期，请重新复制（不要带引号或空格）"
+		e.Hint = t3("API Key 无效或已过期，请重新复制（不要带引号或空格）", "The API key is invalid or expired; copy it again (no quotes or spaces)", "API キーが無効か期限切れです。もう一度コピーしてください（引用符や空白を含めない）")
 	case 403:
 		e.Code = "FORBIDDEN"
-		e.Hint = "该 Key 没有账单查询权限；OpenAI / Claude 需要 Admin Key"
+		e.Hint = t3("该 Key 没有账单查询权限；OpenAI / Claude 需要 Admin Key", "This key cannot read billing; OpenAI / Claude require an Admin key", "このキーには請求情報の閲覧権限がありません。OpenAI / Claude は Admin キーが必要です")
 	case 404:
 		e.Code = "NOT_FOUND"
-		e.Hint = "接口地址不存在，平台接口可能已变更，请反馈 issue"
+		e.Hint = t3("接口地址不存在，平台接口可能已变更，请反馈 issue", "Endpoint not found; the platform API may have changed—please file an issue", "エンドポイントが存在しません。API が変更された可能性があるため issue で報告してください")
 	case 429:
 		e.Code = "RATE_LIMITED"
-		e.Hint = "请求过于频繁，请稍后重试"
+		e.Hint = t3("请求过于频繁，请稍后重试", "Too many requests; try again later", "リクエストが多すぎます。しばらくして再試行してください")
 	default:
 		if status >= 500 {
 			e.Code = "SERVER_ERROR"
-			e.Hint = "平台服务异常，请稍后重试"
+			e.Hint = t3("平台服务异常，请稍后重试", "The platform service is having problems; try again later", "プラットフォーム側の障害です。しばらくして再試行してください")
 		}
 	}
 	return e
@@ -152,58 +151,26 @@ func (a *App) refreshUsageForce(force bool) map[string]interface{} {
 		return nil
 	}
 	src := ledgerSourceLocked(a.state)
+	generation := a.ledgerSeq
 	cached := a.ledger
 	a.mu.Unlock()
 
-	if _, ok := apiProviders[src]; ok {
-		// 打开账本、改 Key、切来源时都希望看到最新余额：
-		// 缓存超过 45 秒或来源变了就重新拉一次，否则一直显示旧数字。
-		stale := force
-		if cached != nil {
-			at := int64(num(cached["updatedAt"]))
-			same := strv(cached["source"], "") == src
-			if same && at > 0 && time.Since(time.UnixMilli(at)) < 45*time.Second {
-				stale = false
-			}
+	// 打开账本、改 Key、切来源时都希望看到最新余额：
+	// 缓存超过 45 秒或来源变了就重新拉一次，否则一直显示旧数字。
+	// 之前缓存为 nil 时 stale 恒为 false：首次打开账本不会触发拉取，气泡会一直停在“正在读取账单…”。
+	// 没有缓存必须视为需要拉取。
+	stale := force || cached == nil
+	if cached != nil {
+		at := int64(num(cached["updatedAt"]))
+		same := strv(cached["source"], "") == src
+		if same && at > 0 && time.Since(time.UnixMilli(at)) < 45*time.Second {
+			stale = false
 		}
-		if stale {
-			go a.fetchApiBalanceAsync(src)
-		}
-		return cached
 	}
-
-	data := a.collectQoderUsage()
-	quota := a.planQuota()
-	ledger := map[string]interface{}{
-		"source": "qoder",
+	if stale {
+		go a.fetchApiBalanceAsync(src, generation)
 	}
-	for k, v := range data {
-		ledger[k] = v
-	}
-	ledger["quota"] = quota
-	if quota > 0 {
-		ledger["percent"] = minF(100, num(data["month"])/quota*100)
-	} else {
-		ledger["percent"] = nil
-	}
-	// 没找到任何 Qoder 会话时给出明确原因，否则前端只能显示一片 “—”
-	if !boolv(data["available"], false) {
-		ledger["errorCode"] = "NO_QODER_SESSIONS"
-		ledger["error"] = "没找到本机 Qoder 会话记录（~/.qoder-cn/projects）"
-		ledger["errorHint"] = "先登录 Qoder 跑一次会话；或在设置 → 白饭账本里改用 API 余额"
-	}
-	a.mu.Lock()
-	a.ledger = ledger
-	a.mu.Unlock()
-	a.checkQuotaWarning(ledger)
-	return ledger
-}
-
-func minF(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
+	return cached
 }
 
 // RefreshUsage 是前端「重新检测」按钮的同步入口：跳过 45 秒缓存，
@@ -212,19 +179,17 @@ func (a *App) RefreshUsage() map[string]interface{} {
 	if !a.ledgerOn() {
 		return map[string]interface{}{
 			"source": a.ledgerSource(), "available": false,
-			"error": "账本已在设置里关闭", "errorCode": "LEDGER_OFF",
-			"errorHint": "在设置 → 白饭账本里重新开启",
+			"error": t3("账本已在设置里关闭", "The ledger is turned off in Settings", "帳簿は設定でオフになっています"), "errorCode": "LEDGER_OFF",
+			"errorHint": t3("在设置 → 白饭账本里重新开启", "Turn it back on in Settings → Rice Ledger", "設定 → 白飯帳簿 で再度オンにしてください"),
 		}
 	}
 	src := a.ledgerSource()
-	if def, ok := apiProviders[src]; ok {
-		if !a.beginFetch(src) {
-			return a.ledgerPending(src, def)
-		}
-		defer a.endFetch(src)
-		return a.fetchApiBalance(src)
+	generation, ok := a.beginFetch(src)
+	if !ok {
+		return a.ledgerPending(src, apiProviders[src])
 	}
-	return a.refreshUsageForce(true)
+	defer a.endFetch(src, generation)
+	return a.fetchApiBalance(src, generation)
 }
 
 func (a *App) ledgerPending(provider string, def apiProvider) map[string]interface{} {
@@ -235,8 +200,8 @@ func (a *App) ledgerPending(provider string, def apiProvider) map[string]interfa
 		"source": provider, "provider": provider,
 		"providerLabel": def.label, "providerShort": def.short,
 		"pending": true, "available": false, "rows": []map[string]string{},
-		"error": "上一次检测还没结束", "errorCode": "PENDING",
-		"errorHint": "稍等几秒，结果回来会自动刷新", "updatedAt": nowMillis(),
+		"error": t3("上一次检测还没结束", "The previous check is still running", "前回の確認がまだ実行中です"), "errorCode": "PENDING",
+		"errorHint": t3("稍等几秒，结果回来会自动刷新", "Wait a few seconds; the result will refresh automatically", "数秒お待ちください。結果が届くと自動で更新されます"), "updatedAt": nowMillis(),
 	}
 	if cached != nil {
 		for k, v := range cached {
@@ -248,26 +213,19 @@ func (a *App) ledgerPending(provider string, def apiProvider) map[string]interfa
 	return out
 }
 
-func (a *App) fetchApiBalanceAsync(provider string) {
-	// 按平台分别去重：以前用一个全局标志，某个平台卡住时别的平台也跟着拿不到数据
-	if !a.beginFetch(provider) {
+func (a *App) fetchApiBalanceAsync(provider string, generation uint64) {
+	// 按平台分别去重；调度前捕获的代次必须一直传到请求结束。
+	if !a.beginFetchGeneration(provider, generation) {
 		return
 	}
-	defer a.endFetch(provider)
-	a.fetchApiBalance(provider)
+	defer a.endFetch(provider, generation)
+	a.fetchApiBalance(provider, generation)
 }
 
 // fetchApiBalance 查询一次平台余额并写入账本缓存。调用方负责 beginFetch/endFetch。
-func (a *App) fetchApiBalance(provider string) map[string]interface{} {
+func (a *App) fetchApiBalance(provider string, generation uint64) map[string]interface{} {
 	def := apiProviders[provider]
 	key, keySource := a.apiKeyAndSource(provider)
-	if provider == "doubao" && key == "" {
-		ak, sk := os.Getenv("VOLC_ACCESSKEY"), os.Getenv("VOLC_SECRETKEY")
-		if ak != "" && sk != "" {
-			key = ak + ":" + sk
-			keySource = "env"
-		}
-	}
 	now := nowMillis()
 	base := map[string]interface{}{
 		"source": provider, "provider": provider,
@@ -278,15 +236,13 @@ func (a *App) fetchApiBalance(provider string) map[string]interface{} {
 	}
 	if key == "" {
 		base["errorCode"] = "MISSING_KEY"
-		base["error"] = fmt.Sprintf("未配置 %s API Key", def.label)
-		hint := keyHints[provider]
-		if provider == "doubao" {
-			hint += "；也可以用环境变量 VOLC_ACCESSKEY 与 VOLC_SECRETKEY"
-		} else if def.env != "" {
-			hint += "；也可以用环境变量 " + def.env
+		base["error"] = fmt.Sprintf(t3("未配置 %s API Key", "No %s API key configured", "%s のAPIキーが未設定"), def.label)
+		hint := keyHint(provider)
+		if def.env != "" {
+			hint += t3("；也可以用环境变量 ", "; you can also use the environment variable ", "。環境変数 も使えます") + def.env
 		}
 		base["errorHint"] = hint
-		a.setLedger(base)
+		a.setLedger(provider, generation, base, false)
 		return base
 	}
 
@@ -305,25 +261,10 @@ func (a *App) fetchApiBalance(provider string) map[string]interface{} {
 			base["errorCode"] = "UNKNOWN"
 		}
 		if code := strv(base["errorCode"], ""); code == "UNAUTHORIZED" || code == "FORBIDDEN" {
-			base["errorHint"] = keyHints[provider]
+			base["errorHint"] = keyHint(provider)
 		}
-		a.mu.Lock()
-		if a.ledgerOK != nil {
-			if at := a.ledgerOK[provider]; at > 0 {
-				base["lastOkAt"] = at
-			}
-		}
-		a.mu.Unlock()
-	} else {
-		base["lastOkAt"] = base["updatedAt"]
-		a.mu.Lock()
-		if a.ledgerOK == nil {
-			a.ledgerOK = map[string]int64{}
-		}
-		a.ledgerOK[provider] = int64(num(base["updatedAt"]))
-		a.mu.Unlock()
 	}
-	a.setLedger(base)
+	a.setLedger(provider, generation, base, !hasErr)
 	return base
 }
 
@@ -332,13 +273,13 @@ func (a *App) fetchApiBalance(provider string) map[string]interface{} {
 func (a *App) KeyCheck(provider, key string) map[string]interface{} {
 	def, ok := apiProviders[provider]
 	if !ok {
-		return map[string]interface{}{"ok": false, "error": "未知的平台", "errorCode": "UNKNOWN_PROVIDER"}
+		return map[string]interface{}{"ok": false, "error": t3("未知的平台", "Unknown platform", "不明なプラットフォーム"), "errorCode": "UNKNOWN_PROVIDER"}
 	}
 	k := strings.TrimSpace(key)
 	if len([]rune(k)) < 8 {
 		return map[string]interface{}{
-			"ok": false, "error": "Key 太短，看起来不像有效的 API Key",
-			"errorCode": "INVALID_KEY_FORMAT", "errorHint": keyHints[provider],
+			"ok": false, "error": t3("Key 太短，看起来不像有效的 API Key", "The key is too short to be a valid API key", "キーが短すぎて有効な API Key に見えません"),
+			"errorCode": "INVALID_KEY_FORMAT", "errorHint": keyHint(provider),
 		}
 	}
 	begin := time.Now()
@@ -347,7 +288,7 @@ func (a *App) KeyCheck(provider, key string) map[string]interface{} {
 	if code := strv(r["errorCode"], ""); code != "" {
 		out := map[string]interface{}{
 			"ok": false, "errorCode": code, "latencyMs": lat,
-			"error": strv(r["error"], "验证失败"),
+			"error": strv(r["error"], t3("验证失败", "Verification failed", "確認に失敗しました")),
 		}
 		if h := strv(r["errorHint"], ""); h != "" {
 			out["errorHint"] = h
@@ -364,202 +305,72 @@ func (a *App) KeyCheck(provider, key string) map[string]interface{} {
 	return out
 }
 
-func (a *App) beginFetch(provider string) bool {
+func (a *App) beginFetch(provider string) (uint64, bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.apiFetching == nil {
-		a.apiFetching = map[string]bool{}
-	}
-	if a.apiFetching[provider] {
+	generation := a.ledgerSeq
+	return generation, a.beginFetchLocked(provider, generation)
+}
+
+func (a *App) beginFetchGeneration(provider string, generation uint64) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.beginFetchLocked(provider, generation)
+}
+
+func (a *App) beginFetchLocked(provider string, generation uint64) bool {
+	if generation != a.ledgerSeq || ledgerSourceLocked(a.state) != provider {
 		return false
 	}
-	a.apiFetching[provider] = true
+	if a.apiFetching == nil {
+		a.apiFetching = map[string]uint64{}
+	}
+	if _, pending := a.apiFetching[provider]; pending {
+		return false
+	}
+	a.apiFetching[provider] = generation
 	return true
 }
 
-func (a *App) endFetch(provider string) {
+func (a *App) endFetch(provider string, generation uint64) {
 	a.mu.Lock()
-	if a.apiFetching != nil {
+	if a.apiFetching[provider] == generation {
 		delete(a.apiFetching, provider)
 	}
 	a.mu.Unlock()
 }
 
-func (a *App) setLedger(l map[string]interface{}) {
+// setLedger 只接受当前来源、当前代次的结果；旧请求仍向调用方返回结果，但不写缓存或发事件。
+func (a *App) setLedger(provider string, generation uint64, l map[string]interface{}, successful bool) bool {
 	a.mu.Lock()
+	if generation != a.ledgerSeq || ledgerSourceLocked(a.state) != provider {
+		a.mu.Unlock()
+		return false
+	}
+	if successful {
+		l["lastOkAt"] = l["updatedAt"]
+		if a.ledgerOK == nil {
+			a.ledgerOK = map[string]int64{}
+		}
+		a.ledgerOK[provider] = int64(num(l["updatedAt"]))
+	} else if a.ledgerOK != nil {
+		if at := a.ledgerOK[provider]; at > 0 {
+			l["lastOkAt"] = at
+		}
+	}
+	l["lang"] = uiLang() // 错误/提示是按当时语言生成的，前端据此判断是否需要重拉
 	a.ledger = l
 	a.mu.Unlock()
-	a.emit("usage", l)
-	a.trayRefresh()
-}
-
-// ---------------- Qoder 本地 credits ----------------
-
-type usageCacheEntry struct {
-	month, day, session float64
-}
-
-var (
-	usageMu    sync.Mutex
-	usageCache = map[string]usageCacheEntry{}
-)
-
-func (a *App) collectQoderUsage() map[string]interface{} {
-	now := time.Now()
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	out := map[string]interface{}{
-		"today": 0.0, "month": 0.0, "session": 0.0, "sessionId": "",
-		"files": 0, "available": false, "updatedAt": nowMillis(),
-	}
-	home, _ := os.UserHomeDir()
-	root := filepath.Join(home, ".qoder-cn", "projects")
-	files := []string{}
-	walkTranscripts(root, 0, &files)
-	var latestMtime int64
-	var latestSession float64
-	var latestID string
-	for _, file := range files {
-		st, err := os.Stat(file)
-		if err != nil || st.ModTime().Before(monthStart) {
-			continue
-		}
-		month, day, session, ok := sumUsageFile(file, monthStart, dayStart, st)
-		if !ok {
-			continue
-		}
-		out["files"] = out["files"].(int) + 1
-		out["available"] = true
-		out["month"] = out["month"].(float64) + month
-		out["today"] = out["today"].(float64) + day
-		if st.ModTime().UnixMilli() > latestMtime {
-			latestMtime = st.ModTime().UnixMilli()
-			latestSession = session
-			latestID = strings.TrimSuffix(filepath.Base(file), ".jsonl")
-		}
-	}
-	out["today"] = round1(out["today"].(float64))
-	out["month"] = round1(out["month"].(float64))
-	out["session"] = round1(latestSession)
-	if len(latestID) > 8 {
-		latestID = latestID[:8]
-	}
-	out["sessionId"] = latestID
-	return out
-}
-
-func walkTranscripts(dir string, depth int, out *[]string) {
-	if depth > 4 {
-		return
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return
-	}
-	for _, e := range entries {
-		p := filepath.Join(dir, e.Name())
-		if e.IsDir() {
-			walkTranscripts(p, depth+1, out)
-		} else if strings.HasSuffix(e.Name(), ".jsonl") {
-			*out = append(*out, p)
-		}
-	}
-}
-
-type usageJSONLine struct {
-	Timestamp string `json:"timestamp"`
-	Message   struct {
-		Usage *struct {
-			Credits  float64 `json:"credits"`
-			Billable *bool   `json:"billable"`
-		} `json:"usage"`
-	} `json:"message"`
-}
-
-func sumUsageFile(file string, monthStart, dayStart time.Time, st os.FileInfo) (float64, float64, float64, bool) {
-	key := fmt.Sprintf("%s|%d|%d", file, st.ModTime().UnixNano(), st.Size())
-	usageMu.Lock()
-	if c, ok := usageCache[key]; ok {
-		usageMu.Unlock()
-		return c.month, c.day, c.session, true
-	}
-	usageMu.Unlock()
-	b, err := os.ReadFile(file)
-	if err != nil {
-		return 0, 0, 0, false
-	}
-	var month, day, session float64
-	for _, line := range strings.Split(string(b), "\n") {
-		if !strings.Contains(line, `"credits"`) {
-			continue
-		}
-		var obj usageJSONLine
-		if json.Unmarshal([]byte(line), &obj) != nil {
-			continue
-		}
-		u := obj.Message.Usage
-		if u == nil || (u.Billable != nil && !*u.Billable) {
-			continue
-		}
-		t, _ := time.Parse(time.RFC3339Nano, obj.Timestamp)
-		session += u.Credits
-		if t.IsZero() || t.Before(monthStart) {
-			continue
-		}
-		month += u.Credits
-		if !t.Before(dayStart) {
-			day += u.Credits
-		}
-	}
-	usageMu.Lock()
-	usageCache[key] = usageCacheEntry{month: month, day: day, session: session}
-	// 清掉同一文件的旧缓存
-	for k := range usageCache {
-		if k != key && strings.HasPrefix(k, file+"|") {
-			delete(usageCache, k)
-		}
-	}
-	usageMu.Unlock()
-	return month, day, session, true
-}
-
-func (a *App) checkQuotaWarning(ledger map[string]interface{}) {
-	quota := a.planQuota()
-	if quota <= 0 || ledger == nil {
-		return
-	}
-	percent := num(ledger["month"]) / quota * 100
-	month := time.Now().Format("2006-01")
+	// 事件在解锁后再发：前端处理可能很慢，持锁期间光标轮询 / 窗口巡检都会被拖住。
+	// 发之前复核一次代次，避免旧请求的结果盖掉刚切来源后的新结果。
 	a.mu.Lock()
-	if str(a.state["warnMonth"], "") != month {
-		a.state["warnMonth"] = month
-		a.state["warnTier"] = 1
-		a.mu.Unlock()
-		a.saveState()
-		a.mu.Lock()
-	}
-	tier := 1
-	if percent >= 100 {
-		tier = 3
-	} else if percent >= 80 {
-		tier = 2
-	}
-	old := int(num(a.state["warnTier"]))
-	if old == 0 {
-		old = 1
-	}
-	if tier > old {
-		a.state["warnTier"] = tier
-		a.mu.Unlock()
-		a.saveState()
-		if tier == 3 {
-			a.balloon("truncated", a.t("用量账本", "Usage ledger", "使用量帳簿"), fmt.Sprintf(a.t("本月套餐已经被用光了（%v credits）…", "This month's quota is used up (%v credits)…", "今月の枠を使い切りました（%v クレジット）…"), ledger["month"]))
-		} else {
-			a.balloon("error", a.t("用量账本", "Usage ledger", "使用量帳簿"), fmt.Sprintf(a.t("本月用量已到 %.0f%%（%v credits），悠着点…", "This month's usage reached %.0f%% (%v credits). Take it easy…", "今月の使用量が %.0f%% に達しました（%v クレジット）。ほどほどに…"), percent, ledger["month"]))
-		}
-		return
-	}
+	current := generation == a.ledgerSeq && ledgerSourceLocked(a.state) == provider
 	a.mu.Unlock()
+	if current {
+		a.emit("usage", l)
+	}
+	a.trayRefresh()
+	return true
 }
 
 // ---------------- HTTP / API 账单 ----------------
@@ -577,7 +388,7 @@ func apiURL(host, path string) string {
 func httpGetJSON(host, path string, headers map[string]string) (map[string]interface{}, error) {
 	req, err := http.NewRequest(http.MethodGet, apiURL(host, path), nil)
 	if err != nil {
-		return nil, &apiError{Code: "BAD_REQUEST", Message: "请求构造失败", Hint: "请反馈 issue"}
+		return nil, &apiError{Code: "BAD_REQUEST", Message: t3("请求构造失败", "Could not build the request", "リクエストを組み立てられません"), Hint: t3("请反馈 issue", "Please file an issue", "issue で報告してください")}
 	}
 	req.Header.Set("Accept", "application/json")
 	for k, v := range headers {
@@ -588,14 +399,14 @@ func httpGetJSON(host, path string, headers map[string]string) (map[string]inter
 	if err != nil {
 		var ne net.Error
 		if errors.As(err, &ne) && ne.Timeout() {
-			return nil, &apiError{Code: "TIMEOUT", Message: "请求超时（9 秒）", Hint: "检查网络或代理后重试"}
+			return nil, &apiError{Code: "TIMEOUT", Message: t3("请求超时（9 秒）", "Request timed out (9 s)", "リクエストがタイムアウトしました（9秒）"), Hint: t3("检查网络或代理后重试", "Check your network or proxy and try again", "ネットワークまたはプロキシを確認して再試行してください")}
 		}
-		return nil, &apiError{Code: "NETWORK", Message: "网络请求失败", Hint: "检查网络或代理后重试"}
+		return nil, &apiError{Code: "NETWORK", Message: t3("网络请求失败", "Network request failed", "ネットワーク接続に失敗しました"), Hint: t3("检查网络或代理后重试", "Check your network or proxy and try again", "ネットワークまたはプロキシを確認して再試行してください")}
 	}
 	defer res.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
 	if err != nil {
-		return nil, &apiError{Code: "NETWORK", Message: "读取响应失败", Hint: "检查网络后重试", HTTPStatus: res.StatusCode}
+		return nil, &apiError{Code: "NETWORK", Message: t3("读取响应失败", "Failed to read the response", "応答の読み取りに失敗しました"), Hint: t3("检查网络后重试", "Check your network and try again", "ネットワークを確認して再試行してください"), HTTPStatus: res.StatusCode}
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return nil, httpFailure(res.StatusCode, body)
@@ -604,8 +415,8 @@ func httpGetJSON(host, path string, headers map[string]string) (map[string]inter
 	if json.Unmarshal(body, &out) != nil {
 		return nil, &apiError{
 			Code: "BAD_RESPONSE", HTTPStatus: res.StatusCode,
-			Message: fmt.Sprintf("平台返回了无法解析的数据（HTTP %d）", res.StatusCode),
-			Hint:    "可能是接口变更，或网络被代理页面拦截",
+			Message: fmt.Sprintf(t3("平台返回了无法解析的数据（HTTP %d）", "The platform returned unreadable data (HTTP %d)", "プラットフォームが解析できないデータを返しました（HTTP %d）"), res.StatusCode),
+			Hint:    t3("可能是接口变更，或网络被代理页面拦截", "The API may have changed, or a proxy page intercepted the request", "API の変更、またはプロキシページによる妨害の可能性があります"),
 		}
 	}
 	return out, nil
@@ -667,85 +478,71 @@ func fetchDeepseek(key string) map[string]interface{} {
 	}
 	out := map[string]interface{}{
 		"rows": []map[string]string{
-			{"label": "可用余额", "value": sym + strv(b["total_balance"], "—")},
-			{"label": "赠送余额", "value": sym + strv(b["granted_balance"], "—")},
-			{"label": "充值余额", "value": sym + strv(b["topped_up_balance"], "—")},
+			{"label": t3("可用余额", "Available balance", "利用可能残高"), "value": sym + strv(b["total_balance"], "—")},
+			{"label": t3("赠送余额", "Granted balance", "付与残高"), "value": sym + strv(b["granted_balance"], "—")},
+			{"label": t3("充值余额", "Topped-up balance", "チャージ残高"), "value": sym + strv(b["topped_up_balance"], "—")},
 		},
 	}
 	// is_available=false 只表示账户当前不可用（常见于余额为 0），
 	// 不能当成"没拿到数据"——否则三行都正确读到了却显示"还没拿到账单数据"
 	if !boolv(j["is_available"], true) {
-		out["note"] = "已连上 DeepSeek，但账户当前不可用（余额不足或被停用）"
+		out["note"] = t3("已连上 DeepSeek，但账户当前不可用（余额不足或被停用）", "Connected to DeepSeek, but this account is currently unavailable (insufficient balance or suspended)", "DeepSeek に接続しましたが、このアカウントは現在利用できません（残高不足または停止中）")
 	}
 	return out
 }
 
+// fetchWithIntlFallback 先查国内站；国内站返回鉴权失败时换国际站域名再试一次
+// （两站账号与 Key 独立，币种也不同）。
+func fetchWithIntlFallback(cnHost, intlHost, path, key string) (map[string]interface{}, string, error) {
+	j, err := httpGetJSON(cnHost, path, map[string]string{"Authorization": "Bearer " + key})
+	if err == nil {
+		return j, "¥", nil
+	}
+	var ae *apiError
+	if errors.As(err, &ae) && (ae.Code == "UNAUTHORIZED" || ae.Code == "FORBIDDEN") {
+		j2, err2 := httpGetJSON(intlHost, path, map[string]string{"Authorization": "Bearer " + key})
+		if err2 == nil {
+			return j2, "$", nil
+		}
+		return nil, "", err2
+	}
+	return nil, "", err
+}
+
 func fetchMoonshot(key string) map[string]interface{} {
-	j, err := httpGetJSON("api.moonshot.cn", "/v1/users/me/balance", map[string]string{"Authorization": "Bearer " + key})
+	j, sym, err := fetchWithIntlFallback("api.moonshot.cn", "api.moonshot.ai", "/v1/users/me/balance", key)
 	if err != nil {
 		return failureResult("Kimi", err)
 	}
 	if e, ok := j["error"].(map[string]interface{}); ok {
-		return apiFailure("PROVIDER_ERROR", "Kimi："+strv(e["message"], "请求被拒绝"), "检查 Key 是否有效、账户状态是否正常")
+		return apiFailure("PROVIDER_ERROR", "Kimi："+strv(e["message"], t3("请求被拒绝", "request rejected", "リクエストが拒否されました")), t3("检查 Key 是否有效、账户状态是否正常", "Check whether the key is valid and the account is in good standing", "キーが有効か、アカウントの状態が正常かを確認してください"))
 	}
 	d, _ := j["data"].(map[string]interface{})
 	return map[string]interface{}{
 		"available": true,
 		"rows": []map[string]string{
-			{"label": "可用余额", "value": "¥" + strv(d["available_balance"], "—")},
-			{"label": "代金券", "value": "¥" + strv(d["voucher_balance"], "—")},
-			{"label": "现金余额", "value": "¥" + strv(d["cash_balance"], "—")},
+			{"label": t3("可用余额", "Available balance", "利用可能残高"), "value": sym + strv(d["available_balance"], "—")},
+			{"label": t3("代金券", "Vouchers", "クーポン"), "value": sym + strv(d["voucher_balance"], "—")},
+			{"label": t3("现金余额", "Cash balance", "現金残高"), "value": sym + strv(d["cash_balance"], "—")},
 		},
 	}
 }
 
 func fetchSiliconflow(key string) map[string]interface{} {
-	j, err := httpGetJSON("api.siliconflow.cn", "/v1/user/info", map[string]string{"Authorization": "Bearer " + key})
+	j, sym, err := fetchWithIntlFallback("api.siliconflow.cn", "api.siliconflow.com", "/v1/user/info", key)
 	if err != nil {
 		return failureResult("SiliconFlow", err)
 	}
 	if code, ok := j["code"].(float64); ok && code != 20000 && code != 0 {
-		return apiFailure("PROVIDER_ERROR", "SiliconFlow："+strv(j["message"], "请求被拒绝"), "检查 Key 是否有效、账户状态是否正常")
+		return apiFailure("PROVIDER_ERROR", "SiliconFlow："+strv(j["message"], t3("请求被拒绝", "request rejected", "リクエストが拒否されました")), t3("检查 Key 是否有效、账户状态是否正常", "Check whether the key is valid and the account is in good standing", "キーが有効か、アカウントの状態が正常かを確認してください"))
 	}
 	d, _ := j["data"].(map[string]interface{})
 	return map[string]interface{}{
 		"available": true,
 		"rows": []map[string]string{
-			{"label": "可用余额", "value": "¥" + strv(d["totalBalance"], "—")},
-			{"label": "赠送余额", "value": "¥" + strv(d["balance"], "—")},
-			{"label": "充值余额", "value": "¥" + strv(d["chargeBalance"], "—")},
-		},
-	}
-}
-
-func fetchDoubao(key string) map[string]interface{} {
-	parts := strings.FieldsFunc(key, func(r rune) bool {
-		return r == ':' || r == '：' || r == ',' || r == '，' || r == ' ' || r == '\t'
-	})
-	if len(parts) < 2 {
-		return apiFailure("INVALID_KEY_FORMAT", "豆包需要填写「AK:SK」（火山引擎访问密钥对）", keyHints["doubao"])
-	}
-	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte(parts[0]+":"+parts[1]))
-	j, err := httpGetJSON("open.volcengineapi.com", "/?Action=QueryBalanceAcct&Version=2022-01-01", map[string]string{"Authorization": auth})
-	if err != nil {
-		return failureResult("豆包（火山引擎）", err)
-	}
-	res, _ := j["Result"].(map[string]interface{})
-	if res == nil {
-		msg := "请求被拒绝（检查 AK/SK 与权限）"
-		if m, ok := j["ResponseMetadata"].(map[string]interface{}); ok {
-			if e, ok := m["Error"].(map[string]interface{}); ok {
-				msg = strv(e["Message"], msg)
-			}
-		}
-		return apiFailure("PROVIDER_ERROR", "豆包："+msg, "检查 AK/SK 是否正确、账号是否有查询余额权限")
-	}
-	return map[string]interface{}{
-		"available": true,
-		"rows": []map[string]string{
-			{"label": "可用余额", "value": fmt.Sprintf("¥%v", res["AvailableBalance"])},
-			{"label": "现金余额", "value": fmt.Sprintf("¥%v", res["CashBalance"])},
-			{"label": "欠费金额", "value": fmt.Sprintf("¥%v", res["ArrearsBalance"])},
+			{"label": t3("可用余额", "Available balance", "利用可能残高"), "value": sym + strv(d["totalBalance"], "—")},
+			{"label": t3("赠送余额", "Granted balance", "付与残高"), "value": sym + strv(d["balance"], "—")},
+			{"label": t3("充值余额", "Topped-up balance", "チャージ残高"), "value": sym + strv(d["chargeBalance"], "—")},
 		},
 	}
 }
@@ -761,7 +558,7 @@ func fetchOpenai(key string) map[string]interface{} {
 		return failureResult("OpenAI", err)
 	}
 	if e, ok := j["error"].(map[string]interface{}); ok {
-		return apiFailure("PROVIDER_ERROR", "OpenAI："+strv(e["message"], "请求被拒绝（需要 Admin Key）"), keyHints["openai"])
+		return apiFailure("PROVIDER_ERROR", "OpenAI："+strv(e["message"], t3("请求被拒绝（需要 Admin Key）", "request rejected (Admin key required)", "リクエストが拒否されました（Admin キーが必要）")), keyHint("openai"))
 	}
 	var month, week, today float64
 	currency := "usd"
@@ -792,9 +589,9 @@ func fetchOpenai(key string) map[string]interface{} {
 	return map[string]interface{}{
 		"available": true,
 		"rows": []map[string]string{
-			{"label": "本月消费", "value": fmt.Sprintf("%s%.2f", sym, month)},
-			{"label": "近 7 天", "value": fmt.Sprintf("%s%.2f", sym, week)},
-			{"label": "今日", "value": fmt.Sprintf("%s%.2f", sym, today)},
+			{"label": t3("本月消费", "This month", "今月の利用"), "value": fmt.Sprintf("%s%.2f", sym, month)},
+			{"label": t3("近 7 天", "Last 7 days", "過去7日"), "value": fmt.Sprintf("%s%.2f", sym, week)},
+			{"label": t3("今日", "Today", "今日"), "value": fmt.Sprintf("%s%.2f", sym, today)},
 		},
 	}
 }
@@ -810,7 +607,7 @@ func fetchClaude(key string) map[string]interface{} {
 		return failureResult("Claude", err)
 	}
 	if e, ok := j["error"].(map[string]interface{}); ok {
-		return apiFailure("PROVIDER_ERROR", "Claude："+strv(e["message"], "请求被拒绝（需要 Admin Key）"), keyHints["claude"])
+		return apiFailure("PROVIDER_ERROR", "Claude："+strv(e["message"], t3("请求被拒绝（需要 Admin Key）", "request rejected (Admin key required)", "リクエストが拒否されました（Admin キーが必要）")), keyHint("claude"))
 	}
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	weekStart := now.Add(-7 * 24 * time.Hour)
@@ -837,9 +634,9 @@ func fetchClaude(key string) map[string]interface{} {
 	return map[string]interface{}{
 		"available": true,
 		"rows": []map[string]string{
-			{"label": "本月消费", "value": money(monthCents)},
-			{"label": "近 7 天", "value": money(weekCents)},
-			{"label": "今日", "value": money(todayCents)},
+			{"label": t3("本月消费", "This month", "今月の利用"), "value": money(monthCents)},
+			{"label": t3("近 7 天", "Last 7 days", "過去7日"), "value": money(weekCents)},
+			{"label": t3("今日", "Today", "今日"), "value": money(todayCents)},
 		},
 	}
 }

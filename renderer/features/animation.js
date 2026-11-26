@@ -72,6 +72,46 @@ const RETIRED_PACKS = new Set(['v2']);
 const PACK_LABEL = { gpt: 'GPT娘v2', dsh1: '大肥鱼 plus' };
 const shortPackName = (n) => String(n || '').replace(/\s*动作包$/, '').replace(/·.*$/, '');
 
+function resetSpriteConfig() {
+  SPRITE.sheet = '';
+  SPRITE.sequences = {};
+  for (const k of Object.keys(SPRITE_MAP)) delete SPRITE_MAP[k];
+}
+
+// 图集类形象（gptv1）的尺寸、帧序列与动作映射全部来自包内 sprite 块。
+// 老包没有这个块时视为需要重新下载，不保留任何内置排版参数。
+function registerCodeChar(key, pack) {
+  // 老包没有 sprite 描述时回落到兼容参数，避免“装了但不能播”被当成可更新
+  const sp = window.PetLib.legacyPack.spriteFor(pack);
+  if (!sp || !sp.sequences) {
+    delete CHARS[key];
+    return;
+  }
+  const dir = `../characters/${pack.id}/`;
+  const sheet = dir + (sp.sheet || 'spritesheet.webp');
+  const prev = CHARS[key];
+  if (!prev || prev.dir !== dir || prev.sheet !== sheet) spriteSheetImg = null;
+  Object.assign(SPRITE, {
+    sheet,
+    cellW: sp.cellW || 192,
+    cellH: sp.cellH || 208,
+    cols: sp.cols || 0,
+    rows: sp.rows || 0,
+    sequences: sp.sequences,
+  });
+  for (const k of Object.keys(SPRITE_MAP)) delete SPRITE_MAP[k];
+  Object.assign(SPRITE_MAP, sp.map || {});
+  CHARS[key] = {
+    label: pack.name || key,
+    kind: 'sprite',
+    dsh: false,
+    dir,
+    sheet,
+    pack,
+    actions: (sp.actions || []).map((a) => [a.key, a.label]),
+  };
+}
+
 function registerPack(pack) {
   if (RETIRED_PACKS.has(pack.id)) return;
   if (PACK_LABEL[pack.id]) pack = Object.assign({}, pack, { name: PACK_LABEL[pack.id] });
@@ -83,6 +123,11 @@ function registerPack(pack) {
     delete CHARS['pack:' + pack.id];
     return;
   }
+  const codeKey = Object.keys(CODE_CHAR_PACKS).find((k) => CODE_CHAR_PACKS[k] === pack.id);
+  if (codeKey) {
+    registerCodeChar(codeKey, pack);
+    return;
+  }
   CHARS['pack:' + pack.id] = {
     label: pack.name,
     kind: 'pack',
@@ -90,6 +135,22 @@ function registerPack(pack) {
     dir: `../characters/${pack.id}/animations/`,
     pack,
   };
+}
+
+// 包内台词/动作名译文随安装列表整体重建；卸载后对应词条立即消失。
+function rebuildPackI18n() {
+  const lines = { en: {}, ja: {} };
+  const ui = { en: {}, ja: {} };
+  for (const p of Object.values(PACKS)) {
+    if (!p.i18n) continue;
+    for (const lang of ['en', 'ja']) {
+      const loc = p.i18n[lang];
+      if (!loc) continue;
+      Object.assign(lines[lang], loc.lines || {});
+      Object.assign(ui[lang], loc.categories || {}, loc.actions || {});
+    }
+  }
+  window.PetLib.i18n.setPackDictionaries(lines, ui);
 }
 
 // 切换形象时换掉整套动作表（内置 <-> 包）
@@ -136,6 +197,11 @@ const fmtMB = (b) => ((b || 0) / 1048576).toFixed(1) + ' MB';
 
 let CATALOG = [];        // 远程可下载列表
 let catalogErr = '';
+// 商店 DOM 只在「形象与音效」页打开时存在；目录数据一旦拿到就常驻内存。
+let storeBuilt = false;
+let storeDirty = true;
+let catalogLoaded = false;
+let catalogLoading = null;
 
 // 固定展示顺序：GPT娘v2 紧跟在 GPT娘v1 下面，其余按角色排
 const STORE_ORDER = ['v1', 'dsh1', 'gptv1', 'gpt', 'claude', 'gemini', 'glm', 'grok', 'kimi', 'qwen'];
@@ -152,23 +218,32 @@ function storeCard(opts) {
     : `<div class="store-cover store-cover-ph">${esc(String(opts.name || '?').trim().charAt(0))}</div>`;
   const pct = Math.round((dlProgress[opts.id] || 0) * 100);
   const bar = pct > 0 && pct < 100 ? `<div class="store-progress"><i style="width:${pct}%"></i></div>` : '';
-  return '<div class="store-item" title="' + esc(opts.tip || '') + '">' + cover +
+  return '<div class="store-item" data-store-id="' + esc(opts.id) + '" title="' + esc(opts.tip || '') + '">' + cover +
     '<div class="store-meta"><b>' + esc(opts.name) + '</b><span>' + esc(opts.sub) + '</span>' + bar + '</div>' +
     '<div class="store-actions">' + opts.actions + '</div></div>';
 }
 
+// 商店文案走 i18n：T(中文模板, 变量) 会按当前语言翻译并用变量替换 {x}
+const TT = (zh, vars) => (window.PetLib && window.PetLib.i18n && window.PetLib.i18n.T) ? window.PetLib.i18n.T(zh, vars) : zh;
+
 const BUILTIN_ROWS = () => {
+  const n1 = (window.PET_ANIMS || []).length + (PLUS.v1 ? '+' + PLUS.v1.actions.length : '');
   const rows = [{
     id: 'v1', label: '大肥鱼', cover: '../assets/thumbs/v1.webp',
-    sub: '逐帧动画 · ' + (window.PET_ANIMS || []).length + (PLUS.v1 ? '+' + PLUS.v1.actions.length : '') + ' 动作' + (PLUS.v1 ? '（含扩充）' : ''),
+    sub: TT('逐帧动画 · {n} 动作', { n: n1 }) + (PLUS.v1 ? TT('（含扩充）') : ''),
   }];
   // GPT娘v1 的素材改成按需下载（素材仓库 Release），装了才出现在列表里
-  if (CHARS.gpt) rows.push({ id: 'gpt', storeKey: 'gptv1', label: 'GPT娘v1', cover: '../assets/thumbs/gptv1.webp', sub: '73 帧图集 · 已下载', del: 'gptv1' });
+  if (CHARS.gpt) rows.push({ id: 'gpt', storeKey: 'gptv1', label: 'GPT娘v1', cover: '../assets/thumbs/gptv1.webp', sub: TT('{n} 帧图集 · 已下载', { n: 73 }), del: 'gptv1' });
   return rows;
 };
 
 function renderStore() {
   if (!setStore) return;
+  // 设置没打开时不要预先建 DOM：商店在隐藏页里，首帧前渲染纯属浪费。
+  if (!settingsOpen) {
+    storeDirty = true;
+    return;
+  }
   const rows = [];
   const add = (key, html) => rows.push({ key, html });
 
@@ -178,7 +253,7 @@ function renderStore() {
     const target = PLUS_TARGET[id];
     add(id, storeCard({
       id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name,
-      sub: p.actions.length + ' 动作 · ' + fmtMB(p.bytes),
+      sub: TT('{n} 动作 · {size}', { n: p.actions.length, size: fmtMB(p.bytes) }),
       actions: '<button disabled title="动作已并入 ' + esc(CHARS[target] ? CHARS[target].label : target) + '">已并入</button>' +
                '<button class="danger" data-del="' + esc(id) + '">卸载</button>',
     }));
@@ -186,7 +261,7 @@ function renderStore() {
 
   for (const b of BUILTIN_ROWS()) {
     add(b.storeKey || b.id, storeCard({
-      id: b.id, name: b.label, cover: b.cover, tip: '内置形象',
+      id: b.id, name: b.label, cover: b.cover, tip: TT('内置形象'),
       sub: b.sub,
       actions: '<button data-char="' + esc(b.id) + '"' + (S.character === b.id ? ' class="on"' : '') + '>' +
                (S.character === b.id ? '使用中' : '使用') + '</button>' +
@@ -208,8 +283,8 @@ function renderStore() {
       : '<button data-char="' + esc(codeKey || 'pack:' + id) + '"' + (using ? ' class="on"' : '') + '>' +
         (using ? '使用中' : '使用') + '</button>';
     const sub = codeKey
-      ? (p.actions.length ? p.actions.length + ' 个素材' : '素材包') + ' · ' + fmtMB(p.bytes)
-      : p.actions.length + ' 个动作 · ' + fmtMB(p.bytes) + (p.version ? ' · v' + p.version : '');
+      ? (p.actions.length ? TT('{n} 个素材 · {size}', { n: p.actions.length, size: fmtMB(p.bytes) }) : TT('素材包') + ' · ' + fmtMB(p.bytes))
+      : TT('{n} 个动作 · {size}', { n: p.actions.length, size: fmtMB(p.bytes) }) + (p.version ? ' · v' + p.version : '');
     add(id, storeCard({
       id, name: shortPackName(p.name), cover: p.cover, tip: (p.license || '') + ' · ' + p.name, sub,
       actions: acts + '<button class="danger" data-del="' + esc(id) + '">卸载</button>',
@@ -219,16 +294,22 @@ function renderStore() {
   for (const c of CATALOG) {
     if (RETIRED_PACKS.has(c.id)) continue;
     const installed = PACKS[c.id];
-    const canUpdate = installed && c.version && window.PetLib.format.isNewer(c.version, installed.version);
-    if (installed && !canUpdate) continue;
+    const codeKey = Object.keys(CODE_CHAR_PACKS).find((k) => CODE_CHAR_PACKS[k] === c.id);
+    // 老版 gptv1 包没有 sprite 配置，装了也不能播，按「可更新」重新下载
+    const installedUsable = installed && (!codeKey || !!CHARS[codeKey]);
+    // 旧包 / 本地导入的包没有 version 字段，此时无法比较版本，不应提示「可更新」，
+    // 否则会把「已安装且能用」的包又列成可更新（仓库其实并没有发新版本）。
+    const canUpdate = installedUsable &&
+      window.PetLib.format.needsUpdate(c.version, installed.version);
+    if (installedUsable && !canUpdate) continue;
     const pending = dlProgress[c.id] !== undefined;
-    const label = installed ? '可更新' : '下载';
-    const btn = pending ? '<button disabled>下载中…</button>' : '<button data-download="' + esc(c.id) + '">' + label + '</button>';
+    const label = installed ? TT('可更新') : TT('下载');
+    const btn = pending ? '<button disabled>' + TT('下载中…') + '</button>' : '<button data-download="' + esc(c.id) + '">' + label + '</button>';
     add(c.id, storeCard({
       id: c.id, name: shortPackName(c.name),
       cover: STORE_RANK.has(c.id) && c.id !== 'v1' ? storeThumb(c.id) : '',
-      tip: '来自 GitHub（加速链接）',
-      sub: c.actions + ' 动作 · ' + fmtMB(c.zipBytes) + (installed ? ' · 已安装 v' + (installed.version || '?') : ' · 未安装') + (c.version ? ' · v' + c.version : ''),
+      tip: TT('来自 GitHub（加速链接）'),
+      sub: TT('{n} 动作 · {size}', { n: c.actions, size: fmtMB(c.zipBytes) }) + (installed ? ' · ' + TT('已安装') + ' v' + (installed.version || '?') : ' · ' + TT('未安装')) + (c.version ? ' · v' + c.version : ''),
       actions: btn,
     }));
   }
@@ -242,31 +323,55 @@ function renderStore() {
   const parts = rows.map((r) => r.html);
 
   if (!parts.length) {
-    parts.push('<div class="store-empty">' + (catalogErr ? '暂时连不上形象列表（' + esc(catalogErr) + '）' : '还没有可用的形象包') + '</div>');
+    parts.push('<div class="store-empty">' + (catalogErr ? TT('暂时连不上形象列表（{e}）', { e: esc(catalogErr) }) : TT('还没有可用的形象包')) + '</div>');
   }
   parts.push('<div class="set-row store-import">' +
     '<button data-import="1">从本地文件导入（.zip）…</button>' +
     '<button data-refresh="1">刷新列表</button></div>');
-  setStore.innerHTML = parts.join('');
+  // 一次解析、一次插入；比逐卡 appendChild 少一轮布局抖动
+  const tpl = document.createElement('template');
+  tpl.innerHTML = parts.join('');
+  setStore.replaceChildren(tpl.content);
+  storeBuilt = true;
+  storeDirty = false;
 }
 
-async function loadCatalog() {
-  try {
-    const list = await window.go.main.App.FetchCharacterCatalog();
-    CATALOG = list || [];
-    catalogErr = '';
-  } catch (e) {
-    CATALOG = [];
-    catalogErr = (e && e.message) ? e.message : String(e);
-  }
-  renderStore();
+// 目录/已装包变化或下载状态变化时统一走这里：只有商店可见才真正重绘。
+function markStoreDirty() {
+  storeDirty = true;
+  if (storeBuilt && settingsOpen) renderStore();
+}
+
+async function loadCatalog(force) {
+  if (!force && catalogLoaded) return;
+  if (catalogLoading) return catalogLoading;
+  catalogLoading = (async () => {
+    try {
+      const list = await window.go.main.App.FetchCharacterCatalog();
+      CATALOG = list || [];
+      catalogErr = '';
+      catalogLoaded = true;
+    } catch (e) {
+      CATALOG = [];
+      catalogErr = (e && e.message) ? e.message : String(e);
+    }
+    catalogLoading = null;
+    markStoreDirty();
+  })();
+  return catalogLoading;
+}
+
+// 只在第一次打开「形象与音效」时拉目录并建商店 DOM；之后复用缓存。
+function ensureStoreReady() {
+  if (!storeBuilt || storeDirty) renderStore();
+  if (!catalogLoaded) loadCatalog();
 }
 
 async function downloadPack(id) {
   const item = CATALOG.find((c) => c.id === id);
   if (!item || !item.url) return;
   dlProgress[id] = 0;
-  renderStore();
+  markStoreDirty();
   try {
     await window.go.main.App.InstallCharacter(id, item.url);
     delete dlProgress[id];
@@ -274,8 +379,8 @@ async function downloadPack(id) {
     applyCharacter(S.character, false);
   } catch (e) {
     delete dlProgress[id];
-    renderStore();
-    alert(tr('下载失败：' + (e && e.message ? e.message : e)));
+    markStoreDirty();
+    await askConfirm({ title: '下载失败', message: tr(String((e && e.message) || e)), alert: true });
   }
 }
 
@@ -283,77 +388,97 @@ async function refreshPacks(selectId) {
   const list = await window.go.main.App.ListInstalledCharacters();
   // 先清空再重建，否则卸载掉的包还会留在 PACKS/CHARS 里
   for (const k of Object.keys(PACKS)) delete PACKS[k];
-  for (const k of Object.keys(CHARS)) if (k.startsWith('pack:')) delete CHARS[k];
+  for (const k of Object.keys(CHARS)) if (k.startsWith('pack:') || CODE_CHAR_PACKS[k]) delete CHARS[k];
   for (const k of Object.keys(PLUS)) delete PLUS[k];
+  resetSpriteConfig();
   for (const p of list || []) registerPack(p);
-  refreshCodeChars();
+  rebuildPackI18n();
   // 启动时 v1 的动作表先于形象包应用，dsh1 扩充包扫到后必须重算；
   // 卸载扩充包时也要重算，把已经并进去的动作清掉。
   if (S.character === 'v1' || PLUS[S.character]) applyCharacter(S.character, false);
-  renderStore();
+  else if (CODE_CHAR_PACKS[S.character]) {
+    // gptv1 图集参数来自包；老包缺 sprite 块时回落到大肥鱼
+    applyCharacter(CHARS[S.character] ? S.character : 'v1', !CHARS[S.character]);
+  }
+  markStoreDirty();
   if (selectId && CHARS['pack:' + selectId]) applyCharacter('pack:' + selectId, true);
 }
 
-// GPT娘v1 的定义留在代码里，素材在用户目录；没装就隐藏，切过来的话回落 v1
-function refreshCodeChars() {
-  for (const key of Object.keys(CODE_CHAR_PACKS)) {
-    const packId = CODE_CHAR_PACKS[key];
-    const wasCurrent = S.character === key;
-    if (PACKS[packId]) {
-      const dir = '../characters/' + packId + '/';
-      const changed = !CHARS[key] || CHARS[key].dir !== dir;
-      if (!CHARS[key]) CHARS[key] = Object.assign({}, CODE_CHAR_DEFS[key], { dir });
-      else CHARS[key].dir = dir;
-      // GPT娘v1 的图集路径写在 SPRITE 配置里（原先是内置路径），素材包就位后要指向用户目录并强制重载
-      if (key === 'gpt') {
-        const want = dir + 'spritesheet.webp';
-        if (SPRITE.sheet !== want) {
-          SPRITE.sheet = want;
-          spriteSheetImg = null;
-        }
-      }
-      // 启动时它可能已经按「还没就位的旧路径」应用过一次（图集 404 = 隐形），
-      // 目录变了就必须重新应用，否则「使用中」的形象和实际显示的对不上
-      if (changed && wasCurrent) applyCharacter(key, false);
-    } else {
-      if (CHARS[key]) delete CHARS[key];
-      if (wasCurrent) applyCharacter('v1', true);
-    }
-  }
+async function loadInstalledCharacters() {
+  // 只扫本地包；远程目录等第一次打开商店时再拉（2.1 启动瘦身）
+  try { await refreshPacks(); } catch (e) { console.warn('读取形象包失败', e); }
 }
 
-async function loadInstalledCharacters() {
-  try { await refreshPacks(); } catch (e) { console.warn('读取形象包失败', e); }
-  loadCatalog();
+const progressPending = new Set();
+let progressTimer = 0;
+
+function updateStoreProgress(id) {
+  if (!setStore) return;
+  const card = [...setStore.querySelectorAll('.store-item')].find((el) => el.dataset.storeId === id);
+  if (!card) return;
+  const pct = window.PetLib.storeProgress.percent(dlProgress[id] || 0);
+  let bar = card.querySelector('.store-progress');
+  if (!bar) {
+    if (pct <= 0 || pct >= 100) return;
+    const meta = card.querySelector('.store-meta');
+    if (!meta) return;
+    bar = document.createElement('div');
+    bar.className = 'store-progress';
+    bar.appendChild(document.createElement('i'));
+    meta.appendChild(bar);
+  }
+  const fill = bar.firstElementChild;
+  if (fill) fill.style.width = pct + '%';
+}
+
+// 进度事件 100ms 合并一次，只改对应卡片的进度条；完成/失败才整表重绘。
+function scheduleStoreProgress(id) {
+  progressPending.add(id);
+  if (progressTimer) return;
+  progressTimer = setTimeout(() => {
+    progressTimer = 0;
+    const ids = [...progressPending];
+    progressPending.clear();
+    if (!settingsOpen || !storeBuilt) return;
+    for (const one of ids) updateStoreProgress(one);
+  }, 100);
+}
+
+function applyCharacterProgress(p) {
+  if (!p || !p.id || !p.total) return;
+  dlProgress[p.id] = window.PetLib.storeProgress.mergeProgress(dlProgress[p.id], p.downloaded, p.total);
+  if (settingsOpen && storeBuilt) scheduleStoreProgress(p.id);
 }
 
 // 下载进度事件（Go 侧 InstallCharacter 每读一块就 emit 一次）
-if (window.runtime && window.runtime.EventsOn) {
-  window.runtime.EventsOn('character-progress', (p) => {
-    if (!p || !p.id || !p.total) return;
-    dlProgress[p.id] = Math.min(1, p.downloaded / p.total);
-    if (settingsOpen) renderStore();
-  });
-}
+// Wails v2 没有 window.runtime.EventsOn；api 在 pet.js 里才初始化，必须等 pet-api-ready 再注册。
+window.addEventListener && window.addEventListener('pet-api-ready', () => {
+  if (window.pet && window.pet.on) window.pet.on('character-progress', applyCharacterProgress);
+});
+// 调试 / 性能预算钩子：合成进度事件，验证不会产生 >50ms 长任务
+window.__storeProgress = (id, downloaded, total) => applyCharacterProgress({ id, downloaded, total });
 
 async function importPack() {
   try {
-    const picked = await window.runtime.OpenFileDialog({
-      Title: '选择形象包（.zip）',
-      Filters: [{ DisplayName: '形象包', Pattern: '*.zip' }],
-    });
-    const file = Array.isArray(picked) ? picked[0] : picked;
-    if (!file) return;
-    const id = await window.go.main.App.InstallCharacterFromFile(file);
+    // 走 Wails v2 后端弹框（window.runtime.OpenFileDialog 是 v1 的 API，v2 里不存在）
+    const picked = await window.go.main.App.PickPackFile();
+    if (!picked) return;
+    const id = await window.go.main.App.InstallCharacterFromFile(picked);
     await refreshPacks(id);
   } catch (e) {
-    alert(tr('导入失败：' + (e && e.message ? e.message : e)));
+    await askConfirm({ title: '导入失败', message: tr(String((e && e.message) || e)), alert: true });
   }
 }
 
 async function removePack(id) {
   const name = PACKS[id] ? PACKS[id].name : id;
-  if (!confirm('确定卸载「' + name + '」吗？动画文件会从本机删除。')) return;
+  const ok = await askConfirm({
+    title: '卸载形象包',
+    message: `确定卸载「${name}」吗？动画文件会从本机删除。`,
+    okText: '卸载',
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await window.go.main.App.RemoveCharacter(id);
     // 全量重建：清掉 PACKS/CHARS/PLUS（扩充包的动作要一并从 v1 的池子里移除，
@@ -362,9 +487,9 @@ async function removePack(id) {
     loadCatalog();
     applyCharacter(S.character === 'pack:' + id ? 'v1' : S.character, false);
   } catch (e) {
-    alert(tr('卸载失败：' + (e && e.message ? e.message : e)));
+    await askConfirm({ title: '卸载失败', message: tr(String((e && e.message) || e)), alert: true });
   } finally {
-    renderStore();   // 任何一步出错都要把列表重画，别留下刷到一半的状态
+    markStoreDirty();   // 任何一步出错都要把列表重画，别留下刷到一半的状态
   }
 }
 const pickWeighted = () => {
@@ -422,14 +547,14 @@ function sfx(name) {
 
 // 自动小节目：每隔 S.autoActionSec 秒随机做一个动作（番茄钟专注期间不自动表演）
 let lastAutoAt = Date.now();
-function startMaybeShowTimer() {
-  setInterval(maybeShow, 500);
-}
 
 function maybeShow() {
   const now = Date.now();
   if (now - lastAutoAt < S.autoActionSec * 1000) return;
   if (oneShotPlaying || S.dragging || !S.awake || S.autoDoze || S.pomoRunning) return;
+  // 正在看白饭账本（账本气泡开着）时不要被自动动作打断
+  if (typeof usageEl !== 'undefined' && typeof bubbleEl !== 'undefined' &&
+      !usageEl.classList.contains('hide') && bubbleEl.classList.contains('show')) return;
   lastAutoAt = now;
   if (charNow().kind === 'sprite') {
     const key = pick(['waving', 'jumping', 'review', 'waiting', 'failed', 'work']);
@@ -452,6 +577,9 @@ function maybeShow() {
 function applyBase() {
   if (oneShotPlaying) return;
   const ch = charNow();
+  // 基础动画切换（待机 ↔ 漫游、拖拽 ↔ 待机等）也会改变 alpha 形状。
+  // 给视频形象短暂保持整窗 Region，避免新形状边缘先被旧区域裁一下。
+  if (ch.kind === 'video' && api.holdRegion) api.holdRegion(160);
   const kind = window.PetLib.anim.baseKind({
     dragging: S.dragging,
     awake: S.awake,

@@ -49,6 +49,27 @@ function applyMemeOrder(mode, save) {
   if (save) saveSettings();
 }
 
+function applyPowerSave(mode, save) {
+  S.powerSave = window.PetLib.powerSave.normalizeMode(mode);
+  applyPowerProfile();
+  syncSettingsUI();
+  if (save) saveSettings();
+}
+
+function updatePowerHint() {
+  const hint = document.getElementById('power-hint');
+  if (!hint) return;
+  const i = window.PetLib && window.PetLib.i18n;
+  const T = (z, v) => (i && i.T ? i.T(z, v) : z);
+  const ps = window.PetLib.powerSave;
+  const saving = ps.isSaving(S.powerSave, S.onAC, S.powerKnown);
+  const power = S.powerKnown ? T(S.onAC ? '交流电' : '电池') : T('电源状态未知（按交流电处理）');
+  const modeText = S.powerSave === 'on' ? T('始终省电') : S.powerSave === 'off' ? T('已关闭') : T('自动');
+  hint.textContent = T('当前：{power} · 省电模式：{mode}{saving}。省电时待机 6fps、漫游 30fps，待机视频暂停；交互时恢复。', {
+    power, mode: modeText, saving: saving ? T('（已生效）') : '',
+  });
+}
+
 function applyLinkedApp(p, save) {
   S.launchApp = typeof p === 'string' ? p : '';
   syncSettingsUI();
@@ -93,7 +114,7 @@ function applyDock(mode, save) {
 }
 
 function applyLedgerSource(src, save) {
-  S.ledgerSource = API_SOURCES.includes(src) ? src : 'qoder';
+  S.ledgerSource = API_SOURCES.includes(src) ? src : 'deepseek';
   S.ledger = null;
   syncSettingsUI();
   if (save) saveSettings();

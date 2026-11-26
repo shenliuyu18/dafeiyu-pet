@@ -58,3 +58,32 @@ func TestShellWindowClassesExcluded(t *testing.T) {
 		}
 	}
 }
+
+func TestDecideQUNSRequiresGeometry(t *testing.T) {
+	cases := []struct {
+		state   uint32
+		covered bool
+		want    bool
+	}{
+		// 2/3/4 可能全屏，但必须几何确认
+		{3, false, false},
+		{3, true, true},
+		{2, false, false},
+		{2, true, true},
+		{4, false, false},
+		{4, true, true},
+		// 5/6 明确不是全屏（资源管理器铺满也不该隐藏桌宠）
+		{5, true, false},
+		{5, false, false},
+		{6, true, false},
+		// 1（锁屏）及其它一律忽略
+		{1, true, false},
+		{0, true, false},
+	}
+	for _, c := range cases {
+		got, signal := decideQUNS(c.state, c.covered)
+		if got != c.want {
+			t.Fatalf("QUNS=%d covered=%v: want active=%v, got %v (%s)", c.state, c.covered, c.want, got, signal)
+		}
+	}
+}

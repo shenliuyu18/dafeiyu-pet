@@ -2,12 +2,40 @@
  * 白饭账本气泡：展示、错误提示、渲染、重试与诊断同步。
  */
 
+const USAGE_ROW_LABELS = ['可用余额', '赠送余额', '充值余额'];
+
 function showUsage(ledger, animate = true) {
   if (!S.ledgerOn) return;
+  const cur = ledger || S.ledger;
+  // 缓存里的错误/提示是按当时界面语言生成的；切过语言后先重拉一次，避免中英混排
+  if (cur && cur.lang && cur.lang !== S.lang && typeof api.refreshUsage === 'function') {
+    saySeq++;
+    withBubbleRoom(() => renderUsage(null, false));
+    Promise.resolve(api.refreshUsage()).then((l) => {
+      // 加载态里 usageEl 还是隐藏的，handleUsage 的就地重渲染条件不满足；
+      // 直接按新结果渲染一次，保证从「读取中」切到内容。
+      if (l) {
+        S.ledger = l;
+        usagePending = false;
+        showUsage(l, false);
+      }
+    }).catch(() => {});
+    return;
+  }
+  // 当前来源还没填 Key：直接提示去配置，不要一直停在“正在读取账单…”
+  if (!cur && S.apiKeys && !S.apiKeys[S.ledgerSource]) {
+    const name = (typeof API_LABEL !== 'undefined' && API_LABEL[S.ledgerSource]) || S.ledgerSource || '接口';
+    saySeq++;
+    withBubbleRoom(() => renderUsage({
+      source: S.ledgerSource, provider: S.ledgerSource, available: false,
+      error: `还没填写 ${name} 的 API Key`,
+      errorHint: '设置 → 白饭账本 → 填写 API Key',
+      rows: [], updatedAt: Date.now(),
+    }, false));
+    return;
+  }
   saySeq++;
-  const l = ledger || S.ledger;
-  const ds = !!(l && l.source && l.source !== 'qoder');
-  withBubbleRoom(() => renderUsage(l, ds, animate));
+  withBubbleRoom(() => renderUsage(cur, animate));
 }
 
 function usageNote(l, fallback) {
@@ -28,18 +56,12 @@ function usageNote(l, fallback) {
   uRetry.classList.toggle('hide', !parts.length || !canRetry);
 }
 
-function renderUsage(l, ds, animate) {
+function renderUsage(l, animate) {
   if (!l) {
     // 异步请求还没回来：明确告诉用户在读，而不是显示一排 “—”
     clearTimeout(S.bubbleTimer);
     bubbleSetText('正在读取账单…');
-    uL1.textContent = '今天吃掉';
-    uL2.textContent = '本月吃掉';
-    uL3.textContent = '本次会话';
-    uToday.textContent = '—';
-    uMonth.textContent = '—';
-    uSession.textContent = '—';
-    quotaEl.classList.add('hide');
+    setUsageRows(null);
     uNote.textContent = '';
     uNote.classList.remove('err');
     uRetry.classList.add('hide');
@@ -49,40 +71,14 @@ function renderUsage(l, ds, animate) {
     return;
   }
   clearTimeout(S.bubbleTimer);
-  const rows = (l && l.rows) || [];
+  const label = (l && l.providerLabel) || 'API';
   if (l.pending) {
     bubbleSetText('正在重新检测…');
-  } else if (ds) {
-    bubbleSetText(l && l.available ? `这是 ${l.providerLabel || 'API'} 的账单` : (l && l.error) || '还没拿到账单数据');
   } else {
-    bubbleSetText(l && l.available ? (isDsh() ? '这是你喂给我的白饭' : '这是本月的用量') : '还没找到用量记录…');
+    bubbleSetText(l.available ? `这是 ${label} 的账单` : (l.error || '还没拿到账单数据'));
   }
-  if (ds) {
-    const labels = ['可用余额', '赠送余额', '充值余额'];
-    const slots = [uToday, uMonth, uSession];
-    const labs = [uL1, uL2, uL3];
-    for (let i = 0; i < 3; i++) {
-      labs[i].textContent = (rows[i] && rows[i].label) || labels[i];
-      slots[i].textContent = (rows[i] && rows[i].value) || '—';
-    }
-    quotaEl.classList.add('hide');
-    usageNote(l, (l && l.note) || `来自 ${l.providerLabel || 'API'} 官方接口`);
-  } else {
-    uL1.textContent = '今天吃掉';
-    uL2.textContent = '本月吃掉';
-    uL3.textContent = '本次会话';
-    uToday.textContent = l && l.available ? `${l.today} credits` : '—';
-    uMonth.textContent = l && l.available ? `${l.month} credits` : '—';
-    uSession.textContent = l && l.available ? `${l.session} credits` : '—';
-    if (l && l.quota > 0 && l.percent !== null) {
-      quotaEl.classList.remove('hide');
-      uBar.style.width = `${l.percent.toFixed(1)}%`;
-      uQuotaText.textContent = `套餐 ${l.month} / ${l.quota}（${l.percent.toFixed(1)}%）`;
-    } else {
-      quotaEl.classList.add('hide');
-    }
-    usageNote(l, isDsh() ? '白饭 = 你的 Qoder credits' : '这是你的 Qoder 用量');
-  }
+  setUsageRows(l.rows || []);
+  usageNote(l, (l && l.note) || `来自 ${label} 官方接口`);
   if (l.pending) uRetry.classList.add('hide');
   barsEl.classList.add('hide');
   usageEl.classList.remove('hide');
@@ -90,6 +86,16 @@ function renderUsage(l, ds, animate) {
   if (animate) {
     const tier = balanceTierPools();
     playOnce(tier.length ? tier : ANIM.money);
+  }
+}
+
+function setUsageRows(rows) {
+  const slots = [uToday, uMonth, uSession];
+  const labs = [uL1, uL2, uL3];
+  for (let i = 0; i < 3; i++) {
+    const row = rows && rows[i];
+    labs[i].textContent = (row && row.label) || USAGE_ROW_LABELS[i];
+    slots[i].textContent = (row && row.value) || '—';
   }
 }
 

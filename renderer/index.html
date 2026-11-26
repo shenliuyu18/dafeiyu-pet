@@ -20,11 +20,10 @@
           <div class="bar"><span>心情</span><i><b id="bar-mood" class="mood"></b></i></div>
         </div>
         <div id="bubble-usage" class="hide">
-          <div class="u-row"><span id="u-l1">今天吃掉</span><b id="u-today">—</b></div>
-          <div class="u-row"><span id="u-l2">本月吃掉</span><b id="u-month">—</b></div>
-          <div class="u-row"><span id="u-l3">本次会话</span><b id="u-session">—</b></div>
-          <div class="u-quota hide" id="u-quota"><i><b id="u-bar"></b></i><span id="u-quota-text"></span></div>
-          <div class="u-note" id="u-note">白饭 = 你的 Qoder credits</div>
+          <div class="u-row"><span id="u-l1">可用余额</span><b id="u-today">—</b></div>
+          <div class="u-row"><span id="u-l2">赠送余额</span><b id="u-month">—</b></div>
+          <div class="u-row"><span id="u-l3">充值余额</span><b id="u-session">—</b></div>
+          <div class="u-note" id="u-note">白饭 = 各平台的账单余额</div>
           <button class="u-retry hide" id="u-retry">重新检测</button>
         </div>
         <div class="bubble-tail"></div>
@@ -48,34 +47,45 @@
         </div>
         <canvas id="petSprite" class="hide" width="192" height="208"></canvas>
         <div class="zzz"><span>Z</span><span>Z</span><span>Z</span></div>
-        <div id="hit"></div>
+        <div id="hit" role="button" tabindex="0" aria-label="桌宠" aria-haspopup="menu" aria-controls="menu" aria-expanded="false"></div>
       </div>
     </div>
   </div>
 
-  <div id="menu" class="hide">
-    <button data-act="feed">🍚 <span id="menu-feed-txt">喂一碗白饭</span></button>
-    <button data-act="acts">🎬 <span>选个动作…</span></button>
-    <button data-act="pomodoro"><span id="menu-pomo">🍅 开始专注 25 分钟</span></button>
-    <button data-act="usage" id="menu-usage-btn"><span id="menu-usage">🍚 白饭账本</span></button>
-    <button data-act="status">📊 <span>看看状态</span></button>
-    <button data-act="sleep"><span id="menu-sleep-ico">😴</span> <span id="menu-sleep-txt">让它睡一会儿</span></button>
-    <button data-act="settings">⚙️ <span>设置</span></button>
+  <div id="menu" class="hide" role="menu" aria-label="桌宠菜单" aria-hidden="true">
+    <button role="menuitem" data-act="feed">🍚 <span id="menu-feed-txt">喂一碗白饭</span></button>
+    <button role="menuitem" data-act="acts">🎬 <span>选个动作…</span></button>
+    <button role="menuitem" data-act="pomodoro"><span id="menu-pomo">🍅 开始专注 25 分钟</span></button>
+    <button role="menuitem" data-act="usage" id="menu-usage-btn"><span id="menu-usage">🧾 白饭账本</span></button>
+    <button role="menuitem" data-act="status">📊 <span>看看状态</span></button>
+    <button role="menuitem" data-act="sleep"><span id="menu-sleep-ico">😴</span> <span id="menu-sleep-txt">让它睡一会儿</span></button>
     <div class="sep"></div>
-    <button data-act="hide">👻 <span>先躲起来</span></button>
-    <button data-act="quit">❌ <span>退出</span></button>
+    <button role="menuitem" data-act="settings">⚙️ <span>设置</span></button>
+    <button role="menuitem" data-act="hide">👻 <span>先躲起来</span></button>
+    <button role="menuitem" data-act="quit">❌ <span>退出</span></button>
   </div>
 
-  <div id="picker" class="hide">
-    <div class="set-title">🎬 让它表演一个</div>
+  <div id="picker" class="hide" role="dialog" aria-modal="true" aria-label="选个动作" aria-labelledby="picker-title" aria-hidden="true" tabindex="-1">
+    <div class="set-title" id="picker-title">🎬 让它表演一个</div>
     <div class="pick-hint" id="picker-hint">点击动作右侧的 ☆ 可置顶，最多 10 个</div>
+    <input id="picker-search" class="pick-search" type="search" placeholder="搜索动作…" autocomplete="off" aria-label="搜索动作">
     <div id="picker-body"></div>
+    <div id="picker-empty" class="store-empty hide">没有找到匹配的动作</div>
     <div class="set-foot">
       <button id="picker-close">关闭</button>
     </div>
   </div>
 
-  <div id="settings" class="hide">
+  <div id="confirm" class="hide" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-msg" aria-hidden="true" tabindex="-1">
+    <div class="confirm-title" id="confirm-title">确认操作</div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-foot">
+      <button id="confirm-ok" class="primary">确定</button>
+      <button id="confirm-cancel">取消</button>
+    </div>
+  </div>
+
+  <div id="settings" class="hide" role="dialog" aria-modal="true" aria-label="设置" aria-labelledby="set-title" aria-hidden="true" tabindex="-1">
     <div class="set-head">
       <button id="set-back" class="hide">‹ 返回</button>
       <div class="set-title" id="set-title">⚙️ 设置</div>
@@ -88,16 +98,19 @@
         <button class="set-nav" data-page="pomo"><span>🍅 番茄钟</span><i>›</i></button>
         <button class="set-nav" data-page="ledger"><span>🍚 白饭账本</span><i>›</i></button>
         <button class="set-nav" data-page="startup"><span>🚀 启动与更新</span><i>›</i></button>
-        <button class="set-nav" data-page="words"><span>💬 自定义互动文字</span><i>›</i></button>
-        <button class="set-nav" data-page="help"><span>❓ 关于大肥鱼桌宠</span><i>›</i></button>
+        <button class="set-nav" data-page="words"><span>💬 语言与文字</span><i>›</i></button>
+        <button class="set-nav" data-page="help"><span>❓ 关于与帮助</span><i>›</i></button>
       </div>
 
       <div class="set-page hide" data-page="look">
         <div class="set-sec">
           <div class="set-label">桌宠形象</div>
           <div id="set-store"><div class="set-hint">正在读取…</div></div>
-          <div class="set-hint">「下载」从素材仓库拉取角色包并自动安装，内置直连与多个加速镜像、自动选最快线路；「卸载」删除本地文件。大肥鱼装上「大肥鱼 plus」扩充包后动作会扩充到 268 个。</div>
-          <div class="set-hint">自制形象：按仓库 docs/形象包制作标准.md 打包成 .zip 后从下方导入，导入时会校验清单、文件和行为槽位。</div>
+          <details class="set-details">
+            <summary>形象包说明（下载 / 卸载 / 自制）</summary>
+            <div class="set-hint">「下载」从素材仓库拉取角色包并自动安装，内置直连与多个加速镜像、自动选最快线路；「卸载」删除本地文件。大肥鱼装上「大肥鱼 plus」扩充包后动作会扩充到 268 个。</div>
+            <div class="set-hint">自制形象：按仓库 docs/形象包制作标准.md 打包成 .zip 后从下方导入，导入时会校验清单、文件和行为槽位。</div>
+          </details>
         </div>
         <div class="set-sec">
           <div class="set-label">音效</div>
@@ -153,6 +166,14 @@
           </div>
           <div class="set-hint">影响气泡、右键菜单与「选个动作」面板的文字大小</div>
         </div>
+        <div class="set-sec">
+          <div class="set-label">字体粗细</div>
+          <div class="set-row" id="set-font-weights">
+            <button data-fw="400">常规</button>
+            <button data-fw="700">加粗</button>
+          </div>
+          <div class="set-hint">字体没有对应字重时按最接近的档位显示；软糖体等单字重字体会用合成加粗</div>
+        </div>
       </div>
 
       <div class="set-page hide" data-page="place">
@@ -166,21 +187,21 @@
           <div class="set-hint">「固定不动」：先把她拖到想要的位置，她就一直待在那儿</div>
         </div>
         <div class="set-sec">
+          <div class="set-label">省电模式</div>
+          <div class="set-row" id="set-powersave">
+            <button data-powersave="auto">自动（电池时）</button>
+            <button data-powersave="on">始终</button>
+            <button data-powersave="off">关闭</button>
+          </div>
+          <div class="set-hint" id="power-hint">电池供电时降低帧率并暂停待机视频；插电时行为与之前一致。</div>
+        </div>
+        <div class="set-sec">
           <div class="set-label">全屏视频 / 游戏</div>
           <div class="set-row" id="set-fullscreen-hide">
             <button data-fullscreenhide="1">开启（全屏时自动隐藏）</button>
             <button data-fullscreenhide="0">关闭</button>
           </div>
           <div class="set-hint">检测到全屏视频、游戏或演示时自动藏起，退出全屏后重新回到其他窗口上方；普通窗口和最大化窗口不受影响。</div>
-        </div>
-        <div class="set-sec">
-          <div class="set-label">全屏判定诊断</div>
-          <div class="set-row">
-            <button id="fs-diag-refresh">刷新判定记录</button>
-            <button id="fs-diag-toggle">显示 / 隐藏详情</button>
-          </div>
-          <div class="set-hint" id="fs-diag-status">如果桌宠在切换窗口时反复闪现，把下面的记录贴到 issue #2。</div>
-          <pre id="fs-diag-log" class="diag-log hide"></pre>
         </div>
         <div class="set-sec">
           <div class="set-label">自动动作间隔 <b id="set-auto-val">40 秒</b></div>
@@ -230,56 +251,38 @@
       </div>
 
       <div class="set-page hide" data-page="ledger">
-        <div class="set-sec">
-          <div class="set-label">白饭账本</div>
-          <div class="set-row" id="set-ledger">
-            <button data-ledger="1">🍚 开启</button>
-            <button data-ledger="0">关闭</button>
-          </div>
-        </div>
-        <div class="set-sec">
-          <div class="set-label">账本来源</div>
-          <div id="set-ledger-src">
-            <div class="set-row">
-              <button data-ledger-src="qoder">Qoder credits</button>
-              <button data-ledger-src="deepseek">DeepSeek</button>
-              <button data-ledger-src="moonshot">Kimi</button>
-            </div>
-            <div class="set-row">
-              <button data-ledger-src="siliconflow">SiliconFlow</button>
-              <button data-ledger-src="doubao">豆包</button>
-              <button data-ledger-src="openai">ChatGPT</button>
-            </div>
-            <div class="set-row">
-              <button data-ledger-src="claude">Claude</button>
+        <div class="set-sec set-card">
+          <div class="set-sec-head">
+            <div class="set-label">白饭账本</div>
+            <div class="set-mini" id="set-ledger">
+              <button data-ledger="1">开启</button>
+              <button data-ledger="0">关闭</button>
             </div>
           </div>
-          <div class="set-hint">选「Qoder credits」读本机用量；选某个 AI 平台则查询该平台的账单（需先配置对应 API Key）。OpenAI / Claude 需要 Admin Key；豆包填「AK:SK」。</div>
-        </div>
-        <div class="set-sec">
-          <div class="set-label">API Key 配置</div>
-          <div id="set-api-keys">
-            <div class="set-row">
-              <button data-key="deepseek">DeepSeek Key</button>
-              <button data-key="moonshot">Kimi Key</button>
-              <button data-key="siliconflow">SiliconFlow Key</button>
-            </div>
-            <div class="set-row">
-              <button data-key="doubao">豆包 Key</button>
-              <button data-key="openai">OpenAI Key</button>
-              <button data-key="claude">Claude Key</button>
-            </div>
+          <div class="set-grid" id="set-ledger-src">
+            <button data-ledger-src="deepseek">DeepSeek</button>
+            <button data-ledger-src="moonshot">Kimi</button>
+            <button data-ledger-src="siliconflow">SiliconFlow</button>
+            <button data-ledger-src="openai">OpenAI</button>
+            <button data-ledger-src="claude">Claude</button>
           </div>
-          <div class="set-warn">⚠️ 风险提示：API Key 会用 Windows 系统加密（DPAPI）后保存在本机状态文件里，仅本机可解密；查询账单时只会把 Key 发送给对应平台的官方接口。请勿在共用电脑上填写；建议使用只读 / 低额度的 Key；不要把这个状态文件或 Key 发给任何人。是否配置由你自行决定，风险自负。</div>
-        </div>
-        <div class="set-sec">
-          <div class="set-label">账单诊断</div>
-          <div class="set-row">
-            <button id="ledger-recheck">重新检测</button>
-            <button id="ledger-diag-toggle">查看诊断详情</button>
+          <div class="set-hint">Kimi、SiliconFlow 会自动回退国际站；OpenAI、Claude 需要 Admin Key。</div>
+          <div class="key-entry">
+            <div class="key-entry-head">
+              <span class="key-entry-icon" aria-hidden="true">🔑</span>
+              <span class="key-entry-title">填写 API Key</span>
+              <span class="key-entry-badge" id="set-key-badge">待填写</span>
+            </div>
+            <div class="key-entry-hint">首次使用要先在这里填入平台的 API Key，才能读取余额。</div>
+            <button class="set-keybtn" id="set-key-btn" data-key="deepseek">
+              <span class="klabel">DeepSeek Key</span>
+              <span class="kaction"><span class="kstate">未配置</span><span class="kchev" aria-hidden="true">›</span></span>
+            </button>
           </div>
-          <div class="set-hint" id="ledger-diag-status">查询失败时，这里会显示错误码、HTTP 状态、耗时与上次成功时间。</div>
-          <pre id="ledger-diag-detail" class="diag-log hide"></pre>
+          <details class="set-details">
+            <summary>Key 只用 Windows DPAPI 加密保存在本机，查询时只发送给对应平台。</summary>
+            <div class="set-warn">⚠️ 风险提示：API Key 会用 Windows 系统加密（DPAPI）后保存在本机状态文件里，仅本机可解密；查询账单时只会把 Key 发送给对应平台的官方接口。请勿在共用电脑上填写；建议使用只读 / 低额度的 Key；不要把这个状态文件或 Key 发给任何人。是否配置由你自行决定，风险自负。</div>
+          </details>
         </div>
       </div>
 
@@ -314,7 +317,7 @@
             <button data-autoupdate="1">开启（发现新版本自动安装）</button>
             <button data-autoupdate="0">关闭</button>
           </div>
-          <div class="set-hint">开启后每天首次启动会检查更新，发现新版本自动下载、静默安装并重启桌宠</div>
+          <div class="set-hint">关闭时只在托盘提示新版本；开启后每天首次启动会检查更新，发现新版本自动下载、静默安装并重启桌宠</div>
         </div>
         <div class="set-sec">
           <div class="set-label">版本 <b id="set-version">-</b></div>
@@ -329,11 +332,23 @@
           <div class="set-row hide" id="update-install-row">
             <button id="update-lanzou">蓝奏云网盘下载（密码 5meo）</button>
           </div>
-          <div class="set-hint">点击「GitHub直链下载」或「GitHub加速下载」会自动下载并打开安装程序；安装程序启动前会关闭当前桌宠，安装完成后自动重新打开。国内下载慢时可用蓝奏云网盘（密码 5meo）。</div>
+          <div class="set-row hide" id="update-error-row">
+            <button id="update-copy-err">复制错误摘要</button>
+          </div>
+          <div class="set-hint hide" id="update-dl-hint">点击「GitHub直链下载」或「GitHub加速下载」会自动下载并打开安装程序；安装程序启动前会关闭当前桌宠，安装完成后自动重新打开。国内下载慢时可用蓝奏云网盘（密码 5meo）。</div>
         </div>
       </div>
 
       <div class="set-page hide" data-page="words">
+        <div class="set-sec">
+          <div class="set-label">语言 / Language</div>
+          <div class="set-row" id="set-lang">
+            <button data-lang="zh">中文</button>
+            <button data-lang="en">English</button>
+            <button data-lang="ja">日本語</button>
+          </div>
+          <div class="set-hint">界面、角色台词、梗图配文与内置动作名都会跟随切换；下载的形象包动作名使用包内原文。</div>
+        </div>
         <div class="set-sec">
           <div class="set-label">自定义互动文字</div>
           <div class="set-hint">每行一句，最多 20 行、每行 40 字。启用后，点击桌宠和闲时碎碎念会优先使用这些话。</div>
@@ -359,42 +374,60 @@
           </div>
           <div class="set-row">
             <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet">GitHub 仓库</button>
-            <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/blob/main/README.md" data-doc="readme">README</button>
             <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/blob/main/CHANGELOG.md" data-doc="CHANGELOG">更新日志</button>
             <button class="set-link" data-link="https://github.com/shenliuyu18/dafeiyu-pet/issues">问题反馈</button>
           </div>
-          <div class="set-hint">程序代码以 MIT 开源。角色动画与表情来自 dsh-pet、dsh-whale-widget-plus、GPT-Niang、gpt-pet（MIT）；GPT娘v2 / Claude / Gemini / GLM / Grok / Kimi / Qwen 动作包转码自 hunmer/aboutme-pets，基础立绘来自 lokicorvus/crosspet（CC BY-NC-SA 4.0，署名、非商业、相同方式共享）；大肥鱼 plus 的 dsh 素材禁止商用、公开二创须署名；档案馆表情来自蓝色大肥鱼档案馆（CC BY-NC-SA 4.0）；dsh-meme 图库按各图库 manifest 授权；敏感词库来自 Sensitive-lexicon（MIT）。详见仓库 README 与 THIRD-PARTY 许可文件</div>
-        </div>
-<div class="set-sec">
-          <div class="set-label">语言 / Language</div>
-          <div class="set-row" id="set-lang">
-            <button data-lang="zh">中文</button>
-            <button data-lang="en">English</button>
-            <button data-lang="ja">日本語</button>
-          </div>
-          <div class="set-hint">界面、角色台词、梗图配文与内置动作名都会跟随切换；下载的形象包动作名使用包内原文。</div>
+          <details class="set-details">
+            <summary>许可与素材来源</summary>
+            <div class="set-hint">程序代码以 MIT 开源。角色动画与表情来自 dsh-pet、dsh-whale-widget-plus、GPT-Niang、gpt-pet（MIT）；GPT娘v2 / Claude / Gemini / GLM / Grok / Kimi / Qwen 动作包转码自 hunmer/aboutme-pets，基础立绘来自 lokicorvus/crosspet（CC BY-NC-SA 4.0，署名、非商业、相同方式共享）；大肥鱼 plus 的 dsh 素材禁止商用、公开二创须署名；档案馆表情来自蓝色大肥鱼档案馆（CC BY-NC-SA 4.0）；dsh-meme 图库按各图库 manifest 授权；敏感词库来自 Sensitive-lexicon（MIT）。详见仓库 README 与 THIRD-PARTY 许可文件</div>
+          </details>
         </div>
         <div class="set-sec">
-          <div class="set-label">诊断</div>
-          <div class="set-row">
-            <button id="export-diagnostics">导出诊断包…</button>
-          </div>
-          <div class="set-hint" id="diagnostics-status">导出包含版本、窗口与全屏判定、最近错误日志；不含 API Key 与自定义文字内容。上传 issue 前请先自行检查。</div>
+          <details class="set-details">
+            <summary>操作说明</summary>
+            <div class="set-help">
+              <div><b>单击</b> 摸摸头（随机回应 + 台词） · <b>双击</b> 喂一碗白饭</div>
+              <div><b>拖拽</b> 搬到任意位置 · <b>右键</b> 打开菜单（喂饭 / 选个动作 / 番茄钟 / 白饭账本 / 状态 / 睡觉 / 设置 / 躲起来 / 退出）</div>
+              <div><b>鼠标靠近</b> 她会朝你看 · 约 100 秒不理她会打瞌睡</div>
+              <div><b>自动动作</b> 每隔「自动动作间隔」随机表演一个节目（默认 40 秒，可在设置里调）</div>
+              <div><b>选个动作</b> 右键菜单里可以点播 100 多个节目；不同形象会使用各自的动作表</div>
+              <div><b>自定义互动文字</b> 设置里可写自己的台词（每行一句），保存时会用离线敏感词库检查</div>
+              <div><b>待机位置</b> 到处游 / 右下角 / 固定不动（设置里切换）</div>
+              <div><b>番茄钟</b> 时长 5~120 分钟可调，专注时她会安静陪你</div>
+              <div id="help-ledger"><b>白饭账本</b> 在设置里选择 AI 平台并配置 API Key，查询该账户的余额或账单</div>
+              <div>托盘图标可以随时叫出/藏起桌宠、打开设置；GPT 娘使用完整图集动画</div>
+            </div>
+          </details>
         </div>
         <div class="set-sec">
-          <div class="set-label">操作说明</div>
-          <div class="set-help">
-            <div><b>单击</b> 摸摸头（随机回应 + 台词） · <b>双击</b> 喂一碗白饭</div>
-            <div><b>拖拽</b> 搬到任意位置 · <b>右键</b> 打开菜单（喂饭 / 选个动作 / 番茄钟 / 白饭账本 / 状态 / 睡觉 / 设置 / 躲起来 / 退出）</div>
-            <div><b>鼠标靠近</b> 她会朝你看 · 约 100 秒不理她会打瞌睡</div>
-            <div><b>自动动作</b> 每隔「自动动作间隔」随机表演一个节目（默认 40 秒，可在设置里调）</div>
-            <div><b>选个动作</b> 右键菜单里可以点播 100 多个节目；不同形象会使用各自的动作表</div>
-            <div><b>自定义互动文字</b> 设置里可写自己的台词（每行一句），保存时会用离线敏感词库检查</div>
-            <div><b>待机位置</b> 到处游 / 右下角 / 固定不动（设置里切换）</div>
-            <div><b>番茄钟</b> 时长 5~120 分钟可调，专注时她会安静陪你</div>
-            <div id="help-ledger"><b>白饭账本</b> 显示 Qoder 用量，或在设置里配置 API Key 后查询各 AI 平台的余额</div>
-            <div>托盘图标可以随时叫出/藏起桌宠、打开设置；GPT 娘使用完整图集动画</div>
-          </div>
+          <details class="set-details">
+            <summary>高级诊断</summary>
+            <div class="set-sec">
+              <div class="set-label">全屏判定诊断</div>
+              <div class="set-row">
+                <button id="fs-diag-refresh">刷新判定记录</button>
+                <button id="fs-diag-toggle">显示 / 隐藏详情</button>
+              </div>
+              <div class="set-hint" id="fs-diag-status">如果桌宠在切换窗口时反复闪现，把下面的记录贴到 issue #2。</div>
+              <pre id="fs-diag-log" class="diag-log hide"></pre>
+            </div>
+            <div class="set-sec">
+              <div class="set-label">账单诊断</div>
+              <div class="set-row">
+                <button id="ledger-recheck">重新检测</button>
+                <button id="ledger-diag-toggle">诊断详情</button>
+              </div>
+              <div class="set-hint" id="ledger-diag-status"></div>
+              <pre id="ledger-diag-detail" class="diag-log hide"></pre>
+            </div>
+            <div class="set-sec">
+              <div class="set-label">诊断包导出</div>
+              <div class="set-row">
+                <button id="export-diagnostics">导出诊断包…</button>
+              </div>
+              <div class="set-hint" id="diagnostics-status">导出包含版本、窗口与全屏判定、最近错误日志；不含 API Key 与自定义文字内容。上传 issue 前请先自行检查。</div>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -415,15 +448,22 @@
   <script src="lib/meme-gallery-i18n.js"></script>
   <script src="lib/ui-i18n.js"></script>
 <script src="lib/action-i18n.js"></script>
+<script src="lib/pack-action-i18n.js"></script>
 <script src="lib/motion.js"></script>
 <script src="lib/meme-queue.js"></script>
   <script src="lib/bubble-layout.js"></script>
   <script src="lib/meme-pool.js"></script>
   <script src="lib/anim-actions.js"></script>
   <script src="lib/frame-schedule.js"></script>
+  <script src="lib/power-save.js"></script>
+  <script src="lib/store-progress.js"></script>
+  <script src="lib/settings-payload.js"></script>
   <script src="lib/time-format.js"></script>
 <script src="lib/pet-rect.js"></script>
+<script src="lib/region-box.js"></script>
+<script src="lib/legacy-pack-sprite.js"></script>
   <script src="lib/anim.js"></script>
+<script src="app-state.js"></script>
 <script src="features/animation-data.js"></script>
 <script src="features/character-settings.js"></script>
 <script src="features/fs-diag.js"></script>
@@ -450,6 +490,7 @@
 <script src="features/animation.js"></script>
 <script src="features/settings.js"></script>
 <script src="pet.js"></script>
+<script src="features/confirm.js"></script>
 <script src="features/pointer-events.js"></script>
 </body>
 </html>

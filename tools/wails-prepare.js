@@ -5,6 +5,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const zlib = require('node:zlib');
 
 const root = path.join(__dirname, '..');
 const pkg = require(path.join(root, 'package.json'));
@@ -21,11 +22,11 @@ if (!fs.existsSync(srcAssets)) {
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 
-for (const f of ['index.html', 'style.css', 'archive-memes.js', 'dsh-memes.js', 'pet.js']) {
+for (const f of ['index.html', 'style.css', 'archive-memes.js', 'dsh-memes.js', 'pet.js', 'app-state.js']) {
   fs.copyFileSync(path.join(srcRenderer, f), path.join(out, f));
 }
 fs.mkdirSync(path.join(out, 'lib'), { recursive: true });
-for (const f of ['format.js', 'i18n.js', 'lines-i18n.js', 'memes-i18n.js', 'meme-gallery-i18n.js', 'ui-i18n.js', 'action-i18n.js', 'geometry-config.js', 'dialogue-data.js', 'motion.js', 'meme-queue.js', 'bubble-layout.js', 'meme-pool.js', 'anim-actions.js', 'frame-schedule.js', 'time-format.js', 'pet-rect.js', 'anim.js']) {
+for (const f of ['format.js', 'i18n.js', 'lines-i18n.js', 'memes-i18n.js', 'meme-gallery-i18n.js', 'ui-i18n.js', 'action-i18n.js', 'pack-action-i18n.js', 'geometry-config.js', 'dialogue-data.js', 'motion.js', 'meme-queue.js', 'bubble-layout.js', 'meme-pool.js', 'anim-actions.js', 'frame-schedule.js', 'power-save.js', 'store-progress.js', 'settings-payload.js', 'time-format.js', 'pet-rect.js', 'region-box.js', 'legacy-pack-sprite.js', 'anim.js']) {
   fs.copyFileSync(path.join(srcRenderer, 'lib', f), path.join(out, 'lib', f));
 }
 fs.mkdirSync(path.join(out, 'features'), { recursive: true });
@@ -37,19 +38,17 @@ fs.copyFileSync(path.join(root, 'wails', 'frontend', 'api.js'), path.join(out, '
 
 // Go embed 不接受中文文件名；把 assets 原字节装进 store-only zip，
 // 运行时由虚拟 fs 直接读取（不做有损压缩，文件名保持原样）。
-function crc32(buf) {
-  let table = crc32.table;
-  if (!table) {
-    table = crc32.table = new Uint32Array(256);
-    for (let n = 0; n < 256; n++) {
-      let c = n;
-      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-      table[n] = c >>> 0;
-    }
+// 逐文件流式写入：峰值内存只跟最大的单个文件 + 1MB 缓冲有关，
+// 不再把所有素材读进数组后 Buffer.concat（旧实现峰值 ≥222MB）。
+function writeAll(fd, buf, position) {
+  let off = 0;
+  while (off < buf.length) {
+    const n = position === undefined
+      ? fs.writeSync(fd, buf, off, buf.length - off)
+      : fs.writeSync(fd, buf, off, buf.length - off, position + off);
+    if (n <= 0) throw new Error('写入 assets.zip 失败');
+    off += n;
   }
-  let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) c = table[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
 }
 
 function buildAssetsZip() {
@@ -59,63 +58,95 @@ function buildAssetsZip() {
       const full = path.join(dir, e.name);
       const r = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) walk(full, r);
-      else if (e.isFile()) files.push({ full, name: `assets/${r}`, data: fs.readFileSync(full) });
+      else if (e.isFile()) files.push({ full, name: `assets/${r}` });
     }
   };
   walk(srcAssets, '');
-  const local = [];
+
+  const zipPath = path.join(out, 'assets.zip');
+  const fd = fs.openSync(zipPath, 'w');
   const central = [];
+  const chunk = Buffer.alloc(1024 * 1024);
   let offset = 0;
-  for (const f of files) {
-    const name = Buffer.from(f.name, 'utf8');
-    const crc = crc32(f.data);
-    const size = f.data.length;
-    const lh = Buffer.alloc(30);
-    lh.writeUInt32LE(0x04034b50, 0);
-    lh.writeUInt16LE(20, 4);
-    lh.writeUInt16LE(0x0800, 6); // UTF-8 文件名
-    lh.writeUInt16LE(0, 8);      // store，不压缩
-    lh.writeUInt16LE(0, 10);
-    lh.writeUInt16LE(0, 12);
-    lh.writeUInt32LE(crc, 14);
-    lh.writeUInt32LE(size, 18);
-    lh.writeUInt32LE(size, 22);
-    lh.writeUInt16LE(name.length, 26);
-    lh.writeUInt16LE(0, 28);
-    local.push(lh, name, f.data);
-    const ch = Buffer.alloc(46);
-    ch.writeUInt32LE(0x02014b50, 0);
-    ch.writeUInt16LE(20, 4);
-    ch.writeUInt16LE(20, 6);
-    ch.writeUInt16LE(0x0800, 8);
-    ch.writeUInt16LE(0, 10);
-    ch.writeUInt16LE(0, 12);
-    ch.writeUInt16LE(0, 14);
-    ch.writeUInt32LE(crc, 16);
-    ch.writeUInt32LE(size, 20);
-    ch.writeUInt32LE(size, 24);
-    ch.writeUInt16LE(name.length, 28);
-    ch.writeUInt16LE(0, 30);
-    ch.writeUInt16LE(0, 32);
-    ch.writeUInt16LE(0, 34);
-    ch.writeUInt16LE(0, 36);
-    ch.writeUInt32LE(0, 38);
-    ch.writeUInt32LE(offset, 42);
-    central.push(ch, name);
-    offset += lh.length + name.length + f.data.length;
+  let totalBytes = 0;
+  try {
+    for (const f of files) {
+      const name = Buffer.from(f.name, 'utf8');
+      const size = fs.statSync(f.full).size;
+      const headerPos = offset;
+      const lh = Buffer.alloc(30);
+      lh.writeUInt32LE(0x04034b50, 0);
+      lh.writeUInt16LE(20, 4);
+      lh.writeUInt16LE(0x0800, 6); // UTF-8 文件名
+      lh.writeUInt16LE(0, 8);      // store，不压缩
+      lh.writeUInt16LE(0, 10);
+      lh.writeUInt16LE(0, 12);
+      lh.writeUInt32LE(0, 14);     // CRC 先占位，流式读完再回填
+      lh.writeUInt32LE(size, 18);
+      lh.writeUInt32LE(size, 22);
+      lh.writeUInt16LE(name.length, 26);
+      lh.writeUInt16LE(0, 28);
+      writeAll(fd, lh);
+      writeAll(fd, name);
+
+      const inFd = fs.openSync(f.full, 'r');
+      let left = size;
+      let crc = 0;
+      try {
+        while (left > 0) {
+          const n = fs.readSync(inFd, chunk, 0, Math.min(chunk.length, left), null);
+          if (n <= 0) throw new Error(`读取素材失败: ${f.full}`);
+          writeAll(fd, chunk.subarray(0, n));
+          crc = zlib.crc32(chunk.subarray(0, n), crc);
+          left -= n;
+        }
+      } finally {
+        fs.closeSync(inFd);
+      }
+      crc = crc >>> 0;
+      const crcBuf = Buffer.alloc(4);
+      crcBuf.writeUInt32LE(crc, 0);
+      writeAll(fd, crcBuf, headerPos + 14);
+
+      const ch = Buffer.alloc(46);
+      ch.writeUInt32LE(0x02014b50, 0);
+      ch.writeUInt16LE(20, 4);
+      ch.writeUInt16LE(20, 6);
+      ch.writeUInt16LE(0x0800, 8);
+      ch.writeUInt16LE(0, 10);
+      ch.writeUInt16LE(0, 12);
+      ch.writeUInt16LE(0, 14);
+      ch.writeUInt32LE(crc, 16);
+      ch.writeUInt32LE(size, 20);
+      ch.writeUInt32LE(size, 24);
+      ch.writeUInt16LE(name.length, 28);
+      ch.writeUInt16LE(0, 30);
+      ch.writeUInt16LE(0, 32);
+      ch.writeUInt16LE(0, 34);
+      ch.writeUInt16LE(0, 36);
+      ch.writeUInt32LE(0, 38);
+      ch.writeUInt32LE(offset, 42);
+      central.push(ch, name);
+      offset += lh.length + name.length + size;
+      totalBytes += size;
+    }
+    const centralBuf = Buffer.concat(central);
+    const eocd = Buffer.alloc(22);
+    eocd.writeUInt32LE(0x06054b50, 0);
+    eocd.writeUInt16LE(0, 4);
+    eocd.writeUInt16LE(0, 6);
+    eocd.writeUInt16LE(files.length, 8);
+    eocd.writeUInt16LE(files.length, 10);
+    eocd.writeUInt32LE(centralBuf.length, 12);
+    eocd.writeUInt32LE(offset, 16);
+    eocd.writeUInt16LE(0, 20);
+    writeAll(fd, centralBuf);
+    writeAll(fd, eocd);
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
   }
-  const centralBuf = Buffer.concat(central);
-  const eocd = Buffer.alloc(22);
-  eocd.writeUInt32LE(0x06054b50, 0);
-  eocd.writeUInt16LE(0, 4);
-  eocd.writeUInt16LE(0, 6);
-  eocd.writeUInt16LE(files.length, 8);
-  eocd.writeUInt16LE(files.length, 10);
-  eocd.writeUInt32LE(centralBuf.length, 12);
-  eocd.writeUInt32LE(offset, 16);
-  eocd.writeUInt16LE(0, 20);
-  fs.writeFileSync(path.join(out, 'assets.zip'), Buffer.concat([...local, centralBuf, eocd]));
-  console.log(`[wails-prepare] assets.zip (${lite ? 'lite 压缩素材' : '完整原素材'}): ${files.length} files, ${(offset / 1048576).toFixed(1)}MB (store)`);
+  console.log(`[wails-prepare] assets.zip (${lite ? 'lite 压缩素材' : '完整原素材'}): ${files.length} files, ${(totalBytes / 1048576).toFixed(1)}MB (store)`);
 }
 buildAssetsZip();
 
@@ -123,6 +154,9 @@ const rewrite = (f) => {
   const p = path.join(out, f);
   let s = fs.readFileSync(p, 'utf8');
   s = s.split('../assets/').join('assets/');
+  // 已安装形象包的封面与动画都拼成 ../characters/<id>/...；打包后页面就在资源根，
+  // '../' 会跳出根导致 AssetServer 404（商店卡片裂图、包形象不出图）。
+  s = s.split('../characters/').join('characters/');
   fs.writeFileSync(p, s);
 };
 rewrite('index.html');
@@ -130,6 +164,10 @@ rewrite('pet.js');
 rewrite('style.css');
 rewrite('archive-memes.js');
 rewrite('dsh-memes.js');
+// features 下也有 characters 路径（形象包封面、动作、气泡梗图），同样要改写
+for (const f of fs.readdirSync(path.join(out, 'features'))) {
+  if (f.endsWith('.js')) rewrite(path.join('features', f));
+}
 
 // Wails 运行时由 WebView2 注入；为 Wails 副本放宽 CSP，避免本地 runtime/事件被拦
 let html = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
@@ -142,6 +180,7 @@ html = html.replace('<script src="assets/anims/index.js"></script>', `<script>wi
 <script src="assets/anims/index.js?v=${pkg.version}"></script>`);
 html = html.replace('<script src="archive-memes.js"></script>', `<script src="archive-memes.js?v=${pkg.version}"></script>`);
 html = html.replace('<script src="dsh-memes.js"></script>', `<script src="dsh-memes.js?v=${pkg.version}"></script>`);
+html = html.replace('<script src="app-state.js"></script>', `<script src="app-state.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/lines-i18n.js"></script>', `<script src="lib/lines-i18n.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/geometry-config.js"></script>', `<script src="lib/geometry-config.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/dialogue-data.js"></script>', `<script src="lib/dialogue-data.js?v=${pkg.version}"></script>`);
@@ -149,6 +188,7 @@ html = html.replace('<script src="dsh-memes.js"></script>', `<script src="dsh-me
   html = html.replace('<script src="lib/meme-gallery-i18n.js"></script>', `<script src="lib/meme-gallery-i18n.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/ui-i18n.js"></script>', `<script src="lib/ui-i18n.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/action-i18n.js"></script>', `<script src="lib/action-i18n.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/pack-action-i18n.js"></script>', `<script src="lib/pack-action-i18n.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/i18n.js"></script>', `<script src="lib/i18n.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/format.js"></script>', `<script src="lib/format.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/motion.js"></script>', `<script src="lib/motion.js?v=${pkg.version}"></script>`);
@@ -157,8 +197,13 @@ html = html.replace('<script src="dsh-memes.js"></script>', `<script src="dsh-me
   html = html.replace('<script src="lib/meme-pool.js"></script>', `<script src="lib/meme-pool.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/anim-actions.js"></script>', `<script src="lib/anim-actions.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/frame-schedule.js"></script>', `<script src="lib/frame-schedule.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/power-save.js"></script>', `<script src="lib/power-save.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/store-progress.js"></script>', `<script src="lib/store-progress.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/settings-payload.js"></script>', `<script src="lib/settings-payload.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/time-format.js"></script>', `<script src="lib/time-format.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/pet-rect.js"></script>', `<script src="lib/pet-rect.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/region-box.js"></script>', `<script src="lib/region-box.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="lib/legacy-pack-sprite.js"></script>', `<script src="lib/legacy-pack-sprite.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="lib/anim.js"></script>', `<script src="lib/anim.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="features/animation-data.js"></script>', `<script src="features/animation-data.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="features/character-settings.js"></script>', `<script src="features/character-settings.js?v=${pkg.version}"></script>`);
@@ -182,6 +227,7 @@ html = html.replace('<script src="dsh-memes.js"></script>', `<script src="dsh-me
   html = html.replace('<script src="features/status.js"></script>', `<script src="features/status.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="features/picker.js"></script>', `<script src="features/picker.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="features/menu.js"></script>', `<script src="features/menu.js?v=${pkg.version}"></script>`);
+  html = html.replace('<script src="features/confirm.js"></script>', `<script src="features/confirm.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="features/ledger-format.js"></script>', `<script src="features/ledger-format.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="features/animation.js"></script>', `<script src="features/animation.js?v=${pkg.version}"></script>`);
   html = html.replace('<script src="features/settings.js"></script>', `<script src="features/settings.js?v=${pkg.version}"></script>`);

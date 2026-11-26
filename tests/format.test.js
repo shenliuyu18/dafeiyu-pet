@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { compareVersion, isNewer } = require('../renderer/lib/format.js');
+const { compareVersion, isNewer, needsUpdate } = require('../renderer/lib/format.js');
 
 test('compareVersion 处理常见版本号', () => {
   assert.equal(compareVersion('1.2.3', '1.2.3'), 0);
@@ -16,4 +16,16 @@ test('isNewer 处理缺失版本', () => {
   assert.equal(isNewer('1.0.0', '1.0.0'), false);
   assert.equal(isNewer('', '1.0.0'), false);
   assert.equal(isNewer('1.0.0', ''), true);
+});
+
+test('needsUpdate 只有两边都有版本且目录更高时才为真', () => {
+  assert.equal(needsUpdate('1.0.1', '1.0.0'), true);
+  assert.equal(needsUpdate('1.0.0', '1.0.0'), false);
+  assert.equal(needsUpdate('1.0.0', '1.0.1'), false);
+  // 已安装的包没有版本（旧包 / 本地导入）→ 不能当作可更新
+  assert.equal(needsUpdate('1.0.0', undefined), false);
+  assert.equal(needsUpdate('1.0.0', ''), false);
+  // 目录没有版本也不能判断
+  assert.equal(needsUpdate(undefined, '1.0.0'), false);
+  assert.equal(needsUpdate('', ''), false);
 });

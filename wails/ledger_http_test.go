@@ -14,7 +14,8 @@ func withAPIHosts(t *testing.T, srv *httptest.Server) {
 	apiHostBase = map[string]string{}
 	for _, host := range []string{
 		"api.deepseek.com", "api.moonshot.cn", "api.siliconflow.cn",
-		"open.volcengineapi.com", "api.openai.com", "api.anthropic.com",
+		"api.moonshot.ai", "api.siliconflow.com",
+		"api.openai.com", "api.anthropic.com",
 	} {
 		apiHostBase[host] = srv.URL
 	}
@@ -32,12 +33,6 @@ func TestFetchPlatformsAgainstFakeAPI(t *testing.T) {
 			fmt.Fprint(w, `{"code":0,"data":{"available_balance":12.5,"voucher_balance":1.0,"cash_balance":11.5}}`)
 		case "/v1/user/info":
 			fmt.Fprint(w, `{"code":20000,"message":"OK","data":{"totalBalance":"12.5","balance":"2.5","chargeBalance":"10"}}`)
-		case "/":
-			if r.URL.Query().Get("Action") != "QueryBalanceAcct" {
-				http.Error(w, "bad action", 400)
-				return
-			}
-			fmt.Fprint(w, `{"Result":{"AvailableBalance":12.3,"CashBalance":10,"ArrearsBalance":0}}`)
 		case "/v1/organization/costs":
 			fmt.Fprintf(w, `{"data":[{"start_time":%d,"results":[{"amount":{"value":1.5,"currency":"usd"}}]}]}`, now.Unix())
 		case "/v1/organizations/cost_report":
@@ -57,7 +52,6 @@ func TestFetchPlatformsAgainstFakeAPI(t *testing.T) {
 		{"deepseek", fetchDeepseek, "sk-deepseek"},
 		{"moonshot", fetchMoonshot, "sk-moonshot"},
 		{"siliconflow", fetchSiliconflow, "sk-siliconflow"},
-		{"doubao", fetchDoubao, "AK:SK"},
 		{"openai", fetchOpenai, "sk-admin-openai"},
 		{"claude", fetchClaude, "sk-ant-admin"},
 	}
@@ -124,5 +118,45 @@ func TestAPIURLOverride(t *testing.T) {
 	defer func() { apiHostBase = old }()
 	if got := apiURL("api.deepseek.com", "/x"); got != "http://127.0.0.1:9/x" {
 		t.Fatalf("override url: %s", got)
+	}
+}
+
+func TestIntlSiteFallback(t *testing.T) {
+	failSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, `{"error":{"message":"invalid api key"}}`)
+	}))
+	defer failSrv.Close()
+	okSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/users/me/balance":
+			fmt.Fprint(w, `{"code":0,"data":{"available_balance":1.2,"voucher_balance":1.0,"cash_balance":0.2}}`)
+		case "/v1/user/info":
+			fmt.Fprint(w, `{"code":20000,"data":{"totalBalance":"1.2","balance":"1.0","chargeBalance":"0.2"}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer okSrv.Close()
+	old := apiHostBase
+	apiHostBase = map[string]string{
+		"api.moonshot.cn": failSrv.URL, "api.moonshot.ai": okSrv.URL,
+		"api.siliconflow.cn": failSrv.URL, "api.siliconflow.com": okSrv.URL,
+	}
+	defer func() { apiHostBase = old }()
+
+	for name, call := range map[string]func(string) map[string]interface{}{
+		"moonshot": fetchMoonshot, "siliconflow": fetchSiliconflow,
+	} {
+		r := call("sk-intl")
+		if code := strv(r["errorCode"], ""); code != "" {
+			t.Fatalf("%s intl fallback failed: %v (%s)", name, r["error"], code)
+		}
+		rows, _ := r["rows"].([]map[string]string)
+		if len(rows) != 3 || rows[0]["value"][:1] != "$" {
+			t.Fatalf("%s intl rows: %#v", name, rows)
+		}
 	}
 }

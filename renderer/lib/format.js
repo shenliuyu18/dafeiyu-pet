@@ -30,7 +30,14 @@
     return compareVersion(candidate, current) > 0;
   }
 
-  const api = { compareVersion, isNewer };
+  // 商店是否要提示「可更新」：两边都有版本号才能比较。
+  // 旧包 / 本地导入的包没有 version，不能当作「有更新」。
+  function needsUpdate(catalogVersion, installedVersion) {
+    if (!catalogVersion || !installedVersion) return false;
+    return compareVersion(catalogVersion, installedVersion) > 0;
+  }
+
+  const api = { compareVersion, isNewer, needsUpdate };
   root.PetLib = root.PetLib || {};
   root.PetLib.format = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

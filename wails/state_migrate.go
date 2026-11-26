@@ -37,9 +37,17 @@ func migrateState(st map[string]interface{}) bool {
 		st["schemaVersion"] = currentStateSchema
 		changed = true
 	}
-	for _, key := range []string{"scale85", "autoAction40", "highPriority"} {
+	for _, key := range []string{"scale85", "autoAction40", "highPriority", "planQuota", "warnMonth", "warnTier"} {
 		if _, ok := st[key]; ok {
 			delete(st, key)
+			changed = true
+		}
+	}
+	// Qoder 本地 credits 来源已移除，旧值迁到默认的 API 来源
+	if v, ok := st["ledgerSource"]; ok {
+		src, _ := v.(string)
+		if apiProviders[src].label == "" {
+			st["ledgerSource"] = "deepseek"
 			changed = true
 		}
 	}

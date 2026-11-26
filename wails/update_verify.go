@@ -113,45 +113,45 @@ func shortHash(h string) string {
 func verifyUpdateFile(dest string, info map[string]interface{}) error {
 	sumsURL := strv(info["sumsUrl"], "")
 	if sumsURL == "" {
-		return errors.New("发布缺少 SHA256SUMS.txt，已拒绝自动更新（可手动下载）")
+		return updateErr("MISMATCH", "发布缺少 SHA256SUMS.txt，已拒绝自动更新（可手动下载）")
 	}
 	sumsRaw, err := fetchUpdateBytes(sumsURL)
 	if err != nil {
-		return err
+		return updateErr("NETWORK", "%s", err.Error())
 	}
 	sums := strings.TrimSpace(strings.TrimPrefix(string(sumsRaw), "\ufeff"))
 	assetName := filepath.Base(strv(info["assetName"], ""))
 	expected := parseSHA256Sums(sums, assetName)
 	if expected == "" {
-		return fmt.Errorf("校验清单中没有 %s，已拒绝更新", assetName)
+		return updateErr("MISMATCH", "校验清单中没有 %s，已拒绝更新", assetName)
 	}
 	got, err := fileSHA256(dest)
 	if err != nil {
-		return fmt.Errorf("读取安装包失败：%w", err)
+		return updateErr("DISK", "读取安装包失败：%v", err)
 	}
 	if !strings.EqualFold(got, expected) {
-		return fmt.Errorf("安装包校验失败（期望 %s，实际 %s），文件可能已损坏或被篡改", shortHash(expected), shortHash(got))
+		return updateErr("HASH", "安装包校验失败（期望 %s，实际 %s），文件可能已损坏或被篡改", shortHash(expected), shortHash(got))
 	}
 
 	if updateSigningPubKey != "" {
 		sigURL := strv(info["sigUrl"], "")
 		if sigURL == "" {
-			return errors.New("已启用签名校验，但发布缺少 SHA256SUMS.txt.sig")
+			return updateErr("HASH", "已启用签名校验，但发布缺少 SHA256SUMS.txt.sig")
 		}
 		sigText, err := fetchUpdateText(sigURL)
 		if err != nil {
-			return err
+			return updateErr("NETWORK", "%s", err.Error())
 		}
 		pub, err := base64.StdEncoding.DecodeString(strings.TrimSpace(updateSigningPubKey))
 		if err != nil || len(pub) != ed25519.PublicKeySize {
-			return errors.New("内置更新公钥格式无效")
+			return updateErr("HASH", "内置更新公钥格式无效")
 		}
 		sig, err := base64.StdEncoding.DecodeString(strings.TrimSpace(sigText))
 		if err != nil {
-			return errors.New("校验清单签名格式无效")
+			return updateErr("HASH", "校验清单签名格式无效")
 		}
 		if !ed25519.Verify(ed25519.PublicKey(pub), sumsRaw, sig) {
-			return errors.New("校验清单签名无效，已拒绝更新")
+			return updateErr("HASH", "校验清单签名无效，已拒绝更新")
 		}
 	}
 	return nil

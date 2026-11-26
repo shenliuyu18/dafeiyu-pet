@@ -111,11 +111,14 @@ async function renderPomoStats() {
 function applyLanguage(lang, save) {
   S.lang = lang === 'en' || lang === 'ja' ? lang : 'zh';
   if (window.PetLib && window.PetLib.i18n) window.PetLib.i18n.apply(S.lang);
+  // 账本缓存的按语言校验在 showUsage 里处理：这里不做提前重拉，
+  // 否则 Settings 的保存链还没到 Go，拿回来的仍是旧语言文案。
   if (typeof retranslateBubble === 'function') retranslateBubble();
+  // 省电提示是脚本用 T() 拼出来的，apply() 只扫 DOM，切语言后必须手动重算
+  if (typeof updatePowerHint === 'function') updatePowerHint();
   const suffix = S.lang === 'zh' ? '' : '.' + S.lang;
   for (const btn of document.querySelectorAll('.set-link[data-doc]')) {
-    const base = btn.dataset.doc === 'readme' ? 'README' : 'CHANGELOG';
-    btn.dataset.link = `https://github.com/shenliuyu18/dafeiyu-pet/blob/main/${base}${suffix}.md`;
+    btn.dataset.link = `https://github.com/shenliuyu18/dafeiyu-pet/blob/main/${btn.dataset.doc}${suffix}.md`;
   }
   if (setLang) {
     for (const btn of setLang.querySelectorAll('button')) {

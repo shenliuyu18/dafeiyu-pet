@@ -15,6 +15,10 @@ test('形象数据模块可独立加载', () => {
   const ctx = load();
   assert.equal(vm.runInContext("CHARS.v1.label", ctx), '大肥鱼');
   assert.equal(vm.runInContext("typeof isDsh", ctx), 'function');
-  assert.ok(vm.runInContext('SPRITE.sequences.idle.times.length', ctx) > 0);
+  // 图集排版参数属于包内容：应用本体不保留任何序列，gpt 形象要等包装好才注册
+  assert.equal(vm.runInContext('Object.keys(SPRITE.sequences).length', ctx), 0);
+  assert.equal(vm.runInContext('SPRITE.sheet', ctx), '');
+  assert.equal(vm.runInContext('Object.keys(SPRITE_MAP).length', ctx), 0);
+  assert.equal(vm.runInContext('typeof CHARS.gpt', ctx), 'undefined');
 });
 

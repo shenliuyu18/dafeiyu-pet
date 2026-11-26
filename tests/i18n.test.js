@@ -42,15 +42,56 @@ test('动态文案按模式翻译', () => {
   assert.equal(i18n.translate('普通文本', 'en'), '普通文本');
 });
 
-test('下载包与图集动作名都有英/日翻译', () => {
+test('应用本体不再内置下载包的动作名译文', () => {
   global.window = global;
   const i18n = require('../renderer/lib/i18n.js');
   require('../renderer/lib/action-i18n.js');
   const d = i18n.dictionaries;
   for (const k of ['唱歌-清唱', '图书管理员嘘', '宇航员行走', '待机眨眼', '敲键盘', '向右奔跑']) {
-    assert.notEqual(d.en[k], undefined, `en missing ${k}`);
-    assert.notEqual(d.ja[k], undefined, `ja missing ${k}`);
+    assert.equal(d.en[k], undefined, `en 仍内置 ${k}`);
+    assert.equal(d.ja[k], undefined, `ja 仍内置 ${k}`);
   }
-  assert.equal(d.en['待机眨眼'], 'Idle blink');
-  assert.equal(d.ja['敲键盘'], 'キーボードを打つ');
+  assert.ok(d.en['基础状态']);
+});
+
+test('形象包内容自带台词、动作名与分类译文', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', 'tools', 'character-pack', 'content');
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+  assert.ok(files.length >= 9, '缺少形象包内容文件');
+  for (const f of files) {
+    const j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+    const en = j.i18n && j.i18n.en;
+    const ja = j.i18n && j.i18n.ja;
+    assert.ok(en && ja, `${f} 缺少 en/ja`);
+    assert.deepEqual(Object.keys(ja.lines || {}).sort(), Object.keys(en.lines || {}).sort(), `${f} lines 语言不对齐`);
+    assert.deepEqual(Object.keys(ja.actions || {}).sort(), Object.keys(en.actions || {}).sort(), `${f} actions 语言不对齐`);
+    assert.deepEqual(Object.keys(ja.categories || {}).sort(), Object.keys(en.categories || {}).sort(), `${f} categories 语言不对齐`);
+    for (const lang of ['en', 'ja']) {
+      for (const [src, tr] of Object.entries(j.i18n[lang].lines || {})) {
+        assert.ok(String(tr).trim(), `${f} ${lang} lines「${src}」译文为空`);
+      }
+      for (const [src, tr] of Object.entries(j.i18n[lang].actions || {})) {
+        assert.ok(String(tr).trim(), `${f} ${lang} actions「${src}」译文为空`);
+      }
+    }
+    if (j.dialogue) {
+      const texts = [];
+      for (const key of ['intro', 'quips', 'feed', 'hungry', 'sleep']) {
+        const v = j.dialogue[key];
+        if (Array.isArray(v)) texts.push(...v.filter(Boolean));
+        else if (v) texts.push(v);
+      }
+      for (const m of j.dialogue.memes || []) if (m.text) texts.push(m.text);
+      const lines = j.i18n.en.lines || {};
+      const missing = texts.filter((t) => !lines[t]);
+      assert.equal(missing.length, 0, `${f} 台词缺英文：${missing.join(' / ')}`);
+    }
+    if (j.sprite) {
+      assert.ok(j.sprite.sequences && j.sprite.sequences.idle, `${f} sprite 缺少 idle`);
+      assert.ok(j.sprite.sequences.waiting, `${f} sprite 缺少 waiting`);
+      assert.ok(j.sprite.map && Object.keys(j.sprite.map).length, `${f} sprite 缺少动作映射`);
+    }
+  }
 });

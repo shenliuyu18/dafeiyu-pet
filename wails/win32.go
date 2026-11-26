@@ -28,6 +28,10 @@ type RegionBox struct {
 	W   float64 `json:"w"`
 	H   float64 `json:"h"`
 	Hit bool    `json:"hit"`
+	// Soft 表示“可交互但非角色本体”的区域（目前只有气泡）。动作画布 / alpha 包络等
+	// 只是为了让 Region 不裁内容，绝不能当成可交互区，否则气泡/动作期间会把整窗变成
+	// 可点击窗口，吞掉覆盖区域内所有鼠标事件（用户反馈：气泡存在时点哪都没反应）。
+	Soft bool `json:"soft,omitempty"`
 }
 
 type pixRect struct {
@@ -43,6 +47,7 @@ const (
 	swShowNoActivate = 4
 	swHide           = 0
 	hwndTopmost      = ^uintptr(0) // (HWND)-1
+	hwndNoTopmost    = ^uintptr(1) // (HWND)-2
 	swpNoActivate    = 0x0010
 	swpShowWindow    = 0x0040
 	swpFrameChanged  = 0x0020
@@ -82,6 +87,7 @@ var (
 	procShowWindow               = user32.NewProc("ShowWindow")
 	procIsWindow                 = user32.NewProc("IsWindow")
 	procIsWindowVisible          = user32.NewProc("IsWindowVisible")
+	procGetWindow                = user32.NewProc("GetWindow")
 	procSendMessageTimeoutW      = user32.NewProc("SendMessageTimeoutW")
 	procGetCursorPos             = user32.NewProc("GetCursorPos")
 	procSetCursorPos             = user32.NewProc("SetCursorPos")
@@ -362,28 +368,42 @@ func (a *App) applyFocusable(on bool) {
 
 func (a *App) cursorLoop() {
 	lastX, lastY := int32(-99999), int32(-99999)
+	// 工作区 / DPI 很少变化：以前每 30ms 各查一次系统接口，空闲时纯属白烧 CPU。
+	// 现在每 2 秒核对一次，切显示器或改缩放后仍能在数秒内纠正。
+	wa := getWorkArea()
+	probeScale := 1.0
+	if dpi := getDPI(a.hwnd); dpi > 0 {
+		probeScale = float64(dpi) / 96.0
+	}
+	lastProbe := time.Now()
 	for {
 		if a.hwnd == 0 {
 			time.Sleep(200 * time.Millisecond)
 			continue
+		}
+		now := time.Now()
+		if now.Sub(lastProbe) > 2*time.Second {
+			lastProbe = now
+			wa = getWorkArea()
+			dpi := getDPI(a.hwnd)
+			if dpi <= 0 {
+				dpi = 96
+			}
+			probeScale = float64(dpi) / 96.0
 		}
 		var p POINT
 		if ok, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&p))); ok == 0 {
 			time.Sleep(50 * time.Millisecond)
 			continue
 		}
-		wa := getWorkArea()
-		dpi := getDPI(a.hwnd)
-		if dpi <= 0 {
-			dpi = 96
-		}
-		scale := float64(dpi) / 96.0
 		a.mu.Lock()
-		changed := !a.hidden && (wa != a.workArea || scale != a.dpi)
+		changed := !a.hidden && (wa != a.workArea || probeScale != a.dpi)
 		fsHidden := a.fsHidden
 		if changed {
+			oldWa, oldDpi := a.workArea, a.dpi
 			a.workArea = wa
-			a.dpi = scale
+			a.dpi = probeScale
+			crashLog("geo-change", fmt.Sprintf("wa %+v->%+v dpi %.2f->%.2f fsHidden=%v", oldWa, wa, oldDpi, probeScale, fsHidden))
 			if !fsHidden {
 				procSetWindowPos.Call(a.hwnd, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpShowWindow)
 			}
@@ -391,6 +411,9 @@ func (a *App) cursorLoop() {
 		px, py, ps, init := a.petX, a.petY, a.petScale, a.petInit
 		panel, drag := a.panelOpen, a.dragging
 		hit := a.hitBox
+		// 气泡显示时 regionBoxes 里会多出气泡盒（hit=false）。光标落在气泡上时也需要窗口可交互，
+		// 否则气泡看着挡住鼠标、实际点击却穿透到桌面（用户描述为“气泡偶尔吞掉鼠标动作”）。
+		boxes := append([]RegionBox(nil), a.regionBoxes...)
 		dpiScale := a.dpi
 		a.mu.Unlock()
 		if changed {
@@ -406,17 +429,42 @@ func (a *App) cursorLoop() {
 			} else {
 				over = cx >= px+76*ps-6 && cx <= px+224*ps+6 && cy >= py+144*ps-6 && cy <= py+312*ps+6
 			}
+			// 气泡这类“可交互的软区域”才算，动作画布 / alpha 包络不算（否则会吞掉整片鼠标事件）
+			if !over {
+				for _, b := range boxes {
+					if !b.Soft || b.W <= 0 || b.H <= 0 {
+						continue
+					}
+					if cx >= b.X-4 && cx <= b.X+b.W+4 && cy >= b.Y-4 && cy <= b.Y+b.H+4 {
+						over = true
+						break
+					}
+				}
+			}
 		}
 		want := over || panel || drag
-		if want != a.interact {
-			a.interact = want
-			a.setClickThrough(!want)
-		}
+		a.mu.Lock()
+		a.interact = want
+		a.mu.Unlock()
+		// 每轮都按实际样式幂等校正：Wails / 系统在窗口样式被重置时可能把
+		// WS_EX_TRANSPARENT 又加回来，只按「状态变化」切换会让桌宠卡在“点不到”。
+		// setClickThrough 内部先读样式、已一致就直接返回，开销只有一次 GetWindowLong。
+		a.setClickThrough(!want)
 		if p.X != lastX || p.Y != lastY {
 			lastX, lastY = p.X, p.Y
 			a.emit("cursor", map[string]interface{}{"x": cx, "y": cy, "over": over})
 		}
-		time.Sleep(30 * time.Millisecond)
+		// 光标在桌宠附近、正在拖拽或开着面板时才需要高频率（16ms）；
+		// 其它时候 60ms 足够，空闲唤醒次数降一半。
+		sleep := 60 * time.Millisecond
+		near := false
+		if init && hit.W > 0 && hit.H > 0 {
+			near = cx >= hit.X-90 && cx <= hit.X+hit.W+90 && cy >= hit.Y-90 && cy <= hit.Y+hit.H+90
+		}
+		if drag || panel || over || near {
+			sleep = 16 * time.Millisecond
+		}
+		time.Sleep(sleep)
 	}
 }
 
@@ -424,6 +472,7 @@ func (a *App) hideWindow() {
 	a.mu.Lock()
 	a.hidden = true
 	a.fsHidden = false
+	a.fsHiddenAt = time.Time{}
 	a.fsDecider.release()
 	h := a.hwnd
 	a.mu.Unlock()
@@ -438,22 +487,27 @@ func (a *App) hideWindow() {
 
 func (a *App) showInactive() {
 	a.mu.Lock()
-	a.hidden = false
 	h := a.hwnd
 	a.mu.Unlock()
 	if h == 0 {
 		return
 	}
-	// 全屏应用还在前台时先不露头，等退出全屏后由 fullscreenLoop 恢复
+	// 全屏应用还在前台时先不露头，等退出全屏后由 fullscreenLoop 恢复。
+	// 这里必须把 hidden 置 false：否则“先手动隐藏 → 全屏时点显示 → 退出全屏”之后
+	// hidden 仍为 true，恢复分支按 !hidden 判定就永远不把窗口放回来。
+	// 窗口暂时不可见由 fsHidden（全屏抑制）表达，状态与画面仍是一致的。
 	if a.fullscreenEnabled() && immersiveFullscreenActive() {
 		a.mu.Lock()
+		a.hidden = false
 		a.fsHidden = true
 		a.fsDecider.suppress()
 		a.mu.Unlock()
 		return
 	}
 	a.mu.Lock()
+	a.hidden = false
 	a.fsHidden = false
+	a.fsHiddenAt = time.Time{}
 	a.fsDecider.release()
 	a.mu.Unlock()
 	ensureTopmost(h)
@@ -491,6 +545,18 @@ func openFileDialog(ctx context.Context, title, appLabel, allLabel string) (stri
 		Title: title,
 		Filters: []runtime.FileFilter{
 			{DisplayName: appLabel, Pattern: "*.exe;*.lnk;*.bat;*.cmd"},
+			{DisplayName: allLabel, Pattern: "*.*"},
+		},
+	})
+}
+
+// pickPackFile 弹「选择形象包 .zip」对话框。前端早期误用了 Wails v1 的
+// window.runtime.OpenFileDialog（v2 已不存在），改由后端统一弹框。
+func pickPackFile(ctx context.Context, title, packLabel, allLabel string) (string, error) {
+	return runtime.OpenFileDialog(ctx, runtime.OpenDialogOptions{
+		Title: title,
+		Filters: []runtime.FileFilter{
+			{DisplayName: packLabel, Pattern: "*.zip"},
 			{DisplayName: allLabel, Pattern: "*.*"},
 		},
 	})
@@ -558,7 +624,7 @@ func (a *App) updateWindowRegion(force bool) {
 	dpi := a.dpi
 	px, py, ps, init := a.petX, a.petY, a.petScale, a.petInit
 	panel, drag, hidden := a.panelOpen, a.dragging, a.hidden
-	hold := time.Now().Before(a.panelHold)
+	hold := time.Now().Before(a.panelHold) || time.Now().Before(a.regionHold)
 	boxes := append([]RegionBox(nil), a.regionBoxes...)
 	a.mu.Unlock()
 	if h == 0 || hidden || dpi <= 0 {

@@ -5,7 +5,7 @@ export interface LedgerRow {
 }
 
 export interface Ledger {
-  source: string;              // qoder / deepseek / moonshot / siliconflow / doubao / openai / claude
+  source: string;              // deepseek / moonshot / siliconflow / openai / claude
   available: boolean;
   rows?: LedgerRow[];
   providerLabel?: string;
@@ -16,11 +16,6 @@ export interface Ledger {
   httpStatus?: number;
   latencyMs?: number;
   keySource?: 'saved' | 'legacy' | 'env' | '';
-  today?: number;
-  month?: number;
-  session?: number;
-  quota?: number;
-  percent?: number | null;
   updatedAt?: number;
   lastOkAt?: number;
   pending?: boolean;
@@ -77,6 +72,7 @@ export interface InitPayload {
     character?: string;
     fontFamily?: string;
     fontSize?: number;
+    fontWeight?: number;
     sfx?: string;
     lang?: string;
     autoActionSec?: number;
@@ -135,8 +131,12 @@ export interface PetApi {
 }
 
 declare global {
+  /** 渲染层共享状态（pet.js 定义，feature 脚本按需读取） */
+  const S: { character: string };
+
   interface Window {
     pet?: PetApi;
+    PET_ANIMS?: string[];
     PetLib?: {
       motion: {
         clamp(v: number, lo: number, hi: number): number;
@@ -225,7 +225,6 @@ declare global {
       };
       dialogue: {
         QUIPS: string[];
-        GPT_QUIPS: string[];
         MEMES: Record<string, string[]>;
         CLASSIC_MEME_TEXTS: Record<string, string>;
         FEED_LINES: string[];

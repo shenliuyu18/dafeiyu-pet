@@ -15,7 +15,7 @@ func (a *App) Action(name string) {
 		a.mu.Unlock()
 		if running {
 			a.stopPomodoro()
-			a.emit("bubble", "专注先停一下～")
+			a.emit("bubble", a.t("专注先停一下～", "Pausing focus for now~", "集中はいったん休憩～"))
 		} else {
 			a.startPomodoro()
 		}
@@ -164,5 +164,5 @@ func (a *App) pomoTooltip() string {
 		left = 0
 	}
 	total := int(left / time.Second)
-	return fmt.Sprintf("%s · 专注中 %02d:%02d", appName(), total/60, total%60)
+	return fmt.Sprintf("%s · %s %02d:%02d", appName(), a.t("专注中", "Focusing", "集中中"), total/60, total%60)
 }

@@ -24,14 +24,16 @@ func defaultState() map[string]interface{} {
 		"safeResume":      true,
 		"fullscreenHide":  true,
 		"memeOrder":       "queue",
+		"powerSave":       "auto",
 		"launchApp":       "",
 		"character":       "v1",
 		"fontFamily":      "soft",
 		"fontSize":        1,
+		"fontWeight":      400,
 		"sfx":             "default",
 		"autoActionSec":   40,
-		"ledgerSource":    "qoder",
-		"autoUpdate":      true,
+		"ledgerSource":    "deepseek",
+		"autoUpdate":      false,
 		"customQuips":     []interface{}{},
 		"useCustomQuips":  true,
 		"pinnedActions":   map[string]interface{}{},
@@ -54,7 +56,7 @@ func (a *App) stateFilePath() string {
 
 func (a *App) loadState() {
 	p := a.stateFilePath()
-	if _, err := os.Stat(p); err != nil && !isLite() && !isolatedMode {
+	if _, err := os.Stat(p); os.IsNotExist(err) && !isLite() && !isolatedMode {
 		legacy := filepath.Join(filepath.Dir(p), "..", "dafeiyu-desktop-pet-qoder", "dafeiyu-state.json")
 		legacy = filepath.Clean(legacy)
 		if _, err := os.Stat(legacy); err == nil {
@@ -79,10 +81,24 @@ func (a *App) loadState() {
 			} else {
 				rawVersion = 1 // 1.5.x 及更早：扁平状态，没有 schemaVersion
 			}
+		} else {
+			backupCorruptStateFile(p)
 		}
+	} else if !os.IsNotExist(err) {
+		backupCorruptStateFile(p)
 	}
 	st["schemaVersion"] = rawVersion
 	changed := migrateState(st)
+	if _, ok := st["customLedger"]; ok {
+		delete(st, "customLedger")
+		changed = true
+	}
+	if keys, ok := st["apiKeys"].(map[string]interface{}); ok {
+		if _, ok := keys["custom"]; ok {
+			delete(keys, "custom")
+			changed = true
+		}
+	}
 	// 旧形象 id
 	switch st["character"] {
 	case "whale1", "whale2":
@@ -113,6 +129,23 @@ func (a *App) loadState() {
 	}
 }
 
+func backupCorruptStateFile(p string) {
+	pattern := filepath.Base(p) + ".corrupt-" + time.Now().Format("20060102-150405.000000000") + "-*"
+	placeholder, err := os.CreateTemp(filepath.Dir(p), pattern)
+	if err != nil {
+		return
+	}
+	backup := placeholder.Name()
+	// 先占用唯一名字，避免覆盖旧备份；关闭后 Windows 才能 rename 替换这个占位文件。
+	if err := placeholder.Close(); err != nil {
+		_ = os.Remove(backup)
+		return
+	}
+	if err := os.Rename(p, backup); err != nil {
+		_ = os.Remove(backup)
+	}
+}
+
 func mustRead(p string) []byte {
 	b, _ := os.ReadFile(p)
 	return b
@@ -135,6 +168,9 @@ func toStrings(v interface{}) []string {
 }
 
 func (a *App) saveStateNow() {
+	a.stateSaveMu.Lock()
+	defer a.stateSaveMu.Unlock()
+
 	a.mu.Lock()
 	if a.state == nil {
 		a.mu.Unlock()
@@ -149,9 +185,30 @@ func (a *App) saveStateNow() {
 		a.markStateDirty()
 		return
 	}
-	_ = os.MkdirAll(filepath.Dir(p), 0755)
-	tmp := p + ".tmp"
-	if os.WriteFile(tmp, b, 0644) != nil || os.Rename(tmp, p) != nil {
+	dir := filepath.Dir(p)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		a.markStateDirty()
+		return
+	}
+	// 临时文件必须与目标同目录，rename 才不会跨卷；唯一命名避免并发写互相截断。
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(p)+".tmp-*")
+	if err != nil {
+		a.markStateDirty()
+		return
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath) // 成功时名字已不存在；失败时清理残留
+	if _, err := tmp.Write(b); err != nil {
+		_ = tmp.Close()
+		a.markStateDirty()
+		return
+	}
+	// Windows 上文件未关闭时 rename 会被共享模式阻止，必须先检查 Close 错误。
+	if err := tmp.Close(); err != nil {
+		a.markStateDirty()
+		return
+	}
+	if err := os.Rename(tmpPath, p); err != nil {
 		a.markStateDirty()
 	}
 }
@@ -206,12 +263,14 @@ func (a *App) petStatus() map[string]interface{} {
 		"lang":           normalizeLang(strv(s["lang"], "zh")),
 		"fontFamily":     a.fontFamilyLocked(s),
 		"fontSize":       clampF(numOr(s["fontSize"], 1), 0.8, 1.4),
+		"fontWeight":     fontWeightOf(s["fontWeight"]),
 		"sfx":            sfxLocked(s),
 		"autoActionSec":  a.autoActionSecLocked(),
 		"ledgerSource":   ledgerSourceLocked(s),
-		"autoUpdate":     boolv(s["autoUpdate"], true),
+		"autoUpdate":     boolv(s["autoUpdate"], false),
 		"fullscreenHide": boolv(s["fullscreenHide"], true),
 		"memeOrder":      strv(s["memeOrder"], "queue"),
+		"powerSave":      normalizePowerSave(strv(s["powerSave"], "auto")),
 		"customQuips":    toStrings(s["customQuips"]),
 		"useCustomQuips": boolv(s["useCustomQuips"], true),
 		"pinnedActions":  pinnedActionsOf(s),
@@ -226,7 +285,7 @@ func (a *App) petStatus() map[string]interface{} {
 
 	pomoRunning, pomoRemain := a.pomoStatus()
 	if ledgerOn && ledger == nil {
-		ledger = a.refreshUsage()
+		a.scheduleBootUsage()
 	}
 	var ledgerOut interface{}
 	if ledgerOn {
@@ -242,6 +301,7 @@ func (a *App) petStatus() map[string]interface{} {
 		},
 		"pos":      pos,
 		"settings": settings,
+		"power":    a.PowerStatus(),
 		"version":  Version,
 		"appName":  appName(),
 		"variant":  Variant,
@@ -259,15 +319,26 @@ func (a *App) fontFamilyLocked(s map[string]interface{}) string {
 	return "soft"
 }
 
+// 只有常规（400）和加粗（700）两档；中间值就近归档
+func fontWeightOf(v interface{}) float64 {
+	if numOr(v, 400) >= 550 {
+		return 700
+	}
+	return 400
+}
+
 func numOr(v interface{}, def float64) float64 {
-	if v == nil {
-		return def
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	case json.Number:
+		if f, err := n.Float64(); err == nil {
+			return f
+		}
 	}
-	n := num(v)
-	if n == 0 {
-		return def
-	}
-	return n
+	return def
 }
 
 func pinnedActionsOf(s map[string]interface{}) map[string]interface{} {
@@ -351,14 +422,10 @@ func sfxLocked(s map[string]interface{}) string {
 	return "default"
 }
 func ledgerSourceLocked(s map[string]interface{}) string {
-	v := str(s["ledgerSource"], "qoder")
-	if v == "qoder" {
+	if v := str(s["ledgerSource"], ""); apiProviders[v].label != "" {
 		return v
 	}
-	if _, ok := apiProviders[v]; ok {
-		return v
-	}
-	return "qoder"
+	return "deepseek"
 }
 
 // ---------------- API Key 存取（Windows DPAPI） ----------------
@@ -383,6 +450,11 @@ func (a *App) migrateApiKeysEncryption() {
 			keys[k] = a.encryptKey(s)
 			changed = true
 		}
+	}
+	// 豆包来源已移除，旧版本存下的 AK/SK 不再使用
+	if _, ok := keys["doubao"]; ok {
+		delete(keys, "doubao")
+		changed = true
 	}
 	a.mu.Unlock()
 	if changed {
@@ -463,7 +535,7 @@ func (a *App) KeyInfo(provider string) map[string]interface{} {
 	return map[string]interface{}{
 		"provider": provider,
 		"label":    def.label,
-		"hint":     keyHints[provider],
+		"hint":     keyHint(provider),
 		"hasKey":   a.apiKey(provider) != "",
 	}
 }
@@ -490,7 +562,8 @@ func (a *App) KeySave(provider, key string) map[string]interface{} {
 	a.mu.Unlock()
 	a.saveState()
 	if src == provider && a.ledgerOn() {
-		a.refreshUsage()
+		// 换了 Key 必须强制重拉：45 秒缓存内原本不会刷新，气泡会继续显示旧的“未授权/未配置”。
+		go a.refreshUsageForce(true)
 	}
 	a.emit("keys-updated", a.apiKeysConfigured())
 	return map[string]interface{}{"ok": true}
@@ -508,7 +581,7 @@ func (a *App) KeyClear(provider string) map[string]interface{} {
 	a.mu.Unlock()
 	a.saveState()
 	if src == provider && a.ledgerOn() {
-		a.refreshUsage()
+		go a.refreshUsageForce(true)
 	}
 	a.emit("keys-updated", a.apiKeysConfigured())
 	return map[string]interface{}{"ok": true}

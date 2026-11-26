@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -19,6 +20,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 )
@@ -51,44 +53,99 @@ type CharacterAction struct {
 	HasAudio   bool   `json:"hasAudio"`
 }
 
+// DialogueMeme 是包内梗图：按场景触发，文案随图一起放在包里。
+type DialogueMeme struct {
+	File   string   `json:"file"`
+	Scenes []string `json:"scenes"`
+	Text   string   `json:"text"`
+}
+
+// CharacterDialogue 是形象包自带的台词与人设，未下载时应用里不保留任何内容。
+type CharacterDialogue struct {
+	Intro  string         `json:"intro"`
+	Quips  []string       `json:"quips"`
+	Feed   []string       `json:"feed"`
+	Hungry []string       `json:"hungry"`
+	Sleep  []string       `json:"sleep"`
+	Memes  []DialogueMeme `json:"memes"`
+}
+
+// CharacterLocale 是包内台词/动作名/分类的某一语言译文，键为中文原文。
+type CharacterLocale struct {
+	Lines      map[string]string `json:"lines"`
+	Actions    map[string]string `json:"actions"`
+	Categories map[string]string `json:"categories"`
+}
+
+// SpriteSequence 是图集里的一套帧序列。
+type SpriteSequence struct {
+	Row   int   `json:"row"`
+	Count int   `json:"count"`
+	Times []int `json:"times"`
+	Frame int   `json:"frame"`
+}
+
+type SpriteAction struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+}
+
+// SpriteSpec 让图集类形象把排版参数放在包内，而不是写死在应用代码里。
+type SpriteSpec struct {
+	Sheet     string                    `json:"sheet"`
+	CellW     int                       `json:"cellW"`
+	CellH     int                       `json:"cellH"`
+	Cols      int                       `json:"cols"`
+	Rows      int                       `json:"rows"`
+	Sequences map[string]SpriteSequence `json:"sequences"`
+	Map       map[string]string         `json:"map"`
+	Actions   []SpriteAction            `json:"actions"`
+}
+
 // CharacterManifest 是形象包自带的元信息（包内 manifest.json）
 type CharacterManifest struct {
-	SchemaVersion int                   `json:"schemaVersion"`
-	ID            string                `json:"id"`
-	SourcePackID  string                `json:"sourcePackId"`
-	Kind          string                `json:"kind"`
-	Name          string                `json:"name"`
-	Version       string                `json:"version"`
-	Author        string                `json:"author"`
-	Description   string                `json:"description"`
-	Cover         string                `json:"cover"`
-	Source        string                `json:"source"`
-	License       string                `json:"license"`
-	MinAppVersion string                `json:"minAppVersion"`
-	Homepage      string                `json:"homepage"`
-	Tags          []string              `json:"tags"`
-	UpdatedAt     string                `json:"updatedAt"`
-	Slots         map[string]StringList `json:"slots"`
-	Actions       []CharacterAction     `json:"actions"`
+	SchemaVersion int                        `json:"schemaVersion"`
+	ID            string                     `json:"id"`
+	SourcePackID  string                     `json:"sourcePackId"`
+	Kind          string                     `json:"kind"`
+	Name          string                     `json:"name"`
+	Version       string                     `json:"version"`
+	Author        string                     `json:"author"`
+	Description   string                     `json:"description"`
+	Cover         string                     `json:"cover"`
+	Source        string                     `json:"source"`
+	License       string                     `json:"license"`
+	MinAppVersion string                     `json:"minAppVersion"`
+	Homepage      string                     `json:"homepage"`
+	Tags          []string                   `json:"tags"`
+	UpdatedAt     string                     `json:"updatedAt"`
+	Slots         map[string]StringList      `json:"slots"`
+	Actions       []CharacterAction          `json:"actions"`
+	Dialogue      *CharacterDialogue         `json:"dialogue,omitempty"`
+	I18n          map[string]CharacterLocale `json:"i18n,omitempty"`
+	Sprite        *SpriteSpec                `json:"sprite,omitempty"`
 }
 
 // InstalledCharacter 是回给前端的精简结构
 type InstalledCharacter struct {
-	ID            string                `json:"id"`
-	Name          string                `json:"name"`
-	Version       string                `json:"version"`
-	Author        string                `json:"author"`
-	Desc          string                `json:"description"`
-	License       string                `json:"license"`
-	Cover         string                `json:"cover"` // 相对 URL，前端可直接 img src
-	MinAppVersion string                `json:"minAppVersion"`
-	Homepage      string                `json:"homepage"`
-	Tags          []string              `json:"tags"`
-	UpdatedAt     string                `json:"updatedAt"`
-	Slots         map[string]StringList `json:"slots"`
-	Actions       []CharacterAction     `json:"actions"`
-	Bytes         int64                 `json:"bytes"`
-	Category      []string              `json:"categories"` // 去重后的分类
+	ID            string                     `json:"id"`
+	Name          string                     `json:"name"`
+	Version       string                     `json:"version"`
+	Author        string                     `json:"author"`
+	Desc          string                     `json:"description"`
+	License       string                     `json:"license"`
+	Cover         string                     `json:"cover"` // 相对 URL，前端可直接 img src
+	MinAppVersion string                     `json:"minAppVersion"`
+	Homepage      string                     `json:"homepage"`
+	Tags          []string                   `json:"tags"`
+	UpdatedAt     string                     `json:"updatedAt"`
+	Slots         map[string]StringList      `json:"slots"`
+	Actions       []CharacterAction          `json:"actions"`
+	Dialogue      *CharacterDialogue         `json:"dialogue,omitempty"`
+	I18n          map[string]CharacterLocale `json:"i18n,omitempty"`
+	Sprite        *SpriteSpec                `json:"sprite,omitempty"`
+	Bytes         int64                      `json:"bytes"`
+	Category      []string                   `json:"categories"` // 去重后的分类
 }
 
 func (a *App) userConfigDir() string {
@@ -205,6 +262,7 @@ func (a *App) ListInstalledCharacters() []InstalledCharacter {
 			Desc: m.Description, License: m.License,
 			MinAppVersion: m.MinAppVersion, Homepage: m.Homepage, Tags: m.Tags, UpdatedAt: m.UpdatedAt,
 			Cover: cover, Slots: m.Slots, Actions: m.Actions, Bytes: size, Category: cats,
+			Dialogue: m.Dialogue, I18n: m.I18n, Sprite: m.Sprite,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
@@ -213,12 +271,45 @@ func (a *App) ListInstalledCharacters() []InstalledCharacter {
 
 var errPackBusy = errors.New("形象包正在使用，请先切换到其他形象再更新")
 
+type characterLock struct {
+	mu    sync.Mutex
+	users int
+}
+
+// lockCharacter 只短暂持有 map 锁；下载和解压期间仅占用该 id 的锁。
+func (a *App) lockCharacter(id string) func() {
+	a.characterLocksMu.Lock()
+	if a.characterLocks == nil {
+		a.characterLocks = make(map[string]*characterLock)
+	}
+	lock := a.characterLocks[id]
+	if lock == nil {
+		lock = &characterLock{}
+		a.characterLocks[id] = lock
+	}
+	lock.users++
+	a.characterLocksMu.Unlock()
+
+	lock.mu.Lock()
+	return func() {
+		lock.mu.Unlock()
+		a.characterLocksMu.Lock()
+		lock.users--
+		if lock.users == 0 {
+			delete(a.characterLocks, id)
+		}
+		a.characterLocksMu.Unlock()
+	}
+}
+
 // InstallCharacter 下载 zip 并解压到 characters/<id>/。
 // url 由前端从远程索引里取，下载前会在直连与内置加速镜像中探测最快线路。
 func (a *App) InstallCharacter(id, url string) error {
 	if id == "" || strings.ContainsAny(id, `/\`) || strings.Contains(id, "..") {
 		return errors.New("非法的形象 id")
 	}
+	unlock := a.lockCharacter(id)
+	defer unlock()
 	canonical := stripMirror(url)
 	var lastErr error
 	for _, prefix := range rankMirrors(canonical) {
@@ -238,6 +329,10 @@ func (a *App) InstallCharacter(id, url string) error {
 }
 
 func (a *App) downloadAndInstall(id, url string) error {
+	return a.downloadAndInstallWithLimit(id, url, maxPackBytes)
+}
+
+func (a *App) downloadAndInstallWithLimit(id, url string, limit int64) error {
 	root := a.charactersDir()
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return err
@@ -245,14 +340,16 @@ func (a *App) downloadAndInstall(id, url string) error {
 	tmpZip := filepath.Join(root, id+".zip.part")
 	defer os.Remove(tmpZip)
 
-	cli := &http.Client{Timeout: 60 * time.Minute}
-	resp, err := cli.Get(url)
+	resp, err := packHTTPClient.Get(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("下载失败 HTTP %d", resp.StatusCode)
+	}
+	if resp.ContentLength > limit {
+		return fmt.Errorf("下载体积超过 %d 字节上限", limit)
 	}
 	f, err := os.Create(tmpZip)
 	if err != nil {
@@ -264,6 +361,10 @@ func (a *App) downloadAndInstall(id, url string) error {
 	for {
 		n, rerr := resp.Body.Read(buf)
 		if n > 0 {
+			if int64(n) > limit-written {
+				f.Close()
+				return fmt.Errorf("下载体积超过 %d 字节上限", limit)
+			}
 			if _, werr := f.Write(buf[:n]); werr != nil {
 				f.Close()
 				return werr
@@ -310,6 +411,8 @@ func (a *App) InstallCharacterFromFile(zipPath string) (string, error) {
 	if err := validateUserImport(m); err != nil {
 		return "", fmt.Errorf("manifest.json 不符合形象包标准：%w", err)
 	}
+	unlock := a.lockCharacter(id)
+	defer unlock()
 	if err := a.extractPack(id, zipPath, prefix); err != nil {
 		return "", err
 	}
@@ -328,6 +431,19 @@ var packSlotNames = map[string]bool{
 	"idle": true, "click": true, "feed": true, "sleep": true, "drag": true,
 	"sad": true, "happy": true, "work": true, "money": true, "move": true,
 }
+
+// 梗图可以在这些场景触发，与前端 sayScene 的取值保持一致
+var memeScenes = map[string]bool{
+	"click": true, "feed": true, "hungry": true, "sleep": true,
+	"ledger": true, "work": true, "error": true, "happy": true,
+}
+
+const (
+	maxDialogueLines = 300
+	maxDialogueRunes = 300
+	maxMemeItems     = 100
+	maxSpriteCell    = 4096
+)
 
 const (
 	maxPackEntries = 4000
@@ -434,6 +550,231 @@ func validateManifest(m *CharacterManifest) error {
 			}
 		}
 	}
+	if err := validateSprite(m); err != nil {
+		return err
+	}
+	if err := validateDialogue(m); err != nil {
+		return err
+	}
+	return nil
+}
+
+func checkDialogueText(label, s string, allowEmpty bool) error {
+	line := strings.TrimSpace(s)
+	if line == "" {
+		if allowEmpty {
+			return nil
+		}
+		return fmt.Errorf("%s 不能为空", label)
+	}
+	if utf8.RuneCountInString(line) > maxDialogueRunes {
+		return fmt.Errorf("%s 最多 %d 个字", label, maxDialogueRunes)
+	}
+	return nil
+}
+
+func validateSprite(m *CharacterManifest) error {
+	if m.Kind == "sprite" && m.Sprite == nil {
+		return errors.New("kind=sprite 的包必须提供 sprite 图集配置")
+	}
+	if m.Kind != "sprite" && m.Sprite != nil {
+		return errors.New("sprite 图集配置只用于 kind=sprite 的包")
+	}
+	s := m.Sprite
+	if s == nil {
+		return nil
+	}
+	sheet, ok := cleanPackRel(s.Sheet)
+	if !ok {
+		return errors.New("sprite.sheet 必须是包内相对路径")
+	}
+	if !isImageFile(sheet) {
+		return errors.New("sprite.sheet 只支持 .webp/.png/.jpg")
+	}
+	s.Sheet = sheet
+	if s.CellW <= 0 || s.CellH <= 0 || s.CellW > maxSpriteCell || s.CellH > maxSpriteCell {
+		return errors.New("sprite 单元格尺寸不合法")
+	}
+	if s.Cols <= 0 || s.Rows <= 0 || s.Cols > 64 || s.Rows > 64 {
+		return errors.New("sprite 行列数必须在 1–64 之间")
+	}
+	if len(s.Sequences) == 0 {
+		return errors.New("sprite.sequences 不能为空")
+	}
+	for key, seq := range s.Sequences {
+		if key == "" {
+			return errors.New("sprite 序列名不能为空")
+		}
+		if seq.Row < 0 || seq.Row >= s.Rows {
+			return fmt.Errorf("序列 %s 的行号超出范围", key)
+		}
+		if seq.Count <= 0 || seq.Count > 64 {
+			return fmt.Errorf("序列 %s 的帧数必须在 1–64 之间", key)
+		}
+		if len(seq.Times) != seq.Count {
+			return fmt.Errorf("序列 %s 的 times 数量应与 count 一致", key)
+		}
+		for _, t := range seq.Times {
+			if t <= 0 || t > 60000 {
+				return fmt.Errorf("序列 %s 的帧间隔不合法", key)
+			}
+		}
+		// frame 是行内起始列（可从 count 之外的列起播，用于单帧定格），不是 count 的偏移
+		if seq.Frame < 0 || seq.Frame >= s.Cols {
+			return fmt.Errorf("序列 %s 的起始帧超出图集列数", key)
+		}
+	}
+	for _, need := range []string{"idle", "waiting"} {
+		if _, ok := s.Sequences[need]; !ok {
+			return fmt.Errorf("sprite 缺少必需的序列 %s", need)
+		}
+	}
+	for name, seq := range s.Map {
+		if strings.TrimSpace(name) == "" {
+			return errors.New("sprite.map 的动作名不能为空")
+		}
+		if _, ok := s.Sequences[seq]; !ok {
+			// 前端把 run 按朝向拆成 runLeft/runRight，映射表里保留这个虚拟动作别名
+			_, hasL := s.Sequences["runLeft"]
+			_, hasR := s.Sequences["runRight"]
+			if seq == "run" && hasL && hasR {
+				continue
+			}
+			return fmt.Errorf("sprite.map 的 %q 指向不存在的序列 %s", name, seq)
+		}
+	}
+	if len(s.Actions) == 0 {
+		return errors.New("sprite.actions 不能为空")
+	}
+	for i := range s.Actions {
+		a := &s.Actions[i]
+		a.Label = strings.TrimSpace(a.Label)
+		if a.Key == "" || a.Label == "" {
+			return errors.New("sprite.actions 的 key/label 不能为空")
+		}
+		if _, ok := s.Sequences[a.Key]; !ok {
+			return fmt.Errorf("sprite.actions 的 %q 指向不存在的序列 %s", a.Label, a.Key)
+		}
+		if utf8.RuneCountInString(a.Label) > 60 {
+			return fmt.Errorf("sprite 动作名过长：%s", a.Label)
+		}
+	}
+	return nil
+}
+
+func validateDialogue(m *CharacterManifest) error {
+	// i18n 允许只带动作名/分类译文（plus 包沿用宿主形象的台词），
+	// 但 lines 译文必须能对应到包内台词。
+	texts := map[string]bool{}
+	if m.Dialogue == nil {
+		for lang, loc := range m.I18n {
+			if len(loc.Lines) > 0 {
+				return fmt.Errorf("%s 的 lines 翻译需要同时提供 dialogue 台词", lang)
+			}
+		}
+		return validateI18nMaps(m, texts)
+	}
+	d := m.Dialogue
+	texts = map[string]bool{}
+	checkList := func(name string, list []string) error {
+		if len(list) > maxDialogueLines {
+			return fmt.Errorf("%s 最多 %d 条", name, maxDialogueLines)
+		}
+		for i, s := range list {
+			if err := checkDialogueText(fmt.Sprintf("%s 第 %d 条", name, i+1), s, false); err != nil {
+				return err
+			}
+			texts[strings.TrimSpace(s)] = true
+		}
+		return nil
+	}
+	if err := checkDialogueText("intro", d.Intro, true); err != nil {
+		return err
+	}
+	if s := strings.TrimSpace(d.Intro); s != "" {
+		texts[s] = true
+	}
+	for _, item := range []struct {
+		name string
+		list []string
+	}{{"quips", d.Quips}, {"feed", d.Feed}, {"hungry", d.Hungry}, {"sleep", d.Sleep}} {
+		if err := checkList(item.name, item.list); err != nil {
+			return err
+		}
+	}
+	if len(d.Memes) > maxMemeItems {
+		return fmt.Errorf("memes 最多 %d 张", maxMemeItems)
+	}
+	for i := range d.Memes {
+		mem := &d.Memes[i]
+		rel, ok := cleanPackRel(mem.File)
+		if !ok {
+			return fmt.Errorf("第 %d 张梗图的 file 必须是包内相对路径", i+1)
+		}
+		if !isImageFile(rel) {
+			return fmt.Errorf("第 %d 张梗图只支持 .webp/.png/.jpg", i+1)
+		}
+		mem.File = rel
+		if len(mem.Scenes) == 0 {
+			return fmt.Errorf("第 %d 张梗图缺少 scenes", i+1)
+		}
+		for _, scene := range mem.Scenes {
+			if !memeScenes[scene] {
+				return fmt.Errorf("第 %d 张梗图的场景 %q 不受支持", i+1, scene)
+			}
+		}
+		if err := checkDialogueText(fmt.Sprintf("第 %d 张梗图的 text", i+1), mem.Text, true); err != nil {
+			return err
+		}
+		if s := strings.TrimSpace(mem.Text); s != "" {
+			texts[s] = true
+		}
+	}
+	if len(texts) == 0 {
+		return errors.New("dialogue 不能为空")
+	}
+	return validateI18nMaps(m, texts)
+}
+
+func validateI18nMaps(m *CharacterManifest, texts map[string]bool) error {
+	actionKeys := map[string]bool{}
+	cats := map[string]bool{}
+	for _, a := range m.Actions {
+		actionKeys[a.ID] = true
+		if a.Category != "" {
+			cats[a.Category] = true
+		}
+	}
+	if m.Sprite != nil {
+		for _, a := range m.Sprite.Actions {
+			actionKeys[a.Label] = true
+		}
+	}
+	for lang, loc := range m.I18n {
+		if lang != "en" && lang != "ja" {
+			return fmt.Errorf("不支持的语言 %q（只有 en/ja）", lang)
+		}
+		checkMap := func(name string, dict map[string]string, allowed map[string]bool) error {
+			for src, tr := range dict {
+				if !allowed[src] {
+					return fmt.Errorf("%s 翻译的原文 %q 不在包内", name, src)
+				}
+				if err := checkDialogueText(fmt.Sprintf("%s 翻译 %q", name, src), tr, false); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		if err := checkMap("lines", loc.Lines, texts); err != nil {
+			return err
+		}
+		if err := checkMap("actions", loc.Actions, actionKeys); err != nil {
+			return err
+		}
+		if err := checkMap("categories", loc.Categories, cats); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -470,6 +811,28 @@ func validatePackDir(dir string, m *CharacterManifest) error {
 		}
 		if st, err := os.Stat(p); err != nil || st.IsDir() || st.Size() == 0 {
 			return fmt.Errorf("找不到动作文件：%s", a.File)
+		}
+	}
+	if m.Dialogue != nil {
+		for _, mem := range m.Dialogue.Memes {
+			rel, _ := cleanPackRel(mem.File)
+			p, err := safeJoin(dir, rel)
+			if err != nil {
+				return err
+			}
+			if st, err := os.Stat(p); err != nil || st.IsDir() || st.Size() == 0 {
+				return fmt.Errorf("找不到梗图文件：%s", mem.File)
+			}
+		}
+	}
+	if m.Sprite != nil {
+		rel, _ := cleanPackRel(m.Sprite.Sheet)
+		p, err := safeJoin(dir, rel)
+		if err != nil {
+			return err
+		}
+		if st, err := os.Stat(p); err != nil || st.IsDir() || st.Size() == 0 {
+			return fmt.Errorf("找不到图集文件：%s", m.Sprite.Sheet)
 		}
 	}
 	return nil
@@ -551,6 +914,10 @@ func inspectPackZip(zipPath string) (string, string, *CharacterManifest, error) 
 
 // extractPack 解压到 characters/<id>/，先写临时目录再原子改名，避免半成品被引擎读到
 func (a *App) extractPack(id, zipPath, prefix string) error {
+	return a.extractPackWithRename(id, zipPath, prefix, os.Rename)
+}
+
+func (a *App) extractPackWithRename(id, zipPath, prefix string, rename func(string, string) error) error {
 	if id == "" || strings.ContainsAny(id, `/\`) || strings.Contains(id, "..") {
 		return errors.New("非法的形象 id")
 	}
@@ -648,16 +1015,24 @@ func (a *App) extractPack(id, zipPath, prefix string) error {
 
 	// 原子落位
 	final := filepath.Join(root, id)
-	os.RemoveAll(final + ".old")
+	old := final + ".old"
+	os.RemoveAll(old)
+	oldMoved := false
 	if _, err := os.Stat(final); err == nil {
-		if err := os.Rename(final, final+".old"); err != nil {
+		if err := rename(final, old); err != nil {
 			return fmt.Errorf("%w：%v", errPackBusy, err)
 		}
+		oldMoved = true
 	}
-	if err := os.Rename(tmpDir, final); err != nil {
-		return err
+	if err := rename(tmpDir, final); err != nil {
+		if oldMoved {
+			if rollbackErr := rename(old, final); rollbackErr != nil {
+				return fmt.Errorf("安装落位失败：%w；旧包回滚失败（备份保留在 %s）：%v", err, old, rollbackErr)
+			}
+		}
+		return fmt.Errorf("安装落位失败：%w", err)
 	}
-	os.RemoveAll(final + ".old")
+	os.RemoveAll(old)
 	return nil
 }
 
@@ -678,6 +1053,8 @@ func (a *App) RemoveCharacter(id string) error {
 	if id == "" || strings.ContainsAny(id, `/\`) || strings.Contains(id, "..") {
 		return errors.New("非法的形象 id")
 	}
+	unlock := a.lockCharacter(id)
+	defer unlock()
 	return os.RemoveAll(filepath.Join(a.charactersDir(), id))
 }
 
@@ -685,6 +1062,20 @@ func (a *App) RemoveCharacter(id string) error {
 // 目录里保存直连 GitHub 的规范地址；下载前把地址套到内置镜像上，
 // 先用小段 Range 探测吞吐，再按最快到最慢依次尝试。
 const packCatalogURL = "https://raw.githubusercontent.com/shenliuyu18/dafeiyu-pet-assets/main/characters.json"
+
+// 形象包下载客户端：部分网络下直连 GitHub 会一直等响应头，旧实现 60 分钟才失败，
+// 界面上就是永远停在「下载中…」。给连接与响应头加超时，失败后按镜像顺序继续尝试。
+var packHTTPClient = &http.Client{
+	Timeout: 12 * time.Minute,
+	Transport: &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		TLSHandshakeTimeout:   12 * time.Second,
+		ResponseHeaderTimeout: 25 * time.Second,
+		IdleConnTimeout:       60 * time.Second,
+		MaxIdleConns:          8,
+	},
+}
 
 var packMirrors = []string{
 	"",

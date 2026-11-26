@@ -131,7 +131,7 @@ def main():
         f"# upstream: https://github.com/Konsheng/Sensitive-lexicon commit {commit}\n"
         "# 已做 NFKC / 去空白标点 / 去重 / 忽略单字处理；程序内为离线匹配。\n"
     )
-    out.write_text(header + "\n".join(sorted(terms)) + "\n", encoding="utf-8")
+    out.write_text(header + "\n".join(sorted(terms)) + "\n", encoding="utf-8", newline="\n")
 
     sources = out_dir / "SOURCES.txt"
     sources.write_text(
@@ -147,6 +147,7 @@ def main():
         "      桌宠常用词白名单（只豁免完全相同的词条），避免正常台词被误伤。\n"
         "      词库完全离线使用，不联网、不上传用户输入。\n",
         encoding="utf-8",
+        newline="\n",
     )
     print(f"[lexicon] 合计 {len(terms)} 条 -> {out} ({out.stat().st_size / 1024:.0f}KB)")
 

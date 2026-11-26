@@ -17,7 +17,6 @@ const API_LABEL = {
   deepseek: 'DeepSeek',
   moonshot: 'Kimi',
   siliconflow: 'SiliconFlow',
-  doubao: '豆包',
   openai: 'OpenAI',
   claude: 'Claude',
 };

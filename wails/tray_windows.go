@@ -400,15 +400,9 @@ func (a *App) trayLedgerLabel() string {
 	if l == nil {
 		return a.t("🍚  白饭账本", "🍚  Rice ledger", "🍚  ご飯帳簿")
 	}
-	if src := strv(l["source"], "qoder"); src != "qoder" {
-		short := strv(l["providerShort"], "API")
-		if rows, ok := l["rows"].([]map[string]string); ok && len(rows) > 0 {
-			return "🍚  " + short + " " + rows[0]["value"]
-		}
-		return "🍚  " + short
+	short := strv(l["providerShort"], "API")
+	if rows, ok := l["rows"].([]map[string]string); ok && len(rows) > 0 && rows[0]["value"] != "" {
+		return "🍚  " + short + " " + rows[0]["value"]
 	}
-	if boolv(l["available"], false) {
-		return fmt.Sprintf(a.t("🍚  本月白饭 %v credits", "🍚  %v credits of rice this month", "🍚  今月のご飯 %v クレジット"), l["month"])
-	}
-	return a.t("🍚  白饭账本", "🍚  Rice ledger", "🍚  ご飯帳簿")
+	return "🍚  " + short
 }

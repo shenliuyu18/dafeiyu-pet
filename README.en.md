@@ -281,20 +281,21 @@ If you want to share them with others, just package them with the character pack
 
 See [CHANGELOG.en.md](CHANGELOG.en.md).
 
-- v1.0.0 (2026-10-15): first stable release.
-- v1.2.0: custom Pomodoro duration, "Pick an Action", default size 85%.
-- v1.3.0: multiple characters, multi-platform AI ledgers, two-level settings menu, auto-update, sound packs, font size, fixed position, autostart.
-- v1.4.0: restored the upstream highest-quality assets, custom interaction text with offline sensitive-word filtering, Wails + WebView2 migration, Full / Lite dual builds.
-- v1.4.1–v1.4.4: dual-version flashing, right-click menu Region fix, fullscreen auto-avoidance, high-priority autostart and wake self-check.
-- v1.4.5: archive selection memes and the GPT girl 73-frame spritesheet animation.
-- v1.4.6: selectable click-meme play order.
-- v1.4.7: GPT娘v2 (test) and the deduplicated dsh-meme library.
-- v1.4.8: fixed the blurry Win10 background, pet flashing and ledger reading; zero-copy asset reading, resident memory about 1GB → about 60MB; added GitHub Actions.
-- v1.5.0: character store with 9 selectable characters, 大肥鱼 plus, AI girl persona lines, Lite character packs, DIY character pack standard, multi-mirror downloads; a concentrated batch of fixes for bubbles, the meme queue, sleep and image quality.
 - v1.5.4: power-saving mode, font weight, action search and grouping, character packs 1.0.1, fixes for the pet disappearing and click-through, complete trilingual coverage.
 - v1.5.3: ledger diagnostics, update signature verification, fullscreen debouncing/diagnostics, diagnostic bundle export, focus statistics, state schema v2, frontend logic split and performance improvements.
 - v1.5.2: selectable fonts with custom import, logon scheduled task autostart with status display; fixed the first-frame flash in the top-left corner and blurry bubbles when scaled down.
 - v1.5.1: fixed character pack intro mismatches (characters such as Grok introducing themselves as the "blue big fat fish") and WebView2 page zoom (Ctrl+wheel / Ctrl+plus or minus / pinch zooming the pet and settings panel as a whole).
+- v1.5.0: character store with 9 selectable characters, 大肥鱼 plus, AI girl persona lines, Lite character packs, DIY character pack standard, multi-mirror downloads; a concentrated batch of fixes for bubbles, the meme queue, sleep and image quality.
+- v1.4.8: fixed the blurry Win10 background, pet flashing and ledger reading; zero-copy asset reading, resident memory about 1GB → about 60MB; added GitHub Actions.
+- v1.4.7: GPT娘v2 (test) and the deduplicated dsh-meme library.
+- v1.4.6: selectable click-meme play order.
+- v1.4.5: archive selection memes and the GPT girl 73-frame spritesheet animation.
+- v1.4.1–v1.4.4: dual-version flashing, right-click menu Region fix, fullscreen auto-avoidance, high-priority autostart and wake self-check.
+- v1.4.0: restored the upstream highest-quality assets, custom interaction text with offline sensitive-word filtering, Wails + WebView2 migration, Full / Lite dual builds.
+- v1.3.0: multiple characters, multi-platform AI ledgers, two-level settings menu, auto-update, sound packs, font size, fixed position, autostart.
+- v1.2.0: custom Pomodoro duration, "Pick an Action", default size 85%.
+- v1.1.0: settings panel (size, idle position, operation guide) and the Lite build.
+- v1.0.0 (2026-10-15): first stable release.
 
 ## License
 

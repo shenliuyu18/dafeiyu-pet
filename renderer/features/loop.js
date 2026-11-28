@@ -134,6 +134,9 @@ function withBubbleRoom(fn) {
 }
 
 function cornerSpot(b) {
-  const x = b.maxX;
-  return { x: clamp(x, b.minX, b.maxX), y: b.maxY };
+  // 多开时按槽位错开，免得所有宠物都钉在同一个角上完全重叠
+  const slot = (typeof S !== 'undefined' && S.instance && S.instance.slot) || 1;
+  const x = b.maxX - (slot - 1) * 64;
+  const y = b.maxY - (slot - 1) * 48;
+  return { x: clamp(x, b.minX, b.maxX), y: clamp(y, b.minY, b.maxY) };
 }

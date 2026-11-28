@@ -65,6 +65,9 @@ func hasAllCategories(actions []CharacterAction) bool {
 
 // migrateInstalledPacks 返回升级的清单数量。只处理内置表里的官方包。
 func (a *App) migrateInstalledPacks() int {
+	// 多开时多个进程会同时启动；串行化后第二个进程看到的已是迁移过的清单。
+	unlock := lockNamed(baseInstanceName() + "-pack-migrate")
+	defer unlock()
 	loadPackManifestPatches()
 	root := a.charactersDir()
 	entries, err := os.ReadDir(root)

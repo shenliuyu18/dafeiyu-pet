@@ -399,6 +399,9 @@ async function refreshPacks(selectId) {
   else if (CODE_CHAR_PACKS[S.character]) {
     // gptv1 图集参数来自包；老包缺 sprite 块时回落到大肥鱼
     applyCharacter(CHARS[S.character] ? S.character : 'v1', !CHARS[S.character]);
+  } else if (S.character.startsWith('pack:') && !CHARS[S.character]) {
+    // 另一只宠物卸载了本实例正在用的形象包：回落到内置形象
+    applyCharacter('v1', true);
   }
   markStoreDirty();
   if (selectId && CHARS['pack:' + selectId]) applyCharacter('pack:' + selectId, true);
@@ -526,6 +529,7 @@ const SFX_SETS = {
 };
 const SFX = {};
 function sfx(name) {
+  if (S.onlyPrimarySound && S.instance && !S.instance.leader) return;
   const pack = SFX_SETS[S.sfx] || SFX_SETS.default;
   const spec = pack[name];
   if (!spec) return;

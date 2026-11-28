@@ -11,38 +11,40 @@ import (
 
 func defaultState() map[string]interface{} {
 	return map[string]interface{}{
-		"satiety":         78,
-		"mood":            82,
-		"pos":             nil,
-		"awake":           true,
-		"scale":           0.85,
-		"dock":            "roam",
-		"pomoMin":         25,
-		"pomoAnimSec":     5,
-		"ledger":          true,
-		"autoStart":       false,
-		"safeResume":      true,
-		"fullscreenHide":  true,
-		"memeOrder":       "queue",
-		"powerSave":       "auto",
-		"launchApp":       "",
-		"character":       "v1",
-		"fontFamily":      "soft",
-		"fontSize":        1,
-		"fontWeight":      400,
-		"sfx":             "default",
-		"autoActionSec":   40,
-		"ledgerSource":    "deepseek",
-		"autoUpdate":      false,
-		"customQuips":     []interface{}{},
-		"useCustomQuips":  true,
-		"pinnedActions":   map[string]interface{}{},
-		"deepseekKey":     "",
-		"apiKeys":         map[string]interface{}{},
-		"lastUpdateCheck": 0,
-		"pomoHistory":     []interface{}{},
-		"schemaVersion":   currentStateSchema,
-		"lang":            systemUILang(),
+		"satiety":          78,
+		"mood":             82,
+		"pos":              nil,
+		"awake":            true,
+		"scale":            0.85,
+		"dock":             "roam",
+		"pomoMin":          25,
+		"pomoAnimSec":      5,
+		"ledger":           true,
+		"autoStart":        false,
+		"safeResume":       true,
+		"fullscreenHide":   true,
+		"memeOrder":        "queue",
+		"powerSave":        "auto",
+		"launchApp":        "",
+		"character":        "v1",
+		"fontFamily":       "soft",
+		"fontSize":         1,
+		"fontWeight":       400,
+		"sfx":              "default",
+		"autoActionSec":    40,
+		"onlyPrimarySound": false,
+		"multiWarnOff":     false,
+		"ledgerSource":     "deepseek",
+		"autoUpdate":       false,
+		"customQuips":      []interface{}{},
+		"useCustomQuips":   true,
+		"pinnedActions":    map[string]interface{}{},
+		"deepseekKey":      "",
+		"apiKeys":          map[string]interface{}{},
+		"lastUpdateCheck":  0,
+		"pomoHistory":      []interface{}{},
+		"schemaVersion":    currentStateSchema,
+		"lang":             systemUILang(),
 	}
 }
 
@@ -117,14 +119,29 @@ func (a *App) loadState() {
 	if _, ok := st["useCustomQuips"].(bool); !ok {
 		st["useCustomQuips"] = true
 	}
+	// 多开：根文件只保留共享设置，运行时字段迁到 instances/<slot>/。
+	baseline := map[string]interface{}{}
+	if b, err := os.ReadFile(p); err == nil {
+		_ = json.Unmarshal(b, &baseline)
+	}
+	splitRun := false
+	if _, err := os.Stat(instancesDir()); os.IsNotExist(err) {
+		a.splitLegacyState(p, st)
+		splitRun = true
+	} else {
+		a.applyInstanceState(st)
+	}
+	a.lastShared = canonicalState(baseline)
 	a.mu.Lock()
 	a.state = st
 	a.statePath = p
+	a.instancePath = a.instanceStatePath()
+	a.stateDirty = splitRun
 	a.mu.Unlock()
 	a.setUILang(strv(st["lang"], "zh"))
 
 	a.migrateApiKeysEncryption()
-	if changed {
+	if changed || splitRun {
 		a.saveState()
 	}
 }
@@ -176,39 +193,34 @@ func (a *App) saveStateNow() {
 		a.mu.Unlock()
 		return
 	}
+	if a.statePath == "" && a.instancePath == "" {
+		// 没有可写路径（例如故障注入测试）：保持 dirty，交给下一轮重试。
+		a.mu.Unlock()
+		return
+	}
 	// 先清 dirty 再序列化：序列化期间的新改动会在解锁后重新标脏，不会被这次写入吞掉
 	a.stateDirty = false
-	p := a.statePath
-	b, err := json.MarshalIndent(a.state, "", "  ")
+	runtimeBytes, errRuntime := json.MarshalIndent(splitRuntimeState(a.state), "", "  ")
+	sharedBytes, errShared := json.Marshal(splitSharedState(a.state))
+	instPath := a.runtimeStatePath()
 	a.mu.Unlock()
-	if err != nil || p == "" {
+	if errRuntime != nil || errShared != nil {
 		a.markStateDirty()
 		return
 	}
-	dir := filepath.Dir(p)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		a.markStateDirty()
-		return
+	ok := true
+	if err := writeFileAtomic(instPath, runtimeBytes); err != nil {
+		crashLog("state-instance", err.Error())
+		ok = false
 	}
-	// 临时文件必须与目标同目录，rename 才不会跨卷；唯一命名避免并发写互相截断。
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(p)+".tmp-*")
-	if err != nil {
-		a.markStateDirty()
-		return
+	var shared map[string]interface{}
+	if err := json.Unmarshal(sharedBytes, &shared); err != nil {
+		ok = false
+	} else if err := a.writeSharedState(shared); err != nil {
+		crashLog("state-shared", err.Error())
+		ok = false
 	}
-	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath) // 成功时名字已不存在；失败时清理残留
-	if _, err := tmp.Write(b); err != nil {
-		_ = tmp.Close()
-		a.markStateDirty()
-		return
-	}
-	// Windows 上文件未关闭时 rename 会被共享模式阻止，必须先检查 Close 错误。
-	if err := tmp.Close(); err != nil {
-		a.markStateDirty()
-		return
-	}
-	if err := os.Rename(tmpPath, p); err != nil {
+	if !ok {
 		a.markStateDirty()
 	}
 }
@@ -251,29 +263,31 @@ func (a *App) petStatus() map[string]interface{} {
 	a.mu.Lock()
 	s := a.state
 	settings := map[string]interface{}{
-		"scale":          a.scaleLocked(),
-		"dock":           dockLocked(s),
-		"pomoMin":        a.pomoMinutesLocked(),
-		"pomoAnimSec":    a.pomoAnimSecLocked(),
-		"ledger":         a.ledgerOnLocked(),
-		"autoStart":      boolv(s["autoStart"], false),
-		"safeResume":     boolv(s["safeResume"], true),
-		"launchApp":      str(s["launchApp"], ""),
-		"character":      a.charIDLocked(),
-		"lang":           normalizeLang(strv(s["lang"], "zh")),
-		"fontFamily":     a.fontFamilyLocked(s),
-		"fontSize":       clampF(numOr(s["fontSize"], 1), 0.8, 1.4),
-		"fontWeight":     fontWeightOf(s["fontWeight"]),
-		"sfx":            sfxLocked(s),
-		"autoActionSec":  a.autoActionSecLocked(),
-		"ledgerSource":   ledgerSourceLocked(s),
-		"autoUpdate":     boolv(s["autoUpdate"], false),
-		"fullscreenHide": boolv(s["fullscreenHide"], true),
-		"memeOrder":      strv(s["memeOrder"], "queue"),
-		"powerSave":      normalizePowerSave(strv(s["powerSave"], "auto")),
-		"customQuips":    toStrings(s["customQuips"]),
-		"useCustomQuips": boolv(s["useCustomQuips"], true),
-		"pinnedActions":  pinnedActionsOf(s),
+		"scale":            a.scaleLocked(),
+		"dock":             dockLocked(s),
+		"pomoMin":          a.pomoMinutesLocked(),
+		"pomoAnimSec":      a.pomoAnimSecLocked(),
+		"ledger":           a.ledgerOnLocked(),
+		"autoStart":        boolv(s["autoStart"], false),
+		"safeResume":       boolv(s["safeResume"], true),
+		"launchApp":        str(s["launchApp"], ""),
+		"character":        a.charIDLocked(),
+		"lang":             normalizeLang(strv(s["lang"], "zh")),
+		"fontFamily":       a.fontFamilyLocked(s),
+		"fontSize":         clampF(numOr(s["fontSize"], 1), 0.8, 1.4),
+		"fontWeight":       fontWeightOf(s["fontWeight"]),
+		"sfx":              sfxLocked(s),
+		"autoActionSec":    a.autoActionSecLocked(),
+		"ledgerSource":     ledgerSourceLocked(s),
+		"autoUpdate":       boolv(s["autoUpdate"], false),
+		"fullscreenHide":   boolv(s["fullscreenHide"], true),
+		"memeOrder":        strv(s["memeOrder"], "queue"),
+		"powerSave":        normalizePowerSave(strv(s["powerSave"], "auto")),
+		"customQuips":      toStrings(s["customQuips"]),
+		"useCustomQuips":   boolv(s["useCustomQuips"], true),
+		"pinnedActions":    pinnedActionsOf(s),
+		"onlyPrimarySound": boolv(s["onlyPrimarySound"], false),
+		"multiWarnOff":     boolv(s["multiWarnOff"], false),
 	}
 	sati := numOr(s["satiety"], 78)
 	mood := numOr(s["mood"], 82)
@@ -305,6 +319,7 @@ func (a *App) petStatus() map[string]interface{} {
 		"version":  Version,
 		"appName":  appName(),
 		"variant":  Variant,
+		"instance": a.InstanceInfo(),
 		"apiKeys":  a.apiKeysConfigured(),
 		"ledger":   ledgerOut,
 	}
@@ -561,6 +576,7 @@ func (a *App) KeySave(provider, key string) map[string]interface{} {
 	src := ledgerSourceLocked(a.state)
 	a.mu.Unlock()
 	a.saveState()
+	broadcast("reload-shared")
 	if src == provider && a.ledgerOn() {
 		// 换了 Key 必须强制重拉：45 秒缓存内原本不会刷新，气泡会继续显示旧的“未授权/未配置”。
 		go a.refreshUsageForce(true)
@@ -580,6 +596,7 @@ func (a *App) KeyClear(provider string) map[string]interface{} {
 	src := ledgerSourceLocked(a.state)
 	a.mu.Unlock()
 	a.saveState()
+	broadcast("reload-shared")
 	if src == provider && a.ledgerOn() {
 		go a.refreshUsageForce(true)
 	}

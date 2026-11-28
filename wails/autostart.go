@@ -39,7 +39,7 @@ $trigger = $task.Triggers.Create(9)
 $trigger.UserId = $sid
 $action = $task.Actions.Create(0)
 $action.Path = $exe
-$action.Arguments = '--autostart'
+$action.Arguments = '--restore-session'
 $task.Principal.LogonType = 3
 $task.Principal.RunLevel = 0
 $root.RegisterTaskDefinition($name, $task, 6, $sid, $null, 3) | Out-Null
@@ -130,10 +130,6 @@ func (a *App) applyLoginItemAsync() {
 	}
 	a.cleanLegacyRunEntries()
 	on := a.getBool("autoStart", false)
-	// 计划任务刚把本进程拉起时，任务本身就是最新配置，不再额外启动 PowerShell。
-	if on && hasArg("--autostart") {
-		return
-	}
 	go func() {
 		if err := a.setAutostartTask(on); err != nil {
 			crashLog("autostart", err.Error())

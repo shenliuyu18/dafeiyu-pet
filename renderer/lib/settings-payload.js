@@ -32,6 +32,8 @@
       autoActionSec: S.autoActionSec,
       ledgerSource: S.ledgerSource,
       autoUpdate: S.autoUpdate,
+      onlyPrimarySound: S.onlyPrimarySound,
+      multiWarnOff: S.multiWarnOff,
       customQuips: S.customQuips,
       useCustomQuips: S.useCustomQuips,
       pinnedActions: S.pinnedActions,

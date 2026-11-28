@@ -4,10 +4,16 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 )
+
+// 多开后运行时字段写在 instances/<slot>/，共享设置留在 state.json。
+func runtimeStateFile(path string) string {
+	return filepath.Join(filepath.Dir(path), "instances", strconv.Itoa(instanceSlot), "dafeiyu-state.json")
+}
 
 func readStateFile(t *testing.T, path string) map[string]interface{} {
 	t.Helper()
@@ -66,7 +72,7 @@ func TestUpdateStatsDefersDiskWrite(t *testing.T) {
 	if a.stateDirty {
 		t.Fatal("flush should clear dirty flag")
 	}
-	got := readStateFile(t, path)
+	got := readStateFile(t, runtimeStateFile(path))
 	if got["satiety"] != 12.5 || got["mood"] != 34.5 {
 		t.Fatalf("flushed values mismatch: %#v", got)
 	}
@@ -80,14 +86,15 @@ func TestFlushStateSkipsCleanState(t *testing.T) {
 	a.state["satiety"] = 66.0
 	a.stateDirty = true
 	a.flushStateIfDirty()
-	before, err := os.Stat(path)
+	instPath := runtimeStateFile(path)
+	before, err := os.Stat(instPath)
 	if err != nil {
 		t.Fatalf("stat: %v", err)
 	}
 
 	// 没有新改动时再 flush 不应重写文件
 	a.flushStateIfDirty()
-	after, err := os.Stat(path)
+	after, err := os.Stat(instPath)
 	if err != nil {
 		t.Fatalf("stat: %v", err)
 	}

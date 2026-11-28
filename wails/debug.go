@@ -173,5 +173,6 @@ func startDebugServer(a *App) {
 		a.Quit()
 		w.Write([]byte("bye"))
 	})
-	_ = http.ListenAndServe("127.0.0.1:9336", mux)
+	port := 9336 + instanceSlot - 1
+	_ = http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", port), mux)
 }

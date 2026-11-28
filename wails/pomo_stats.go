@@ -38,9 +38,7 @@ func (a *App) recordPomodoro(minutes int) {
 // PomoStats 返回今天 / 近 7 天 / 累计的专注分钟数，以及最近 7 天的每日柱状数据。
 func (a *App) PomoStats() map[string]interface{} {
 	byDate := map[string]float64{}
-	a.mu.Lock()
-	raw, _ := a.state["pomoHistory"].([]interface{})
-	a.mu.Unlock()
+	raw := a.allPomoHistory()
 	var total float64
 	for _, item := range raw {
 		m, ok := item.(map[string]interface{})

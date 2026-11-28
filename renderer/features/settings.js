@@ -64,6 +64,15 @@ function syncSettingsUI() {
   syncSegmentButtons(setAutoUpdate, (btn) => (btn.dataset.autoupdate === '1') === S.autoUpdate);
   setAppName.textContent = S.launchApp ? S.launchApp.split(/[\\/]/).pop() : '未设置';
   setAppName.title = S.launchApp || '';
+  syncSegmentButtons(document.getElementById('set-only-primary-sound'), (btn) => (btn.dataset.onlyprimary === '1') === S.onlyPrimarySound);
+  syncSegmentButtons(document.getElementById('set-multi-warn'), (btn) => (btn.dataset.multiwarn === '1') === S.multiWarnOff);
+  const multiStatus = document.getElementById('set-multi-status');
+  if (multiStatus) {
+    const inst = S.instance || { slot: 1, leader: true, count: 1 };
+    multiStatus.textContent = inst.leader
+      ? menuT('当前 {n} 只桌宠（本只是主实例 #{slot}）。', { n: inst.count || 1, slot: inst.slot })
+      : menuT('当前 {n} 只桌宠（本只是副实例 #{slot}）。', { n: inst.count || 1, slot: inst.slot });
+  }
   syncWordsButtons();
 }
 
@@ -80,7 +89,53 @@ function applyLedgerUI() {
   }
 }
 
-  const settingsApi = { saveSettings, syncSettingsUI, applyLedgerUI };
+  // 其它宠物改了共享设置：只重放，不写盘、不碰本实例的形象/位置/番茄钟
+function applySharedSettings(set) {
+  if (!set) return;
+  S.ledgerOn = set.ledger !== false;
+  S.autoStart = !!set.autoStart;
+  S.safeResume = set.safeResume !== false;
+  S.fullscreenHide = set.fullscreenHide !== false;
+  S.memeOrder = set.memeOrder === 'random' ? 'random' : 'queue';
+  S.powerSave = window.PetLib.powerSave.normalizeMode(set.powerSave);
+  S.launchApp = typeof set.launchApp === 'string' ? set.launchApp : '';
+  applyFontFamily(set.fontFamily, false);
+  applyFontSize(set.fontSize, false);
+  applyFontWeight(set.fontWeight, false);
+  applySfx(set.sfx, false);
+  const lang = ['zh', 'en', 'ja'].includes(set.lang) ? set.lang : S.lang;
+  if (lang !== S.lang) applyLanguage(lang, false);
+  applyAutoActionSec(set.autoActionSec || 40, false);
+  const nextSrc = API_SOURCES.includes(set.ledgerSource) ? set.ledgerSource : 'deepseek';
+  if (nextSrc !== S.ledgerSource) S.ledger = null;
+  S.ledgerSource = nextSrc;
+  S.autoUpdate = set.autoUpdate === true;
+  S.onlyPrimarySound = set.onlyPrimarySound === true;
+  S.multiWarnOff = set.multiWarnOff === true;
+  S.customQuips = Array.isArray(set.customQuips) ? set.customQuips : [];
+  S.useCustomQuips = set.useCustomQuips !== false;
+  S.pinnedActions = {};
+  if (set.pinnedActions && typeof set.pinnedActions === 'object') {
+    for (const [charId, list] of Object.entries(set.pinnedActions)) {
+      if (Array.isArray(list)) {
+        S.pinnedActions[charId] = list.filter((x) => typeof x === 'string').slice(0, PINS_MAX);
+      }
+    }
+  }
+  // 位置与缩放只在真的变了时才重放，避免别的宠物改声音时这只被拉回角落
+  if (typeof set.scale === 'number' && Math.abs(set.scale - petScale) > 1e-6) {
+    applyScale(set.scale, false);
+  }
+  applyPomoMin(set.pomoMin || 25, false);
+  applyPomoAnimSec(set.pomoAnimSec || 5, false);
+  if (set.dock && set.dock !== S.dock) applyDock(set.dock, false);
+  applyLedgerUI();
+  applyKeysUI();
+  syncSettingsUI();
+  refreshMenu();
+}
+
+  const settingsApi = { saveSettings, syncSettingsUI, applyLedgerUI, applySharedSettings };
   root.PetLib = root.PetLib || {};
   root.PetLib.settingsUi = settingsApi;
 })(typeof window !== 'undefined' ? window : globalThis);

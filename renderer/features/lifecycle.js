@@ -47,6 +47,11 @@ function handleInit(st) {
   applyAutoActionSec(set.autoActionSec || 40, false);
   S.ledgerSource = API_SOURCES.includes(set.ledgerSource) ? set.ledgerSource : 'deepseek';
   S.autoUpdate = set.autoUpdate === true;
+  S.onlyPrimarySound = set.onlyPrimarySound === true;
+  S.multiWarnOff = set.multiWarnOff === true;
+  if (st.instance && typeof st.instance === 'object') {
+    S.instance = { ...S.instance, ...st.instance };
+  }
   S.customQuips = Array.isArray(set.customQuips) ? set.customQuips : [];
   S.useCustomQuips = set.useCustomQuips !== false;
   S.pinnedActions = {};
@@ -77,8 +82,10 @@ function handleInit(st) {
     P.x = clamp(st.pos.x, b.minX, b.maxX);
     P.y = clamp(st.pos.y, b.minY, b.maxY);
   } else {
-    P.x = b.maxX - 80;
-    P.y = b.maxY - 60;
+    // 新开的宠物错开出生位置，避免和已有的完全重叠
+    const slot = (S.instance && S.instance.slot) || 1;
+    P.x = clamp(b.maxX - 80 - (slot - 1) * 64, b.minX, b.maxX);
+    P.y = clamp(b.maxY - 60 - (slot - 1) * 48, b.minY, b.maxY);
   }
   applyDock(set.dock, false);
   // 初始化完成前不上报位置，避免把游戏开始前的 (0,0) 写进状态

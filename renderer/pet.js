@@ -342,6 +342,8 @@ menuEl.addEventListener('click', (e) => {
   if (act === 'status') showStatus();
   else if (act === 'settings') openSettings();
   else if (act === 'acts') openPicker();
+  else if (act === 'spawn') api.spawnInstance();
+  else if (act === 'quit-all') api.quitAll();
   else api.action(act);
 });
 // ---------------------------------------------------------------- 设置
@@ -360,6 +362,7 @@ const SET_PAGE_TITLES = {
   pomo: '🍅 番茄钟',
   ledger: '🍚 白饭账本',
   startup: '🚀 启动与更新',
+  multi: '🐟 多开',
   words: '💬 语言与文字',
   help: '❓ 关于与帮助',
 };
@@ -405,6 +408,26 @@ settingsEl.addEventListener('click', (e) => {
   }
   if (btn.dataset.lang) {
     applyLanguage(btn.dataset.lang, true);
+    return;
+  }
+  if (btn.id === 'set-multi-add') {
+    api.spawnInstance();
+    return;
+  }
+  if (btn.id === 'set-multi-quit') {
+    api.quitAll();
+    return;
+  }
+  if (btn.dataset.onlyprimary) {
+    S.onlyPrimarySound = btn.dataset.onlyprimary === '1';
+    saveSettings();
+    syncSettingsUI();
+    return;
+  }
+  if (btn.dataset.multiwarn) {
+    S.multiWarnOff = btn.dataset.multiwarn === '1';
+    saveSettings();
+    syncSettingsUI();
     return;
   }
   if (btn.id === 'set-words-edit') {
@@ -503,6 +526,23 @@ api.on('init', handleInit);
 api.on('power-mode', handlePowerMode);
 api.on('power-resume', handlePowerResume);
 api.on('keys-updated', handleKeysUpdated);
+api.on('instance-info', (i) => {
+  S.instance = { ...S.instance, ...(i || {}) };
+  refreshMenu();
+  syncSettingsUI();
+});
+api.on('settings-reloaded', (p) => {
+  if (!p) return;
+  if (p.instance) S.instance = { ...S.instance, ...p.instance };
+  if (p.apiKeys) {
+    S.apiKeys = p.apiKeys;
+    applyKeysUI();
+  }
+  window.PetLib.settingsUi.applySharedSettings(p.settings);
+});
+api.on('characters-updated', () => {
+  loadInstalledCharacters();
+});
 api.on('words-updated', handleWordsUpdated);
 api.on('usage', handleUsage);
 api.on('show-usage', handleShowUsage);

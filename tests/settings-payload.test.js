@@ -23,6 +23,8 @@ function sampleS() {
     autoActionSec: 30,
     ledgerSource: 'auto',
     autoUpdate: true,
+    onlyPrimarySound: true,
+    multiWarnOff: false,
     customQuips: 'a\nb',
     useCustomQuips: false,
     pinnedActions: ['idle', 'work'],
@@ -54,6 +56,8 @@ test('设置载荷逐字段映射', () => {
     autoActionSec: 30,
     ledgerSource: 'auto',
     autoUpdate: true,
+    onlyPrimarySound: true,
+    multiWarnOff: false,
     customQuips: 'a\nb',
     useCustomQuips: false,
     pinnedActions: ['idle', 'work'],
@@ -62,9 +66,10 @@ test('设置载荷逐字段映射', () => {
 
 test('设置载荷只含白名单字段', () => {
   const out = settingsPayload(sampleS(), 1);
-  assert.equal(Object.keys(out).length, 23);
+  assert.equal(Object.keys(out).length, 25);
   assert.equal('pomoRunning' in out, false);
   assert.equal('bubbleTimer' in out, false);
+  assert.equal('onlyPrimarySound' in out, true);
 });
 
 test('缺字段时保留 undefined，不做默认值兜底', () => {

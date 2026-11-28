@@ -152,6 +152,18 @@ func cloneUpdateInfo(src map[string]interface{}) map[string]interface{} {
 
 func (a *App) CheckUpdate() map[string]interface{} {
 	cur := Version
+	// 多开时统一由主实例检查，副实例转发结果，避免重复请求 GitHub。
+	if !instanceIsLeader {
+		if leader := leaderSlot(); leader > 0 {
+			if b, err := callInstance(leader, "update-info", nil); err == nil {
+				var out map[string]interface{}
+				if json.Unmarshal(b, &out) == nil && len(out) > 0 {
+					return out
+				}
+			}
+		}
+		return map[string]interface{}{"current": cur, "error": t3("更新检查由主实例负责", "Update checks are handled by the main pet", "更新確認はメインのペットが担当します")}
+	}
 	a.mu.Lock()
 	// 60 秒内复用结果：手动连点只消耗一次 GitHub 限额；跨过 60 秒也会走 304。
 	if a.lastUpdate != nil && !a.lastUpdateAt.IsZero() && time.Since(a.lastUpdateAt) < 60*time.Second {
@@ -405,6 +417,9 @@ func (a *App) DownloadUpdate(mode string) map[string]interface{} {
 	if isolatedMode {
 		return map[string]interface{}{"started": false, "code": "ISOLATED", "error": t3("隔离调试实例不允许下载更新", "The isolated debug instance cannot download updates", "隔離デバッグ環境では更新をダウンロードできません")}
 	}
+	if !instanceIsLeader {
+		return map[string]interface{}{"started": false, "code": "LEADER", "error": t3("请在主实例（第一只）上执行更新", "Run the update from the main pet (the first one)", "メインのペット（1匹目）から更新してください")}
+	}
 	if !a.beginUpdate(false) {
 		return map[string]interface{}{"started": false, "code": "BUSY", "error": t3("正在下载", "Downloading", "ダウンロード中")}
 	}
@@ -453,6 +468,8 @@ func (a *App) DownloadUpdate(mode string) map[string]interface{} {
 			a.emit("update-done", map[string]interface{}{"ok": false, "code": code, "error": err.Error()})
 			return
 		}
+		broadcast("quit")
+		time.Sleep(400 * time.Millisecond)
 		if !a.spawnInteractiveUpdate(dest) {
 			_ = os.Remove(dest)
 			_ = os.Remove(part)
@@ -470,6 +487,9 @@ func (a *App) DownloadUpdate(mode string) map[string]interface{} {
 func (a *App) InstallUpdate() map[string]interface{} {
 	if isolatedMode {
 		return map[string]interface{}{"started": false, "code": "ISOLATED", "error": t3("隔离调试实例不允许安装更新", "The isolated debug instance cannot install updates", "隔離デバッグ環境では更新をインストールできません")}
+	}
+	if !instanceIsLeader {
+		return map[string]interface{}{"started": false, "code": "LEADER", "error": t3("请在主实例（第一只）上执行更新", "Run the update from the main pet (the first one)", "メインのペット（1匹目）から更新してください")}
 	}
 	if !a.beginUpdate(true) {
 		return map[string]interface{}{"started": false, "code": "BUSY", "error": t3("正在更新", "Updating", "更新中")}
@@ -516,6 +536,8 @@ func (a *App) InstallUpdate() map[string]interface{} {
 			a.emit("update-done", map[string]interface{}{"ok": false, "code": code, "error": err.Error()})
 			return
 		}
+		broadcast("quit")
+		time.Sleep(400 * time.Millisecond)
 		if !a.spawnSilentUpdate(dest) {
 			_ = os.Remove(dest)
 			_ = os.Remove(part)
@@ -541,7 +563,7 @@ func (a *App) spawnInteractiveUpdate(installer string) bool {
 		"ping -n 4 127.0.0.1 >nul",
 		fmt.Sprintf(`start /wait "" "%s"`, installer),
 		"ping -n 3 127.0.0.1 >nul",
-		fmt.Sprintf(`start "" "%s"`, exe),
+		fmt.Sprintf(`start "" "%s" --restore-session`, exe),
 		`del "%~f0"`,
 	}
 	if os.WriteFile(script, []byte(strings.Join(lines, "\r\n")+"\r\n"), 0644) != nil {
@@ -563,7 +585,7 @@ func (a *App) spawnSilentUpdate(installer string) bool {
 		"ping -n 4 127.0.0.1 >nul",
 		fmt.Sprintf(`start /wait "" "%s" /S`, installer),
 		"ping -n 3 127.0.0.1 >nul",
-		fmt.Sprintf(`start "" "%s"`, exe),
+		fmt.Sprintf(`start "" "%s" --restore-session`, exe),
 		`del "%~f0"`,
 	}
 	if os.WriteFile(script, []byte(strings.Join(lines, "\r\n")+"\r\n"), 0644) != nil {

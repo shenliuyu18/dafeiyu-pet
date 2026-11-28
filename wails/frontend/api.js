@@ -354,6 +354,9 @@
     action: (name) => invoke('Action', String(name)).catch(() => {}),
     notify: (text) => invoke('Notify', String(text)).catch(() => {}),
     quit: () => invoke('Quit').catch(() => {}),
+    spawnInstance: () => invoke('SpawnInstance'),
+    instanceInfo: () => invoke('InstanceInfo'),
+    quitAll: () => invoke('QuitAll'),
     on,
   };
 })();

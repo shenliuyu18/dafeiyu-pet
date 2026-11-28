@@ -150,6 +150,68 @@ func findPetWindow(class string) uintptr {
 	return 0
 }
 
+// clipWindowToNothing 在显示前把 Region 收成 1×1。
+// 新实例的窗口会先铺满工作区，而 WebView 那时还没出透明画面，默认是整块黑底；
+// 若先显示再收紧 Region，屏幕上就会出现一帧「全屏变黑」的闪屏。
+func (a *App) clipWindowToNothing(h uintptr) {
+	rgn, _, _ := procCreateRectRgn.Call(0, 0, 1, 1)
+	if rgn == 0 {
+		return
+	}
+	if ok, _, _ := procSetWindowRgn.Call(h, rgn, 1); ok == 0 {
+		// 系统没有接管这个 Region，需要自己释放
+		procDeleteObject.Call(rgn)
+		return
+	}
+	a.regionMu.Lock()
+	a.regionSet = true
+	a.regionFull = false
+	a.regionSig = ""
+	a.regionAt = time.Time{}
+	a.regionMu.Unlock()
+}
+
+// showPetWindow 等前端报来第一帧位置后再真正显示。
+// Wails 的透明窗口是分层窗口，DWM 合成时并不理会 SetWindowRgn；
+// 过早显示会让 WebView 的黑色底层以工作区大小整体上屏，表现为整屏闪一下。
+func (a *App) showPetWindow(forced bool) {
+	a.mu.Lock()
+	if a.shown || a.showPending || a.quitting || a.hwnd == 0 || a.hidden {
+		a.mu.Unlock()
+		return
+	}
+	a.showPending = true
+	a.mu.Unlock()
+	if !forced {
+		// 首帧上报后再等一帧，确保 WebView 已经把透明画面提交给 DWM
+		time.Sleep(60 * time.Millisecond)
+	}
+	a.mu.Lock()
+	if a.shown || a.quitting || a.hidden {
+		a.showPending = false
+		a.mu.Unlock()
+		return
+	}
+	a.shown = true
+	a.showPending = false
+	h := a.hwnd
+	wa := a.workArea
+	start := a.showAt
+	a.mu.Unlock()
+	if a.fullscreenEnabled() && immersiveFullscreenActive() {
+		a.mu.Lock()
+		a.hidden = false
+		a.fsHidden = true
+		a.fsDecider.suppress()
+		a.mu.Unlock()
+		return
+	}
+	procSetWindowPos.Call(h, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpFrameChanged)
+	procShowWindow.Call(h, swShowNoActivate)
+	crashLog("window", fmt.Sprintf("show deferred_ms=%d forced=%v", time.Since(start).Milliseconds(), forced))
+	a.updateWindowRegion(true)
+}
+
 func (a *App) SetupWindow() {
 	h := findPetWindow(a.className)
 	if h == 0 {
@@ -178,14 +240,18 @@ func (a *App) SetupWindow() {
 	ex |= wsExToolWindow | wsExNoActivate | wsExTransparent
 	setExStyle(h, ex)
 	a.fixAeroBlur(h)
-	// 先铺满工作区再显示，避免 800×600 的闪烁
+	// 先铺满工作区；显示前把 Region 收到 1×1，避免 WebView 出画前整屏黑底闪一下
+	a.clipWindowToNothing(h)
 	if suppress {
 		procSetWindowPos.Call(h, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpFrameChanged)
 		return
 	}
-	procSetWindowPos.Call(h, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpShowWindow|swpFrameChanged)
-	procShowWindow.Call(h, swShowNoActivate)
-	a.updateWindowRegion(true)
+	// 只定位/铺满，不显示：等前端首帧（ReportPos）后由 showPetWindow 显示
+	procSetWindowPos.Call(h, hwndTopmost, uintptr(wa.Left), uintptr(wa.Top), uintptr(wa.Right-wa.Left), uintptr(wa.Bottom-wa.Top), swpNoActivate|swpFrameChanged)
+	a.mu.Lock()
+	a.showAt = time.Now()
+	a.mu.Unlock()
+	time.AfterFunc(2500*time.Millisecond, func() { a.showPetWindow(true) })
 }
 
 // ---------------- 透明窗口的 Aero 模糊修复（Windows 10） ----------------
@@ -584,6 +650,7 @@ func (a *App) DebugState() map[string]interface{} {
 		"regionSet": a.regionSet, "regionFull": a.regionFull, "region": a.regionLast,
 		"variant": Variant, "regionBoxes": len(a.regionBoxes), "hitBox": a.hitBox,
 		"build": windowsBuildNumber(), "accentFixed": a.accentFixed,
+		"slot": instanceSlot, "leader": instanceIsLeader, "instances": instanceCount(),
 	}
 }
 

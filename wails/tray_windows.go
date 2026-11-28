@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"sync"
@@ -155,6 +156,32 @@ func (a *App) startTray() {
 	a.tray = t
 	a.mu.Unlock()
 	t.run()
+	a.mu.Lock()
+	if a.tray == t {
+		a.tray = nil
+		a.trayReady = false
+	}
+	a.mu.Unlock()
+	if trayInst == t {
+		trayInst = nil
+	}
+}
+
+// ensureTray 只在主实例上创建托盘；副实例由 instanceLoop 决定是否接管。
+func (a *App) ensureTray() {
+	a.mu.Lock()
+	if a.tray != nil || a.trayStarting {
+		a.mu.Unlock()
+		return
+	}
+	a.trayStarting = true
+	a.mu.Unlock()
+	go func() {
+		a.startTray()
+		a.mu.Lock()
+		a.trayStarting = false
+		a.mu.Unlock()
+	}()
 }
 
 func (t *Tray) run() {
@@ -223,6 +250,8 @@ func (t *Tray) run() {
 func (a *App) stopTray() {
 	a.mu.Lock()
 	t := a.tray
+	a.tray = nil
+	a.trayReady = false
 	a.mu.Unlock()
 	if t == nil {
 		return
@@ -233,6 +262,9 @@ func (a *App) stopTray() {
 		procPostMessage.Call(t.hwnd, wmDestroy, 0, 0)
 	}
 	t.mu.Unlock()
+	if trayInst == t {
+		trayInst = nil
+	}
 }
 
 func (a *App) trayRefresh() {
@@ -257,6 +289,15 @@ func (a *App) balloon(kind, title, content string) {
 	t := a.tray
 	a.mu.Unlock()
 	if t == nil {
+		// 副实例没有托盘：把气泡转交给主实例，避免通知静默丢失。
+		if !instanceIsLeader {
+			payload, _ := json.Marshal(map[string]string{"title": title, "text": content})
+			go func() {
+				if leader := leaderSlot(); leader > 0 {
+					_, _ = callInstance(leader, "notify", payload)
+				}
+			}()
+		}
 		return
 	}
 	t.mu.Lock()
@@ -308,6 +349,24 @@ func (t *Tray) showMenu() {
 	} else {
 		add(1, a.t("🐟  叫出桌宠", "🐟  Show pet", "🐟  ペットを呼ぶ"))
 	}
+	slots := aliveSlots()
+	count := len(slots)
+	if count > 0 {
+		for _, s := range slots {
+			label := fmt.Sprintf(a.t("🐟  宠物 %d", "🐟  Pet %d", "🐟  ペット %d"), s)
+			if s == instanceSlot {
+				label += a.t("（这只）", " (this)", "（これ）")
+			}
+			if name := characterNameOf(s); name != "" {
+				label += " · " + name
+			}
+			add(100+s, label)
+		}
+		add(20, a.t("🐟＋  再养一只", "🐟＋  Add another pet", "🐟＋  もう1匹"))
+		add(21, a.t("👀  全部显示", "👀  Show all", "👀  すべて表示"))
+		add(22, a.t("🙈  全部藏起", "🙈  Hide all", "🙈  すべて隠す"))
+		sep()
+	}
 	add(2, a.t("🍚  投喂", "🍚  Feed", "🍚  ご飯をあげる"))
 	if a.pomoRunning() {
 		add(3, fmt.Sprintf(a.t("🍅  结束专注（剩 %s）", "🍅  End focus (%s left)", "🍅  集中を終了（残り %s）"), clockLeft(a.pomoStatusRemaining())))
@@ -323,11 +382,16 @@ func (t *Tray) showMenu() {
 	add(7, a.t("📊  看看状态", "📊  Status", "📊  状態を見る"))
 	// 只在 Win10（< 22621）出现：那里的「背景发虚」修复靠清 AccentPolicy 实现，
 	// 留一个能当场取消的开关，万一某台机器因此黑屏，用户两下点击就能自救。
+	exitLabel := a.t("退出", "Exit", "終了")
+	if count > 1 {
+		exitLabel = a.t("关闭这只", "Close this pet", "このペットを閉じる")
+		add(23, a.t("❌  全部退出", "❌  Quit all", "❌  すべて終了"))
+	}
 	if windowsBuildNumber() < backdropBuildThreshold {
 		addCheck(8, a.t("🩹  修复 Win10 背景发虚（黑屏就取消勾选）", "🩹  Fix Win10 blur (uncheck if screen goes black)", "🩹  Win10の背景ぼやけを修正（黒画面なら解除）"), a.getBool("blurFix", true))
-		add(10, a.t("退出", "Exit", "終了"))
+		add(10, exitLabel)
 	} else {
-		add(9, a.t("退出", "Exit", "終了"))
+		add(9, exitLabel)
 	}
 	procSetForeground.Call(t.hwnd)
 	cmd, _, _ := procTrackPopupMenu.Call(menu, tpmReturnCmd|tpmNoNotify|tpmRightButton, uintptr(pt.X), uintptr(pt.Y), 0, t.hwnd, 0)
@@ -358,6 +422,37 @@ func (t *Tray) showMenu() {
 		a.toggleBlurFix()
 	case 9, 10:
 		a.Quit()
+	case 20:
+		if r := a.SpawnInstance(); !boolv(r["ok"], false) && strv(r["code"], "") == "LIMIT" {
+			infoBox(strv(r["error"], ""))
+		}
+	case 21:
+		for _, s := range aliveSlots() {
+			if s == instanceSlot {
+				a.showInactive()
+			} else {
+				_, _ = callInstance(s, "show", nil)
+			}
+		}
+	case 22:
+		for _, s := range aliveSlots() {
+			if s == instanceSlot {
+				a.hideWindow()
+			} else {
+				_, _ = callInstance(s, "hide", nil)
+			}
+		}
+	case 23:
+		a.QuitAll()
+	default:
+		if cmd >= 101 && cmd <= 100+maxInstances {
+			target := int(cmd) - 100
+			if target == instanceSlot {
+				a.toggleVisible()
+			} else {
+				_, _ = callInstance(target, "toggle", nil)
+			}
+		}
 	}
 }
 

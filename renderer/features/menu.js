@@ -92,6 +92,16 @@ function refreshMenu() {
   menuPomo.textContent = S.pomoRunning ? '🍅 ' + menuT('结束专注') : '🍅 ' + menuT('开始专注 {n} 分钟', { n: S.pomoMin });
   menuSleepIco.textContent = S.awake ? '😴' : '☀️';
   menuSleepTxt.textContent = S.awake ? menuT('让它睡一会儿') : menuT('叫醒它');
+  const multi = !!(S.instance && S.instance.count > 1);
+  const quitTxt = document.getElementById('menu-quit-txt');
+  if (quitTxt) quitTxt.textContent = multi ? menuT('关闭这只') : menuT('退出');
+  const quitAll = document.getElementById('menu-quit-all');
+  if (quitAll) quitAll.classList.toggle('hide', !multi);
+  const spawnBtn = menuEl.querySelector('[data-act="spawn"]');
+  if (spawnBtn) {
+    spawnBtn.querySelector('span').textContent = menuT('再养一只');
+    spawnBtn.disabled = !!(S.instance && S.instance.count >= (S.instance.max || 16));
+  }
   const l = S.ledger;
   const name = menuT(isDsh() ? '白饭账本' : '用量账本');
   if (l && l.available && l.rows && l.rows[0]) {

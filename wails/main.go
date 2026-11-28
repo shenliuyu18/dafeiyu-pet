@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	dbg "runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,7 +22,7 @@ import (
 )
 
 // Version 由 tools/wails-build.js 按 package.json 同步；开发期用测试版号，发布时用正式版号。
-var Version = "1.5.4"
+var Version = "1.5.5-beta.1"
 
 // Variant 由构建脚本用 -ldflags 注入（full / lite）。
 var Variant = "full"
@@ -54,16 +55,7 @@ func appDataDirName() string {
 	return base
 }
 
-func singleInstanceName() string {
-	name := `Global\dafeiyu-desktop-pet-wails`
-	if isLite() {
-		name += "-lite"
-	}
-	if isolatedMode {
-		name += "-isolated"
-	}
-	return name
-}
+func singleInstanceName() string { return slotMutexName(1) }
 
 //go:embed all:frontend/dist
 var frontendAssets embed.FS
@@ -112,8 +104,16 @@ type App struct {
 	updateBusy   bool
 	autoUpdating bool
 
-	tray      *Tray
-	trayReady bool
+	tray         *Tray
+	trayReady    bool
+	trayStarting bool
+
+	// 多开：运行时状态写在 instances/<slot>/ 下；共享设置仍留在根目录。
+	instancePath string
+	lastShared   map[string]string
+	showAt       time.Time // SetupWindow 完成定位的时刻
+	shown        bool      // 是否已真正显示（等前端首帧后再显示）
+	showPending  bool
 
 	lastSavedPos time.Time
 	quitting     bool
@@ -164,15 +164,42 @@ func main() {
 		runResumeRestartHelper()
 		return
 	}
-	if !acquireSingleInstance() {
+	if hasArg("--restore-session") || hasArg("--autostart") {
+		runRestoreSession()
 		return
 	}
+	preferred := 0
+	if v := argValue("--slot"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			preferred = n
+		}
+	}
+	// 手动启动时先提醒资源占用；恢复会话与计划任务拉起不打扰。
+	if preferred == 0 && !hasArg("--autostart") && !hasArg("--no-confirm") {
+		if n := instanceCount(); n >= warnInstances {
+			if !confirmBox(fmt.Sprintf(t3(
+				"现在已经有 %d 只桌宠，每只约占用 290 MB 内存、漫游时约 23%% 单核。确定再养一只吗？",
+				"There are already %d pets running, about 290 MB and ~23%% of one core each while roaming. Add another one?",
+				"すでに %d 匹のペットがいます（1匹あたり約290MB、散歩中はCPU1コアの約23%%）。もう1匹追加しますか？"), n)) {
+				return
+			}
+		}
+	}
+	if !acquireInstanceSlot(preferred) {
+		activateLeader()
+		infoBox(t3("最多只能同时养 16 只桌宠。", "At most 16 pets can run at once.", "同時に飼えるのは最大16匹です。"))
+		return
+	}
+	instanceIsLeader = leaderSlot() == instanceSlot
 	windowClass := "DafeiyuPetWindow"
 	if isLite() {
 		windowClass = "DafeiyuPetWindowLite"
 	}
 	if isolatedMode {
 		windowClass += "Isolated"
+	}
+	if instanceSlot > 1 {
+		windowClass += fmt.Sprintf("S%d", instanceSlot)
 	}
 	app := &App{
 		className: windowClass,
@@ -244,19 +271,26 @@ func (a *App) startup(ctx context.Context) {
 	go a.fullscreenLoop()
 	go a.cursorLoop()
 	go a.stateSaveLoop()
-	go a.startTray()
+	startInstanceIPC(a)
+	addRestoreSlot()
+	go a.instanceLoop()
 	if hasArg("--dev-debug") {
 		go startDebugServer(a)
 	}
-	if !isolatedMode {
+	if !isolatedMode && instanceIsLeader {
 		a.applyLoginItemAsync()
 	}
-	a.launchLinkedApp()
+	if instanceIsLeader {
+		a.launchLinkedApp()
+	}
 	// 账本查询和商店目录都不要挡首帧：2 秒后再拉。
 	a.scheduleBootUsage()
 	if !isolatedMode {
 		go func() {
 			time.Sleep(12 * time.Second)
+			if !instanceIsLeader {
+				return
+			}
 			if time.Since(time.Unix(millis(a.get("lastUpdateCheck")), 0)) > 24*time.Hour {
 				a.set("lastUpdateCheck", nowMillis())
 				a.saveState()
@@ -268,7 +302,7 @@ func (a *App) startup(ctx context.Context) {
 		t := time.NewTicker(5 * time.Minute)
 		defer t.Stop()
 		for range t.C {
-			if a.ledgerOn() {
+			if a.ledgerOn() && instanceIsLeader {
 				a.refreshUsage()
 			}
 			a.trayRefresh()
@@ -338,6 +372,9 @@ func (a *App) beforeClose(ctx context.Context) bool {
 	}
 	a.mu.Unlock()
 	a.saveStateNow()
+	// 只有真正进入关闭流程后才注销端点：Quit 万一被卡住，托盘仍然叫得动这只。
+	removeEndpoint(instanceSlot)
+	removeRestoreSlot()
 	a.stopTray()
 	return false
 }
@@ -552,6 +589,7 @@ func (a *App) ReportPos(x, y, s float64, boxesJSON string, force bool) {
 	// 气泡显示 / 改尺寸等几何突变会带 force，必须绕过节流当场生效，
 	// 否则 SetWindowRgn 落后两三帧，首次亮出的气泡上半截会被旧 Region 裁掉。
 	a.updateWindowRegion(force)
+	a.showPetWindow(false)
 }
 
 func (a *App) SetPanel(open bool) {
@@ -705,6 +743,16 @@ func (a *App) SaveSettings(raw string) {
 			a.state["autoUpdate"] = b
 		}
 	}
+	if v, ok := apply("onlyPrimarySound"); ok {
+		if b, ok := v.(bool); ok {
+			a.state["onlyPrimarySound"] = b
+		}
+	}
+	if v, ok := apply("multiWarnOff"); ok {
+		if b, ok := v.(bool); ok {
+			a.state["multiWarnOff"] = b
+		}
+	}
 	if v, ok := apply("character"); ok {
 		if str, ok := v.(string); ok && validChar(str) {
 			a.state["character"] = str
@@ -772,6 +820,7 @@ func (a *App) SaveSettings(raw string) {
 		a.emit("power-mode", a.PowerStatus())
 	}
 	a.saveState()
+	broadcast("reload-shared")
 	if ledgerDirty && a.ledgerOn() {
 		go a.refreshUsage()
 	}
@@ -840,10 +889,22 @@ func (a *App) Notify(text string) {
 }
 
 func (a *App) Quit() {
+	crashLog("quit", "start")
 	a.saveStateNow()
+	crashLog("quit", "state saved")
+	// quitApp 在个别多开/WebView2 场景下可能迟迟不返回；5 秒后强制退出兜底，
+	// 保证菜单与托盘永远关得掉（状态已保存，残留端点下次启动会清理）。
+	go func() {
+		time.Sleep(5 * time.Second)
+		crashLog("quit", "forced exit after 5s")
+		os.Exit(0)
+	}()
 	if a.ctx != nil {
 		quitApp(a.ctx)
+	} else {
+		os.Exit(0)
 	}
+	crashLog("quit", "quitApp returned")
 }
 
 // ---------------- 读表辅助 ----------------

@@ -320,6 +320,7 @@ func (a *App) InstallCharacter(id, url string) error {
 			lastErr = err
 			continue
 		}
+		broadcast("reload-characters")
 		return nil
 	}
 	if lastErr == nil {
@@ -416,6 +417,7 @@ func (a *App) InstallCharacterFromFile(zipPath string) (string, error) {
 	if err := a.extractPack(id, zipPath, prefix); err != nil {
 		return "", err
 	}
+	broadcast("reload-characters")
 	return id, nil
 }
 
@@ -921,6 +923,9 @@ func (a *App) extractPackWithRename(id, zipPath, prefix string, rename func(stri
 	if id == "" || strings.ContainsAny(id, `/\`) || strings.Contains(id, "..") {
 		return errors.New("非法的形象 id")
 	}
+	// 多开时两个进程可能同时装同一个包：用命名互斥串行化，避免都写 .installing 目录。
+	unlock := lockNamed(baseInstanceName() + "-pack-" + id)
+	defer unlock()
 	root := a.charactersDir()
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return err
@@ -1055,7 +1060,11 @@ func (a *App) RemoveCharacter(id string) error {
 	}
 	unlock := a.lockCharacter(id)
 	defer unlock()
-	return os.RemoveAll(filepath.Join(a.charactersDir(), id))
+	if err := os.RemoveAll(filepath.Join(a.charactersDir(), id)); err != nil {
+		return err
+	}
+	broadcast("reload-characters")
+	return nil
 }
 
 // ── 形象包目录与下载线路 ──────────────────────────────────────────────

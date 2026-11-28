@@ -4,6 +4,36 @@
 
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/).
 
+## [1.5.5-beta.1] - 2026-11-28
+
+> Pre-release: the multi-pet, quit and screen-flash changes still need real-device confirmation and may change before the stable release.
+
+Main changes since 1.5.4: you can now keep several pets at once — launching the app again just adds another one. Character, position and Pomodoro are per pet, while language, size, font and ledger settings are shared. A single tray icon remains and is handed over automatically when the main pet quits.
+
+### Added
+
+-   **Quantity reminder switch**: Settings → Multiple pets now offers "Ask before the 5th pet / Do not ask again". With the reminder off, "Add another pet" adds one immediately without a dialog
+-   **Multiple pets**: launch the app again (or use "Add another pet" in the context menu / Settings → Multiple pets) to add one, up to 16 at once. Beyond 4 pets a confirmation reminds you that each uses about 290 MB and ~23% of one core while roaming
+-   **Settings → Multiple pets**: shows the current count and this pet's role (main / secondary), adds or quits all pets, and offers an "each plays sound / main pet only" switch to cut noise
+-   **Single tray icon**: one icon lists every pet with individual show/hide, plus "Show all", "Hide all", "Add another pet" and "Quit all". When the main pet exits the next one takes the tray over, so it never disappears
+-   **Session restore**: autostart and post-update launch bring back the previous number of pets; new pets spawn at an offset and pick a character that is not already in use
+
+### Changed
+
+-   New pets no longer spawn exactly on top of an existing one; the corner-dock mode also offsets per slot
+-   The ledger is fetched only by the main pet and written to a shared cache; other pets read it and ask the main pet to refresh when stale, so multiple pets do not multiply platform requests. Manual "check again" still goes direct from the current pet
+-   Update checks and installation are handled by the main pet, which forwards results to the others; all pets are asked to quit before installing and the same count is restored afterwards
+-   Shared settings (language, size, font, sound, ledger and keys) broadcast to the other pets as soon as one changes them
+-   Character pack installs, font imports and manifest migration are serialized across processes so two pets cannot corrupt the same directory
+
+### Fixed
+
+-   Adding a pet briefly blanked the whole screen: Wails transparent windows are layered, and DWM ignores the window region when compositing, so showing the window early put the WebView black base layer over the whole work area. The window is now positioned but kept hidden until the renderer reports its first frame, plus one compositor frame (~60 ms); a 2.5 s fallback still shows it so the pet can never get stuck invisible
+-   With many pets (e.g. 8) the menu and tray "Close / Quit all" stopped working and only Task Manager could end it: quitting writes shared state, and the old code waited forever on a cross-process named mutex that could lose its owner. Locks now pin the goroutine to one OS thread, wait at most 3 seconds, and a 5-second forced-exit fallback guarantees the app closes; instance endpoint files are only removed once shutdown really starts, so a stuck pet can still be reached from the tray
+-   The confirmation for "Add another pet" beyond 4 pets appeared inside the child process, so the main window looked unresponsive; it is now shown by the initiating pet before anything starts
+-   Secondary instances did not inherit launch flags such as `--isolated`, so isolated test runs wrote into the real data directory
+-   Stale instance endpoint files left by abnormal exits made tray and IPC calls wait for timeouts; they are now cleaned up at startup and liveness is verified
+
 ## [1.5.4] - 2026-11-26
 
 Main changes since 1.5.3: a power-saving mode plus leaner startup and idle cost; downloadable character packs upgraded to format 1.0.1 (lines, replies, memes, en/ja translations and sprite parameters ship with the pack); reworked settings and panels with complete trilingual coverage; and a batch of stability fixes around the pet disappearing, click-through, the ledger and updates.

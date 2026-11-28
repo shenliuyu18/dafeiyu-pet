@@ -61,8 +61,10 @@
     <button role="menuitem" data-act="sleep"><span id="menu-sleep-ico">😴</span> <span id="menu-sleep-txt">让它睡一会儿</span></button>
     <div class="sep"></div>
     <button role="menuitem" data-act="settings">⚙️ <span>设置</span></button>
+    <button role="menuitem" data-act="spawn">🐟＋ <span>再养一只</span></button>
     <button role="menuitem" data-act="hide">👻 <span>先躲起来</span></button>
-    <button role="menuitem" data-act="quit">❌ <span>退出</span></button>
+    <button role="menuitem" data-act="quit-all" id="menu-quit-all" class="hide">❌ <span>全部退出</span></button>
+    <button role="menuitem" data-act="quit">❌ <span id="menu-quit-txt">退出</span></button>
   </div>
 
   <div id="picker" class="hide" role="dialog" aria-modal="true" aria-label="选个动作" aria-labelledby="picker-title" aria-hidden="true" tabindex="-1">
@@ -98,6 +100,7 @@
         <button class="set-nav" data-page="pomo"><span>🍅 番茄钟</span><i>›</i></button>
         <button class="set-nav" data-page="ledger"><span>🍚 白饭账本</span><i>›</i></button>
         <button class="set-nav" data-page="startup"><span>🚀 启动与更新</span><i>›</i></button>
+        <button class="set-nav" data-page="multi"><span>🐟 多开</span><i>›</i></button>
         <button class="set-nav" data-page="words"><span>💬 语言与文字</span><i>›</i></button>
         <button class="set-nav" data-page="help"><span>❓ 关于与帮助</span><i>›</i></button>
       </div>
@@ -336,6 +339,34 @@
             <button id="update-copy-err">复制错误摘要</button>
           </div>
           <div class="set-hint hide" id="update-dl-hint">点击「GitHub直链下载」或「GitHub加速下载」会自动下载并打开安装程序；安装程序启动前会关闭当前桌宠，安装完成后自动重新打开。国内下载慢时可用蓝奏云网盘（密码 5meo）。</div>
+        </div>
+      </div>
+
+      <div class="set-page hide" data-page="multi">
+        <div class="set-sec">
+          <div class="set-label">桌宠多开</div>
+          <div class="set-hint" id="set-multi-status">当前 1 只桌宠（主实例）。</div>
+          <div class="set-row">
+            <button id="set-multi-add">🐟＋ 再养一只</button>
+            <button id="set-multi-quit">❌ 全部退出</button>
+          </div>
+          <div class="set-hint">每只宠物独立占用约 290 MB 内存，漫游时约占 23% 单核；同时超过 4 只会先弹确认。每只的形象、位置和番茄钟互相独立，语言/尺寸/字体/账本设置共享。</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">数量提醒</div>
+          <div class="set-row" id="set-multi-warn">
+            <button data-multiwarn="0">超过 4 只时先确认</button>
+            <button data-multiwarn="1">不再提示</button>
+          </div>
+          <div class="set-hint">关闭后「再养一只」不再弹确认框，直接添加。</div>
+        </div>
+        <div class="set-sec">
+          <div class="set-label">声音</div>
+          <div class="set-row" id="set-only-primary-sound">
+            <button data-onlyprimary="0">各自发声</button>
+            <button data-onlyprimary="1">仅主实例发声</button>
+          </div>
+          <div class="set-hint">主实例是编号最小的那只；多只同时说话时可以用它降噪。</div>
         </div>
       </div>
 

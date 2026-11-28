@@ -155,6 +155,26 @@ func (a *App) refreshUsageForce(force bool) map[string]interface{} {
 	cached := a.ledger
 	a.mu.Unlock()
 
+	// 多开时副实例不发周期性网络请求：直接读主实例写下的缓存，过期再请主实例刷新。
+	if !instanceIsLeader && !force {
+		if c := readLedgerCache(); c != nil && strv(c["source"], "") == src {
+			c["lang"] = uiLang()
+			a.mu.Lock()
+			if src == ledgerSourceLocked(a.state) {
+				a.ledger = c
+			}
+			a.mu.Unlock()
+			a.emit("usage", c)
+			at := int64(num(c["updatedAt"]))
+			if at <= 0 || time.Since(time.UnixMilli(at)) >= 90*time.Second {
+				go func() { _, _ = callInstance(leaderSlot(), "refresh", nil) }()
+			}
+			return c
+		}
+		go func() { _, _ = callInstance(leaderSlot(), "refresh", nil) }()
+		return cached
+	}
+
 	// 打开账本、改 Key、切来源时都希望看到最新余额：
 	// 缓存超过 45 秒或来源变了就重新拉一次，否则一直显示旧数字。
 	// 之前缓存为 nil 时 stale 恒为 false：首次打开账本不会触发拉取，气泡会一直停在“正在读取账单…”。
@@ -369,6 +389,7 @@ func (a *App) setLedger(provider string, generation uint64, l map[string]interfa
 	if current {
 		a.emit("usage", l)
 	}
+	a.writeLedgerCache(l)
 	a.trayRefresh()
 	return true
 }

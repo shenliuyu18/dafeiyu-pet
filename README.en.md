@@ -33,12 +33,12 @@ Go to [Releases](https://github.com/shenliuyu18/dafeiyu-pet/releases) to downloa
 
 | Version | File | Size | Notes |
 | --- | --- | --- | --- |
-| Full | `dafeiyu-pet-1.5.4-setup.exe` | 96.6 MiB | High-quality built-in assets; downloadable character packs use 640×360 CRF 32 |
-| Lite | `dafeiyu-pet-lite-1.5.4-setup.exe` | 42.6 MiB | Built-in assets compressed; downloadable character packs automatically use 480×270 |
+| Full | `dafeiyu-pet-1.5.5-beta.1-setup.exe` | 96.7 MiB | High-quality built-in assets; downloadable character packs use 640×360 CRF 32 |
+| Lite | `dafeiyu-pet-lite-1.5.5-beta.1-setup.exe` | 42.7 MiB | Built-in assets compressed; downloadable character packs automatically use 480×270 |
 
 Backup download: [Lanzou Cloud drive](https://wwaql.lanzouu.com/b01i5xmkri) (password **5meo**, synced manually by the author).
 
-> **Current stable release: 1.5.4** (2026-11-26). Power-saving mode and font weight, action search and collapsible groups, downloadable character packs upgraded to 1.0.1 (lines, translations and sprite parameters travel with the pack), complete trilingual coverage, plus stability fixes for the pet disappearing and click-through.
+> **Current pre-release: 1.5.5-beta.1** (2026-11-28). The stable release is still 1.5.4. This build is a test release for multiple pets and stability: Multiple pets: launching the app again adds another one, with character, position and Pomodoro per pet and language, ledger and other settings shared. A single tray icon remains and is handed over automatically, and the previous pet count is restored after startup and updates.
 
 ### Full or Lite?
 
@@ -175,7 +175,7 @@ The repository ships GitHub Actions: push / PR runs version consistency checks, 
 - `tools/wails-build.js` syncs the version number, invokes the Wails build to produce the NSIS installer, copies it to `dist/`, and supports `--lite` / `--install`.
 - The installer uses `-webview2 download`: when a missing WebView2 is detected it is downloaded and installed. The setup wizard is in Simplified Chinese (NSIS `SimpChinese`).
 - Release assets are named `dafeiyu-pet-<stable-version>-setup.exe` / `dafeiyu-pet-lite-<stable-version>-setup.exe`; update checks select the right one by the `setup.exe` suffix and the lite marker.
-- **Version numbering convention**: the version is maintained in `package.json` and synced to CHANGELOG / README / installer names on release. The Wails Windows file version uses numeric fields (e.g. `1.5.4.0`), while the in-app About page and update checks use the full version string.
+- **Version numbering convention**: the version is maintained in `package.json` and synced to CHANGELOG / README / installer names on release. The Wails Windows file version uses numeric fields (e.g. `1.5.5.0`), while the in-app About page and update checks use the full version string.
 - **Update package verification**: after downloading an installer the client always verifies it against `SHA256SUMS.txt`; a mismatched hash deletes the file and refuses to execute it; when the manifest is missing, auto-update is disabled and only manual download is possible. Download and install go through the same verification.
 - **Optional signing**: after configuring the repository secrets `UPDATE_SIGNING_KEY` (base64 of an Ed25519 private key PEM) and `UPDATE_SIGNING_PUBKEY` (base64 of the raw 32-byte public key), CI generates `SHA256SUMS.txt.sig` and injects the public key at build time; the client refuses updates that fail signature verification. Generate the key pair with `node tools/update-keys.js` and keep the private key only in Secrets.
 
@@ -281,6 +281,7 @@ If you want to share them with others, just package them with the character pack
 
 See [CHANGELOG.en.md](CHANGELOG.en.md).
 
+- v1.5.5-beta.1: multiple pets (up to 16, a single tray icon, session restore) with per-pet character and Pomodoro and shared settings.
 - v1.5.4: power-saving mode, font weight, action search and grouping, character packs 1.0.1, fixes for the pet disappearing and click-through, complete trilingual coverage.
 - v1.5.3: ledger diagnostics, update signature verification, fullscreen debouncing/diagnostics, diagnostic bundle export, focus statistics, state schema v2, frontend logic split and performance improvements.
 - v1.5.2: selectable fonts with custom import, logon scheduled task autostart with status display; fixed the first-frame flash in the top-left corner and blurry bubbles when scaled down.

@@ -191,6 +191,7 @@ func (a *App) WordsSave(raw string) map[string]interface{} {
 	}
 	a.mu.Unlock()
 	a.saveState()
+	broadcast("reload-shared")
 	a.emit("words-updated", payload)
 	return map[string]interface{}{"ok": true, "count": len(cleaned), "customQuips": cleaned, "useCustomQuips": len(cleaned) > 0}
 }
